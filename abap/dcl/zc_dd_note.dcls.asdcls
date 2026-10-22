@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - read access for ZC_DD_Note'
+@MappingRole: true
+define role ZC_DD_Note {
+  grant select on ZC_DD_Note
+    where inheriting conditions from entity ZR_DD_Note;
+}

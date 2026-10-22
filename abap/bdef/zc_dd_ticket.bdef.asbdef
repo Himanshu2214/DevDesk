@@ -1,0 +1,74 @@
+projection;
+strict ( 2 );
+
+define behavior for ZC_DD_Ticket alias Ticket
+use etag
+{
+  use create;
+  use update;
+  use delete;
+
+  use action setStatus;
+  use action startTimer;
+  use action stopTimer;
+
+  use association _Acceptance { create; }
+  use association _Checklist { create; }
+  use association _Test { create; }
+  use association _Worklog { create; }
+  use association _Note { create; }
+  use association _Event;      // read only from outside; events are created by setStatus
+}
+
+define behavior for ZC_DD_Acceptance alias Acceptance
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_ChecklistItem alias ChecklistItem
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_TestCase alias TestCase
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_Worklog alias Worklog
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_Note alias Note
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_Event alias TicketEvent
+use etag
+{
+  use update;     // IsRead only
+
+  use association _Ticket;
+}

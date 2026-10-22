@@ -1,0 +1,12 @@
+/* Adjustments for the React version (links used as rows/cards, root layout) */
+#root{height:100%}
+a.row,a.card,a.fi{color:inherit;text-decoration:none}
+a.card{display:block}
+.focus a.fi{display:grid}
+.app>.main{min-height:0}
+.btn:disabled{opacity:.5;cursor:default}
+.ib:disabled{opacity:.4;cursor:default}
+.tp-desc[data-ph]:empty::before{content:attr(data-ph);color:var(--faint)}
+.tst .res{white-space:nowrap}
+code{font-family:"Cascadia Mono",Consolas,monospace;font-size:12px;background:var(--hover);padding:1px 5px;border-radius:4px}
+.tsw .panel,.home-grid .panel{overflow:hidden}

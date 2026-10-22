@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - ChecklistItem of your own tickets'
+@MappingRole: true
+define role ZR_DD_ChecklistItem {
+  grant select on ZR_DD_ChecklistItem
+    where _Ticket.CreatedBy = aspect user;
+}

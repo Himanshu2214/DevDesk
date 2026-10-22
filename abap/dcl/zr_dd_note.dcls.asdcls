@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - Note of your own tickets'
+@MappingRole: true
+define role ZR_DD_Note {
+  grant select on ZR_DD_Note
+    where _Ticket.CreatedBy = aspect user;
+}

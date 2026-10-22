@@ -1,0 +1,12 @@
+@EndUserText.label: 'DevDesk - personal tickets'
+define service ZUI_DD {
+  expose ZC_DD_Ticket        as Ticket;
+  expose ZC_DD_Acceptance    as Acceptance;
+  expose ZC_DD_ChecklistItem as ChecklistItem;
+  expose ZC_DD_TestCase      as TestCase;
+  expose ZC_DD_Worklog       as Worklog;
+  expose ZC_DD_Note          as Note;
+  expose ZC_DD_Event         as TicketEvent;
+  expose ZI_DD_Project       as Project;
+  expose ZI_DD_Value         as ValueList;
+}

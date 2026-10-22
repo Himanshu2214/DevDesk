@@ -1,0 +1,241 @@
+managed implementation in class zbp_r_dd_ticket unique;
+strict ( 2 );
+
+// No draft: the UI saves every change immediately (one PATCH or action with ETag).
+define behavior for ZR_DD_Ticket alias Ticket
+persistent table zdd_tkt
+lock master
+authorization master ( global, instance )
+etag master LocalLastChanged
+{
+  create;
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) TicketUUID;
+  field ( readonly ) TicketNo, TicketId, IsOverdue, Status, StatusChangedAt, ClosedAt, TimerStartedAt,
+                     CreatedBy, CreatedAt, LastChangedBy, LastChangedAt, LocalLastChanged;
+  field ( mandatory ) Title;
+
+  association _Acceptance { create; }
+  association _Checklist { create; }
+  association _Test { create; }
+  association _Worklog { create; }
+  association _Note { create; }
+  // events are written by the BO only (setStatus); the projection does not expose create
+  association _Event { create; }
+
+  // the only way to change Status: sets StatusChangedAt / ClosedAt and writes a STAT event
+  action setStatus parameter ZA_DD_StatusParam result [1] $self;
+  action startTimer result [1] $self;
+  // stops the timer and creates a work log entry, rounded to 0.25 h
+  action stopTimer result [1] $self;
+
+  determination setDefaults on modify { create; }
+  determination createChecklist on modify { create; }
+  determination assignTicketNo on save { create; }
+
+  validation validateTicket on save { create; field Title, Priority, Project, Area, Tech, TicketType, Environment, EstimateHours; }
+
+  mapping for zdd_tkt
+  {
+    TicketUUID       = ticket_uuid;
+    TicketNo         = ticket_no;
+    Title            = title;
+    Description      = description;
+    Status           = status;
+    Priority         = priority;
+    Project          = project;
+    Area             = area;
+    Tech             = tech;
+    TicketType       = ticket_type;
+    Environment      = environment;
+    Assignee         = assignee;
+    Requester        = requester;
+    Reference        = reference;
+    DueDate          = due_date;
+    EstimateHours    = estimate_h;
+    StatusChangedAt  = status_changed_at;
+    ClosedAt         = closed_at;
+    TimerStartedAt   = timer_started_at;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LastChangedBy    = last_changed_by;
+    LastChangedAt    = last_changed_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_Acceptance alias Acceptance
+persistent table zdd_acc
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) AccUUID;
+  field ( readonly ) TicketUUID, LocalLastChanged;
+  field ( mandatory ) Text;
+
+  association _Ticket;
+
+  mapping for zdd_acc
+  {
+    AccUUID          = acc_uuid;
+    TicketUUID       = ticket_uuid;
+    SortOrder        = sort_order;
+    Text             = text;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_ChecklistItem alias ChecklistItem
+persistent table zdd_chk
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) ItemUUID;
+  field ( readonly ) TicketUUID, LocalLastChanged;
+  field ( mandatory ) Text;
+
+  association _Ticket;
+
+  mapping for zdd_chk
+  {
+    ItemUUID         = item_uuid;
+    TicketUUID       = ticket_uuid;
+    SortOrder        = sort_order;
+    Category         = category;
+    Text             = text;
+    IsDone           = is_done;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_TestCase alias TestCase
+persistent table zdd_test
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) TestUUID;
+  field ( readonly ) TicketUUID, TestedAt, TestedBy, LocalLastChanged;
+  field ( mandatory ) TestName;
+
+  association _Ticket;
+
+  // OPEN by default; PASS / FAIL stamps TestedAt and TestedBy
+  determination stampResult on modify { create; field TestResult; }
+
+  mapping for zdd_test
+  {
+    TestUUID         = test_uuid;
+    TicketUUID       = ticket_uuid;
+    SortOrder        = sort_order;
+    TestName         = test_name;
+    TestSteps        = test_steps;
+    Expected         = expected;
+    Actual           = actual;
+    TestResult       = test_result;
+    TestedAt         = tested_at;
+    TestedBy         = tested_by;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_Worklog alias Worklog
+persistent table zdd_wlog
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) WorklogUUID;
+  field ( readonly ) TicketUUID, CreatedBy, CreatedAt, LocalLastChanged;
+  field ( mandatory ) WorkDate, Hours;
+
+  association _Ticket;
+
+  determination setWorklogDefaults on modify { create; }
+  validation validateWorklog on save { create; update; field WorkDate, Hours, Activity; }
+
+  mapping for zdd_wlog
+  {
+    WorklogUUID      = wlog_uuid;
+    TicketUUID       = ticket_uuid;
+    WorkDate         = work_date;
+    Hours            = hours;
+    Activity         = activity;
+    CommentText      = comment_text;
+    EntrySource      = entry_source;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_Note alias Note
+persistent table zdd_note
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) NoteUUID;
+  field ( readonly ) TicketUUID, CreatedBy, CreatedAt, LocalLastChanged;
+  field ( mandatory ) Text;
+
+  association _Ticket;
+
+  mapping for zdd_note
+  {
+    NoteUUID         = note_uuid;
+    TicketUUID       = ticket_uuid;
+    Text             = text;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_Event alias TicketEvent
+persistent table zdd_event
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  // only IsRead can be changed (inbox); everything else is written by setStatus
+  update;
+
+  field ( readonly, numbering : managed ) EventUUID;
+  field ( readonly ) TicketUUID, EventKind, StatusFrom, StatusTo, Text, EventAt, EventBy, LocalLastChanged;
+
+  association _Ticket;
+
+  mapping for zdd_event
+  {
+    EventUUID        = event_uuid;
+    TicketUUID       = ticket_uuid;
+    EventKind        = event_kind;
+    StatusFrom       = status_from;
+    StatusTo         = status_to;
+    Text             = text;
+    EventAt          = event_at;
+    EventBy          = event_by;
+    IsRead           = is_read;
+    LocalLastChanged = local_last_changed;
+  }
+}
