@@ -1,7 +1,7 @@
 // Line icons (Lucide, mapped to the short names used across the app), status and priority icons.
 import { useEffect, useRef } from 'react';
 import {
-  ArrowRight, Bell, BookOpen, Box, Bug, Calendar, ChartColumnBig, Check, ChevronDown, ChevronUp, CircleDashed, Clock, Columns3, Download, FileText, Folder,
+  ArrowRight, Bell, BookOpen, Box, Bug, Calendar, ChartColumnBig, Check, ChevronDown, ChevronRight, ChevronUp, CircleDashed, Clock, Columns3, Download, FileText, Folder,
   House, Inbox, Link2, List, LoaderCircle, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Play, Plus, RefreshCw, Search, SignalHigh, Square, SquarePen, Sun,
   Tag, Timer, Trash2, TriangleAlert, Truck, Upload, User, X, type LucideIcon,
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import type { Status } from '../api';
 const ICONS: Record<string, LucideIcon> = {
   home: House, inbox: Inbox, bell: Bell, my: CircleDashed, truck: Truck, cube: Box, book: BookOpen, clock: Clock, timer: Timer, chart: ChartColumnBig,
   priority: SignalHigh, move: ArrowRight, plus: Plus, chat: MessageSquare, alert: TriangleAlert, list: List, board: Columns3, play: Play, stop: Square,
-  up: ChevronUp, down: ChevronDown, cal: Calendar, user: User, tag: Tag, check: Check, search: Search, x: X, folder: Folder, env: Monitor, moon: Moon,
+  up: ChevronUp, down: ChevronDown, right: ChevronRight, cal: Calendar, user: User, tag: Tag, check: Check, search: Search, x: X, folder: Folder, env: Monitor, moon: Moon,
   sun: Sun, edit: SquarePen, trash: Trash2, refresh: RefreshCw, link: Link2, bug: Bug, graph: Network, file: FileText, download: Download,
   upload: Upload, loader: LoaderCircle, 'panel-close': PanelLeftClose, 'panel-open': PanelLeftOpen,
 };

@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { useStore } from '../store';
 import type { Ticket, Worklog } from '../api';
-import { isOpen, isOverdue, lastWorkdays, PRIORITY_NAME, r1, today, urgency, weekStart, isoDate, DAY } from '../lib/format';
+import { ago, fmtDate, isOpen, isOverdue, lastWorkdays, PRIORITY_NAME, r1, today, urgency, weekStart, isoDate, DAY } from '../lib/format';
 import { Donut } from '../components/Donut';
-import { Icon, StatusIcon } from '../components/Icons';
+import { Icon, LogoMark, StatusIcon } from '../components/Icons';
 import { CountUp, Due, Empty, Page } from '../components/ui';
 import { TIMER_WARN_H } from '../components/Dialogs';
 
@@ -47,40 +47,70 @@ export function Home() {
         <div className="tiles">{[0, 1, 2, 3].map(i => <div key={i} className="tile"><div className="sk" style={{ height: 12, width: '50%' }} /><div className="sk" style={{ height: 28, width: '30%', margin: '12px 0' }} /></div>)}</div>
         <div className="panel" style={{ padding: 16 }}>{[0, 1, 2, 3, 4].map(i => <div key={i} className="sk" style={{ height: 14, width: (60 + i * 7) + '%', margin: '12px 0' }} />)}</div></div>
     </Page>);
+  const byStatus = (st: string) => open.filter(t => t.Status === st).length;
+  const oldest = [...over].sort((a, b) => (a.DueDate ?? '').localeCompare(b.DueDate ?? ''))[0];
+  const sunday = isoDate(new Date(weekStart().getTime() + 6 * DAY));
+  const card = (href: string, tint: string, title: React.ReactNode, badge: React.ReactNode, info: React.ReactNode, value: React.ReactNode, tone = '') =>
+    <a className="hx-card" href={href} style={{ '--tint': tint } as React.CSSProperties}>
+      <div className="hx-title">{title}</div>
+      <span className={'hx-badge' + tone}>{badge}</span>
+      <div className="hx-info">{info}</div>
+      <div className="hx-foot"><span className="hx-val num">{value}</span><span className="hx-go" aria-hidden="true"><Icon name="move" size={14} /></span></div>
+    </a>;
   return (
     <Page crumb={<b>Home</b>}>
-      <div className="home">
-        <h2>Good {h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'}{first ? `, ${first}` : ''}</h2>
-        <div className="subt">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-        <div className="tiles">
-          <a className="tile" href="#list/active"><div className="l"><Icon name="my" size={14} />Open tickets</div><div className="v num"><CountUp value={open.length} /></div><div className="s">across {new Set(open.map(t => t.Project)).size} projects</div></a>
-          <a className="tile" href="#list/overdue"><div className="l" style={over.length ? { color: 'var(--danger)' } : undefined}><Icon name="alert" size={14} />Overdue</div><div className="v num"><CountUp value={over.length} /></div><div className="s">{over.length ? 'needs attention' : 'all on track'}</div></a>
-          <a className="tile" href="#timesheet"><div className="l"><Icon name="clock" size={14} />Hours this week</div><div className="v num"><CountUp value={r1(hours)} decimals={hours % 1 ? 1 : 0} /><span style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 400 }}> h</span></div><div className="s">from work logs · target 40 h</div></a>
-          <a className="tile" href="#list/active"><div className="l"><StatusIcon status="TEST" />In testing</div><div className="v num"><CountUp value={testing.length} /></div><div className="s">awaiting verification</div></a>
+      <div className="home hx">
+        <header className="hx-head">
+          <span className="hx-mark"><LogoMark size={30} /></span>
+          <div className="hx-hello">
+            <h2>Good {h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'}{first ? `, ${first}` : ''}</h2>
+            <div className="subt">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · your work at a glance</div>
+          </div>
+          <dl className="hx-meta">
+            <div><dt>This week</dt><dd>{fmtDate(monday)} – {fmtDate(sunday)}</dd></div>
+            <div><dt>Last sync</dt><dd>{ago(new Date(s.lastSync).toISOString())}</dd></div>
+          </dl>
+        </header>
+
+        <h3 className="hx-sec">Overview</h3>
+        <div className="hx-cards">
+          {card('#list/active', 'var(--accent)', <><Icon name="my" size={15} />Open tickets</>, `${new Set(open.map(t => t.Project)).size} projects`,
+            <>{byStatus('PROG')} in progress · {byStatus('TODO')} to do</>, <CountUp value={open.length} />)}
+          {card('#list/overdue', over.length ? 'var(--danger)' : 'var(--ok)', <><Icon name="alert" size={15} />Overdue</>, over.length ? 'Needs attention' : 'All on track',
+            oldest ? <>Oldest: {oldest.TicketId} · <Due t={oldest} short /></> : 'Nothing is late', <CountUp value={over.length} />, over.length ? ' bad' : ' good')}
+          {card('#timesheet', 'var(--ok)', <><Icon name="clock" size={15} />Hours this week</>, 'Target 40 h',
+            <>{Math.round(hours / 40 * 100)}% of the weekly target</>, <><CountUp value={r1(hours)} decimals={hours % 1 ? 1 : 0} /><small> h</small></>)}
+          {card('#list/active', 'var(--st-test)', <><StatusIcon status="TEST" />In testing</>, 'Awaiting verification',
+            <>{byStatus('BLOCK')} blocked · {byStatus('BACKLOG')} in backlog</>, <CountUp value={testing.length} />)}
         </div>
-        <div className="home-grid">
-          <div className="panel focus">
-            <div className="ph">My focus today<span className="sp" /><a className="muted" href="#list/active" style={{ fontWeight: 400, fontSize: 12 }}>All open →</a></div>
-            <div style={{ height: 10 }} />
-            {focus.map(t => {
-              const [bg, fg] = BADGE[t.Priority] ?? BADGE['3'];
-              return <a key={t.TicketUUID} className="fi" href={'#ticket/' + t.TicketId}>
-                <span className="badge" style={{ background: bg, color: fg }}>{PRIORITY_NAME[t.Priority]}</span>
-                <div style={{ minWidth: 0 }}><div className="t1">{t.Title}</div>
-                  <div className="t2">{s.text('TECH', t.Tech)} · {s.project(t.Project)?.Name ?? t.Project} · {t.EstimateHours} h estimated · {r1(t.LoggedHours)} h logged</div></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><StatusIcon status={t.Status} /><Due t={t} short /></div></a>;
-            })}
-            {!focus.length && <Empty icon="check" title="Nothing in progress">Press <kbd>C</kbd> to create a ticket.</Empty>}
-          </div>
-          <div className="stack">
-            <div className="panel"><div className="ph">Time this week<span className="sp" /><span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>by activity</span></div>
-              <div className="donut-wrap"><Donut data={data} sub="this week" />
-                <ul className="legend">{data.filter(d => d.value > 0).map(d => <li key={d.name}><i style={{ background: d.color }} /><span>{d.name}</span><span className="h">{r1(d.value)} h</span><span className="p">{Math.round(d.value / tot * 100)}%</span></li>)}
-                  {!week.length && <li className="muted">No time logged yet</li>}</ul></div></div>
-            <div className="panel"><div className="ph">Needs attention<span className="sp" /><span className="muted num" style={{ fontWeight: 400 }}>{attention.length}</span></div>
-              <ul className="att">{attention.slice(0, 8).map((a, i) => <li key={i} onClick={() => { location.hash = 'ticket/' + a.t.TicketId }}>{a.icon}<span className="x">{a.t.TicketId} {a.t.Title}</span><span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{a.why}</span></li>)}
-                {!attention.length && <li className="muted" style={{ cursor: 'default' }}>All clear</li>}</ul></div>
-          </div>
+
+        <div className="hx-sec-row"><h3 className="hx-sec">My focus today</h3><a className="muted" href="#list/active">All open →</a></div>
+        <div className="hx-table" role="table" aria-label="My focus today">
+          <div className="hx-th" role="row"><span /><span role="columnheader">Ticket</span><span role="columnheader">Status</span>
+            <span role="columnheader" className="hx-c-det">Details</span><span role="columnheader">Priority</span><span role="columnheader" className="hx-c-due">Due</span></div>
+          {focus.map(t => {
+            const [bg, fg] = BADGE[t.Priority] ?? BADGE['3'];
+            return <a key={t.TicketUUID} className="hx-tr" role="row" href={'#ticket/' + t.TicketId}>
+              <span className="hx-chev"><Icon name="right" size={15} /></span>
+              <span className="hx-name"><b>{t.Title}</b><small className="num">{t.TicketId}</small></span>
+              <span><span className={'hx-st st-' + t.Status.toLowerCase()}><StatusIcon status={t.Status} />{s.text('STATUS', t.Status)}</span></span>
+              <span className="hx-c-det"><span className="t2">{s.text('TECH', t.Tech)} · {s.project(t.Project)?.Name ?? t.Project}</span>
+                <small>{t.EstimateHours} h estimated · {r1(t.LoggedHours)} h logged</small></span>
+              <span><span className="badge" style={{ background: bg, color: fg }}>{PRIORITY_NAME[t.Priority]}</span></span>
+              <span className="hx-c-due"><Due t={t} short /></span>
+            </a>;
+          })}
+          {!focus.length && <Empty icon="check" title="Nothing in progress">Press <kbd>C</kbd> to create a ticket.</Empty>}
+        </div>
+
+        <div className="hx-grid">
+          <div className="panel hx-panel"><div className="ph">Time this week<span className="sp" /><span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>by activity</span></div>
+            <div className="donut-wrap"><Donut data={data} sub="this week" />
+              <ul className="legend">{data.filter(d => d.value > 0).map(d => <li key={d.name}><i style={{ background: d.color }} /><span>{d.name}</span><span className="h">{r1(d.value)} h</span><span className="p">{Math.round(d.value / tot * 100)}%</span></li>)}
+                {!week.length && <li className="muted">No time logged yet</li>}</ul></div></div>
+          <div className="panel hx-panel"><div className="ph">Needs attention<span className="sp" /><span className="muted num" style={{ fontWeight: 400 }}>{attention.length}</span></div>
+            <ul className="att">{attention.slice(0, 8).map((a, i) => <li key={i} onClick={() => { location.hash = 'ticket/' + a.t.TicketId }}>{a.icon}<span className="x">{a.t.TicketId} {a.t.Title}</span><span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{a.why}</span></li>)}
+              {!attention.length && <li className="muted" style={{ cursor: 'default' }}>All clear</li>}</ul></div>
         </div>
       </div>
     </Page>

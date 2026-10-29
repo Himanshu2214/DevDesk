@@ -65,7 +65,7 @@ export function TicketSap({ t }: { t: Ticket }) {
         <span className="mono" style={{ fontWeight: 600 }}>{x.TrKorr}</span><span className="t2" style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{x.TrText}</span>
         <span className="sp" />{trState(x)}</a>)}
         <div className="add"><Icon name="plus" size={14} />
-          <Line value="" mono upper clear placeholder="Add transport request, e.g. S4DK900123, and press Enter" style={{ height: 26, padding: 0, border: 0 }}
+          <Line value="" mono upper clear boxed placeholder="Add transport request, e.g. S4DK900123, and press Enter"
             onSave={v => v && s.run(() => api.createRoot('Transport', { TrKorr: v, TrText: `${t.TicketId} ${t.Title}`.slice(0, 60), TicketUUID: t.TicketUUID }), { ok: `${v} added to the tracker` })} /></div></div></div>
 
     <div className="tp-sec"><h4><Icon name="file" size={14} />Attachments<span className="c">{files.length}</span></h4>

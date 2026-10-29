@@ -7,6 +7,7 @@ import { fmtDate } from '../lib/format';
 import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
 import { Empty, go, Page, useChangeFlash, useMenu } from '../components/ui';
 import { Area, Line, SidePanel, trEdge, trState, usePickers } from '../components/p2';
+import Input from '../components/smoothui/input';
 
 const RC_ITEMS = [['0', 'RC 0 – success'], ['4', 'RC 4 – warnings'], ['8', 'RC 8 – errors'], ['12', 'RC 12 – aborted']].map(([value, label]) => ({ label, value }));
 
@@ -129,7 +130,7 @@ function TransportPanel({ x, all, close }: { x: Transport; all: Transport[]; clo
             {tr ? <a className="mono" href={'#transports/' + tr.TrKorr}>{d.DependsOn}</a> : <span className="mono">{d.DependsOn}</span>}
             <span className="muted" style={{ fontSize: 11 }}>{tr ? (tr.PrdImportedAt ? 'PRD' : tr.QaImportedAt ? 'QA' : 'DEV') : 'not tracked'}</span>
             <button title="Remove" onClick={() => s.run(() => api.deleteSub('TransportDependency', d as never))}>×</button></span> })}
-        <Line value="" placeholder="Add request, e.g. S4DK900123" mono upper clear style={{ width: 210 }}
+        <Line value="" placeholder="Add request, e.g. S4DK900123" mono upper clear boxed style={{ width: 230 }}
           onSave={v => v && s.run(() => api.createSub('Transport', x as never, { DependsOn: v }), { ok: `Depends on ${v}` })} />
       </div>
       {blockers.length > 0 && <div className="warnbox" style={{ marginBottom: 14 }}>
@@ -162,10 +163,10 @@ function NewTransport({ close, ticketUUID }: { close(): void; ticketUUID?: strin
     <SidePanel close={close} head={<><Icon name="truck" /><b>New transport</b></>}>
       <div className="form" style={{ padding: 0 }}>
         <div className="full"><label htmlFor="trk">Transport request</label>
-          <input id="trk" className="mono" autoFocus placeholder="S4DK900123" value={d.TrKorr} onChange={e => setD({ ...d, TrKorr: e.target.value.toUpperCase() })}
+          <Input id="trk" className="ss-input mono" autoFocus placeholder="S4DK900123" value={d.TrKorr} onChange={e => setD({ ...d, TrKorr: e.target.value.toUpperCase() })}
             onKeyDown={e => { if (e.key === 'Enter') create() }} /></div>
         <div className="full"><label htmlFor="trt">Description</label>
-          <input id="trt" placeholder={t ? `${t.TicketId} ${t.Title}` : 'As in SE09'} value={d.TrText} maxLength={60} onChange={e => setD({ ...d, TrText: e.target.value })} /></div>
+          <Input id="trt" className="ss-input" placeholder={t ? `${t.TicketId} ${t.Title}` : 'As in SE09'} value={d.TrText} maxLength={60} onChange={e => setD({ ...d, TrText: e.target.value })} /></div>
         <div><label>Kind</label><div className="seg">{[['K', 'Workbench'], ['W', 'Customizing']].map(([k, l]) =>
           <button key={k} className={d.TrKind === k ? 'on' : ''} onClick={() => setD({ ...d, TrKind: k })}>{l}</button>)}</div></div>
         <div><label>Ticket</label><button className="pill" style={{ width: '100%', justifyContent: 'flex-start', overflow: 'hidden' }}

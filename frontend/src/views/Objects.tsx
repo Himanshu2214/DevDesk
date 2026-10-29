@@ -7,6 +7,7 @@ import { fmtDate } from '../lib/format';
 import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
 import { Empty, go, MenuSelect, Page, ProjectChip, useMenu } from '../components/ui';
 import { Area, depEdges, ImpactMap, Line, ObjType, related, SidePanel, usePickers } from '../components/p2';
+import Input from '../components/smoothui/input';
 
 export function Objects({ route }: { route: string }) {
   const s = useStore();
@@ -148,11 +149,11 @@ function NewObject({ close }: { close(): void }) {
         <div><label htmlFor="ot">Type</label><MenuSelect id="ot" label="Type" value={d.ObjectType} onChange={v => set({ ObjectType: v })} options={types.map(t => ({ value: t.Code, label: `${t.Code} · ${t.Text}` }))} /></div>
         <div><label htmlFor="op">Project</label><MenuSelect id="op" label="Project" value={d.Project} onChange={v => set({ Project: v })}
             options={[{ value: '', label: 'No project' }, ...s.projects.map(p => ({ value: p.Project, label: p.Name, icon: <Dot color={p.Color} /> }))]} /></div>
-        <div className="full"><label htmlFor="on">Name</label><input id="on" className="mono" autoFocus value={d.ObjectName}
+        <div className="full"><label htmlFor="on">Name</label><Input id="on" className="ss-input mono" autoFocus value={d.ObjectName}
           placeholder={['FIORI', 'DEST', 'API'].includes(d.ObjectType) ? 'App ID, destination or API name' : 'e.g. ZCL_SD_INVOICE'}
           onChange={e => set({ ObjectName: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') create() }} /></div>
-        <div className="full"><label htmlFor="od">Description</label><input id="od" value={d.Description} onChange={e => set({ Description: e.target.value })} /></div>
-        <div className="full"><label htmlFor="ok">Package</label><input id="ok" className="mono" value={d.PackageName} placeholder="optional" onChange={e => set({ PackageName: e.target.value.toUpperCase() })} /></div>
+        <div className="full"><label htmlFor="od">Description</label><Input id="od" className="ss-input" value={d.Description} onChange={e => set({ Description: e.target.value })} /></div>
+        <div className="full"><label htmlFor="ok">Package</label><Input id="ok" className="ss-input mono" value={d.PackageName} placeholder="optional" onChange={e => set({ PackageName: e.target.value.toUpperCase() })} /></div>
       </div>
       <p className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>SAP names are stored in upper case. Add dependencies on the object page; the impact map is drawn from them.</p>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

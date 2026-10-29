@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { fmtDate } from '../lib/format';
 import { Icon, StatusIcon } from './Icons';
 import { menuOpen, useMenu } from './ui';
+import Input from './smoothui/input';
 
 export function ObjType({ type, small }: { type: string; small?: boolean }) {
   const s = useStore();
@@ -40,14 +41,19 @@ export function Area({ value, onSave, placeholder, mono, rows = 3 }: { value: st
 }
 
 /** One-line text that saves on blur or Enter; `clear` empties it afterwards (inputs that add an entry) */
-export function Line({ value, onSave, placeholder, mono, upper, clear, style }: { value: string; onSave(v: string): unknown; placeholder?: string; mono?: boolean; upper?: boolean; clear?: boolean; style?: React.CSSProperties }) {
+/** Single-line text that saves on blur / Enter; `boxed` renders the SmoothUI Input (entry fields such as "add transport request") */
+export function Line({ value, onSave, placeholder, mono, upper, clear, boxed, style }: { value: string; onSave(v: string): unknown; placeholder?: string; mono?: boolean; upper?: boolean; clear?: boolean; boxed?: boolean; style?: React.CSSProperties }) {
   const [v, setV] = useState(value ?? '');
   const focused = useRef(false);
   useEffect(() => { if (!focused.current) setV(value ?? '') }, [value]);
-  return <input className={'line-in' + (mono ? ' mono' : '')} value={v} placeholder={placeholder} style={style}
-    onFocus={() => { focused.current = true }} onChange={e => setV(upper ? e.target.value.toUpperCase() : e.target.value)}
-    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-    onBlur={() => { focused.current = false; const x = v.trim(); if (x !== (value ?? '')) onSave(x); if (clear) setV('') }} />;
+  const props = {
+    value: v, placeholder, style,
+    onFocus: () => { focused.current = true },
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setV(upper ? e.target.value.toUpperCase() : e.target.value),
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') e.currentTarget.blur() },
+    onBlur: () => { focused.current = false; const x = v.trim(); if (x !== (value ?? '')) onSave(x); if (clear) setV('') },
+  };
+  return boxed ? <Input {...props} className={'ss-input' + (mono ? ' mono' : '')} /> : <input className={'line-in' + (mono ? ' mono' : '')} {...props} />;
 }
 
 /** Searchable menus to pick an object or a ticket */
@@ -143,8 +149,8 @@ export function ImpactMap({ id, objects, onPick }: { id: string; objects: TechOb
           return <g key={n} className={'gnode' + (n === id ? ' me' : '')} transform={`translate(${p.x},${p.y})`} onClick={() => onPick(n)}>
             <title>{`${o.ObjectType} ${o.ObjectName}${o.Description ? ' – ' + o.Description : ''}`}</title>
             <rect className="b" width={W} height={H} rx={8} /><rect width={3} height={H - 12} y={6} x={0} rx={1.5} fill={c} />
-            <text x={14} y={20} fontSize={10.5} fontWeight={700} fill={c} fontFamily="Cascadia Mono,Consolas,monospace">{o.ObjectType}</text>
-            <text x={14} y={38} fontSize={12} fill="var(--text)" fontFamily="Cascadia Mono,Consolas,monospace">{cut(o.ObjectName, 24)}</text></g>;
+            <text x={14} y={20} fontSize={10.5} fontWeight={700} fill={c} fontFamily="Poppins,Segoe UI,sans-serif">{o.ObjectType}</text>
+            <text x={14} y={38} fontSize={12} fill="var(--text)" fontFamily="Poppins,Segoe UI,sans-serif">{cut(o.ObjectName, 24)}</text></g>;
         })}
       </svg>
     </div>
