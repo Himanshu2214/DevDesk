@@ -1,0 +1,52 @@
+/* ---------- Tailwind v4, scoped to the SmoothUI primitives ----------
+   No preflight: the app's own reset and components stay untouched.
+   Utilities are generated only from src/components/smoothui (automatic scanning is off),
+   and they live in a cascade layer, so the app's unlayered CSS always wins on conflicts. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../components/smoothui";
+
+/* shadcn token names used by SmoothUI, mapped onto DevDesk's tokens (so both themes just work) */
+@theme inline {
+  --color-background: var(--panel);
+  --color-foreground: var(--text);
+  --color-popover: var(--menu);
+  --color-popover-foreground: var(--text);
+  --color-muted: var(--hover);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--border-2);
+  --color-ring: var(--accent);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --font-sans: Poppins, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+}
+
+/* SmoothUI "tokens" theme (Smooth Button, Calendar), mapped onto DevDesk colours instead of SmoothUI's own grey scale */
+@theme inline {
+  --color-smooth-900: color-mix(in srgb, var(--text) 85%, var(--panel));
+  --color-blue: var(--accent);
+  --color-blue-fg: var(--accent-ink);
+  --color-blue-hover: var(--accent-2);
+  --color-green: var(--ok);
+  --color-green-fg: var(--accent-ink);
+  --color-green-hover: color-mix(in srgb, var(--ok) 85%, var(--text));
+  --color-amber: var(--st-prog);
+  --color-amber-fg: #1b1c1f;
+  --color-amber-hover: color-mix(in srgb, var(--st-prog) 85%, var(--text));
+}
+@utility focus-ring { &:focus-visible { @apply ring-[3px] ring-ring/80; } }
+@utility focus-ring-within { &:has(:focus-visible) { @apply ring-[3px] ring-ring/80; } }
+@utility state-transition { @apply transition-[background-color,border-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none; }
+
+/* names used by the dropdown menu and calendar */
+@theme inline {
+  --color-accent: var(--hover);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-input: var(--border-2);
+  --color-card: var(--raised);
+  --text-sm: 13px;
+  --text-sm--line-height: 1.45;
+  --text-xs: 11.5px;
+}

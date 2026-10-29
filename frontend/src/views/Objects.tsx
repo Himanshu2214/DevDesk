@@ -4,8 +4,8 @@ import { api } from '../api';
 import type { Status, TechObject } from '../api';
 import { useArticles, useObjectLinks, useObjects, useStore, useTransports } from '../store';
 import { fmtDate } from '../lib/format';
-import { Dot, Icon, StatusIcon } from '../components/Icons';
-import { go, Page, ProjectChip, useMenu } from '../components/ui';
+import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
+import { Empty, go, MenuSelect, Page, ProjectChip, useMenu } from '../components/ui';
 import { Area, depEdges, ImpactMap, Line, ObjType, related, SidePanel, usePickers } from '../components/p2';
 
 export function Objects({ route }: { route: string }) {
@@ -29,8 +29,8 @@ export function Objects({ route }: { route: string }) {
     <label className="pill" style={{ width: 280, cursor: 'text' }}><Icon name="search" size={14} />
       <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search name, description, package" aria-label="Search objects"
         style={{ border: 0, background: 'transparent', outline: 'none', width: '100%' }} /></label>
-    <select className="pill" value={type} onChange={e => setType(e.target.value)} aria-label="Object type">
-      <option value="all">All types</option>{types.map(t => <option key={t} value={t}>{t} · {s.text('OBJTYPE', t)}</option>)}</select>
+    <MenuSelect className="pill" label="Object type" value={type} onChange={setType}
+      options={[{ value: 'all', label: 'All types' }, ...types.map(t => ({ value: t, label: `${t} · ${s.text('OBJTYPE', t)}` }))]} />
     <span className="sp" /><span className="muted num hide-narrow">{list.length} objects</span>
     <button className="btn primary" style={{ whiteSpace: 'nowrap' }} onClick={() => go('objects/new')}><Icon name="plus" size={14} />Register object</button>
   </>;
@@ -47,9 +47,9 @@ export function Objects({ route }: { route: string }) {
                   <ObjType type={x.ObjectType} /><div style={{ minWidth: 0 }}><div className="nm">{x.ObjectName}</div><div className="ds">{x.Description || x.PackageName}</div></div>
                   <span className="muted num" style={{ fontSize: 12 }} title="Linked tickets">{n || ''}</span></a> })}
             </div>)}
-            {!list.length && <div className="empty">{objects.length ? 'No objects match.' : <>No objects yet.<br /><button className="btn" onClick={() => go('objects/new')}>Register the first one</button></>}</div>}
+            {!list.length && (objects.length ? <Empty icon="search" title="No objects match" /> : <Empty icon="cube" title="No objects yet" action={<button className="btn" onClick={() => go('objects/new')}>Register the first one</button>}>Register the ABAP objects you change, to see their impact.</Empty>)}
           </div>
-          <div className="od">{o ? <ObjectDetail key={o.ObjectUUID} o={o} objects={objects} /> : <div className="empty">Select an object</div>}</div>
+          <div className="od">{o ? <ObjectDetail key={o.ObjectUUID} o={o} objects={objects} /> : <Empty icon="cube" title="Select an object">Dependencies and linked tickets appear here.</Empty>}</div>
         </div>}
       {creating && <NewObject close={() => go('objects')} />}
     </Page>
@@ -145,10 +145,9 @@ function NewObject({ close }: { close(): void }) {
   return (
     <SidePanel close={close} head={<><Icon name="cube" /><b>Register object</b></>}>
       <div className="form" style={{ padding: 0 }}>
-        <div><label htmlFor="ot">Type</label><select id="ot" value={d.ObjectType} onChange={e => set({ ObjectType: e.target.value })}>
-          {types.map(t => <option key={t.Code} value={t.Code}>{t.Code} · {t.Text}</option>)}</select></div>
-        <div><label htmlFor="op">Project</label><select id="op" value={d.Project} onChange={e => set({ Project: e.target.value })}>
-          <option value="">No project</option>{s.projects.map(p => <option key={p.Project} value={p.Project}>{p.Name}</option>)}</select></div>
+        <div><label htmlFor="ot">Type</label><MenuSelect id="ot" label="Type" value={d.ObjectType} onChange={v => set({ ObjectType: v })} options={types.map(t => ({ value: t.Code, label: `${t.Code} · ${t.Text}` }))} /></div>
+        <div><label htmlFor="op">Project</label><MenuSelect id="op" label="Project" value={d.Project} onChange={v => set({ Project: v })}
+            options={[{ value: '', label: 'No project' }, ...s.projects.map(p => ({ value: p.Project, label: p.Name, icon: <Dot color={p.Color} /> }))]} /></div>
         <div className="full"><label htmlFor="on">Name</label><input id="on" className="mono" autoFocus value={d.ObjectName}
           placeholder={['FIORI', 'DEST', 'API'].includes(d.ObjectType) ? 'App ID, destination or API name' : 'e.g. ZCL_SD_INVOICE'}
           onChange={e => set({ ObjectName: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') create() }} /></div>
@@ -158,7 +157,7 @@ function NewObject({ close }: { close(): void }) {
       <p className="muted" style={{ fontSize: 12.5, lineHeight: 1.5 }}>SAP names are stored in upper case. Add dependencies on the object page; the impact map is drawn from them.</p>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button className="btn" onClick={close}>Cancel</button>
-        <button className="btn primary" disabled={!d.ObjectName.trim() || busy} onClick={create}>Register</button></div>
+        <button className="btn primary" disabled={!d.ObjectName.trim() || busy} aria-busy={busy} onClick={create}>{busy && <Spinner />}Register</button></div>
     </SidePanel>
   );
 }

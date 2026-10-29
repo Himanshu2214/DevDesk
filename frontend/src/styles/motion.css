@@ -1,0 +1,309 @@
+/* ---------- Design tokens + motion layer ----------
+   Loaded last. Holds the colour, radius, type and motion tokens and every interaction state.
+   Motion rules: entrances ease-out, exits ease-in, 120–280 ms, 2–8 px of movement, no overshoot.
+   Only transform/opacity move; colours fade. JS motion (Motion for React) reads the same values from src/lib/motion.ts. */
+
+:root{
+  /* SLATE·SPACE dark: graphite surfaces, slate borders, restrained blue */
+  --app:#0e1014; --panel:#13161b; --raised:#181b21; --hover:#1e2229; --active:#252a32; --menu:#181b21;
+  --border:#23272e; --border-2:#2d323a;
+  --text:#e6e9ee; --text-2:#c2c7cf; --muted:#8b919b; --faint:#575d67;
+  --accent:#4c7dff; --accent-2:#6b93ff; --accent-soft:rgba(76,125,255,.14); --accent-ink:#f7f9ff;
+  --st-backlog:#8a909a; --st-todo:#477ed8; --st-prog:#e6c45a; --st-test:#00ba99; --st-block:#f14d4c; --st-done:#4db155;
+  --urgent:#f68f5f; --danger:#f14d4c; --ok:#4db155;
+  --shadow:0 1px 2px rgba(0,0,0,.32),0 12px 32px rgba(0,0,0,.42);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.28);
+  --shadow-lift:0 1px 2px rgba(0,0,0,.28),0 6px 16px rgba(0,0,0,.3);
+  --scrim:rgba(5,7,10,.55);
+  --grid:#1e2229; --axis:#2d323a;
+  --logo:var(--accent);
+  /* logo mark: light slate plate over a slate-to-blue plate; tile behind it */
+  --lg-top-a:#f0f2f6; --lg-top-b:#8d95a3; --lg-bot-a:#b7bfcb; --lg-bot-b:#4c7dff; --lg-tile:#1b1f26;
+
+  /* radii, type scale, spacing */
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:10px; --r-xl:12px;
+  --fs-xs:11.5px; --fs-sm:12px; --fs:13px; --fs-md:14px; --fs-lg:18px; --fs-xl:22px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+
+  /* motion */
+  --ease-out:cubic-bezier(.2,0,0,1);
+  --ease-in:cubic-bezier(.4,0,1,1);
+  --ease-std:cubic-bezier(.4,0,.2,1);
+  --dur-press:100ms; --dur-micro:140ms; --dur-menu:180ms; --dur-dialog:220ms; --dur-route:200ms;
+}
+:root[data-theme="light"]{
+  /* SLATE·SPACE light: cool slate whites, same blue */
+  --app:#f3f4f6; --panel:#ffffff; --raised:#f9fafb; --hover:#f1f3f5; --active:#e7eaee; --menu:#ffffff;
+  --border:#e4e7eb; --border-2:#d6dae0;
+  --text:#0f1218; --text-2:#343a45; --muted:#626a76; --faint:#a2a8b2;
+  --accent:#2f5fe0; --accent-2:#264fc2; --accent-soft:rgba(47,95,224,.09); --accent-ink:#f7f9ff;
+  --st-backlog:#8a909a; --st-todo:#2c5ab0; --st-prog:#c1983a; --st-test:#00a88b; --st-block:#d92d20; --st-done:#31983d;
+  --urgent:#d86c39; --danger:#d92d20; --ok:#31983d;
+  --shadow:0 1px 2px rgba(15,18,24,.06),0 12px 32px rgba(15,18,24,.12);
+  --shadow-sm:0 1px 2px rgba(15,18,24,.06);
+  --shadow-lift:0 1px 2px rgba(15,18,24,.06),0 6px 16px rgba(15,18,24,.08);
+  --scrim:rgba(15,18,24,.25);
+  --grid:#eceff3; --axis:#d6dae0;
+  --logo:var(--accent);
+  --lg-top-a:#7d8698; --lg-top-b:#3a4150; --lg-bot-a:#8f99ab; --lg-bot-b:#2f5fe0; --lg-tile:#ffffff;
+}
+
+/* ---------- Poppins + icons ----------
+   Poppins' cap height sits exactly mid line-box, so capitals centre against icons without metric overrides.
+   Icon strokes are drawn at a fixed on-screen width matching Poppins' stem at 13px, so every icon reads equally heavy. */
+svg.i{stroke-width:1.45}
+svg.i *{vector-effect:non-scaling-stroke}
+.timer .clk .d{display:inline-block;width:.64em;text-align:center}
+h1,h2,h3,.tp-title,.tile .v{letter-spacing:-.02em}
+::selection{background:var(--accent-soft)}
+/* SLATE·SPACE logo tile + wordmark */
+.ws .logo{background:var(--lg-tile);border:1px solid var(--border-2);border-radius:7px;width:26px;height:26px;padding:0;box-shadow:var(--shadow-sm)}
+.ws .logo svg{display:block}
+.ws .name{font-size:13px;font-weight:600;letter-spacing:.09em;white-space:nowrap}
+.brand-dot{color:var(--accent);margin:0 .06em}
+.av{background:var(--logo)}
+
+/* ---------- Shared interaction transitions ---------- */
+.btn,.pill,.ib,.ni,.pv,.xb,.seg button,.tabs3 button,.tp-tabs button,.tagcloud button,.rtb,.res,.toast-act,.toast-x,.live,
+.menu .mi,.pal [cmdk-item],.row,.nt,.orow,.focus .fi,.att li,.brk li,.flag,.sub .it,.ts tbody tr,
+.card,.tile,.trc,.art,.chip,.fchip,.line-in,.form input,.form select,.kbsearch,.dropz,.files .file,.crumb a,.gnode rect.b,.col{
+  transition:background-color var(--dur-micro) var(--ease-std),border-color var(--dur-micro) var(--ease-std),color var(--dur-micro) var(--ease-std),
+    box-shadow var(--dur-dialog) var(--ease-out),opacity var(--dur-micro) var(--ease-std),transform var(--dur-micro) var(--ease-out),stroke var(--dur-micro) var(--ease-std);
+}
+/* row highlight comes in quickly and leaves gently, so sweeping the mouse over a list never smears */
+.row:hover,.nt:hover,.orow:hover,.menu .mi:hover,.ni:hover,.ib:hover,.pv:hover,.focus .fi:hover,.att li:hover,
+.brk li:hover,.flag:hover,.sub .it:hover,.ts tbody tr:hover,.pal [cmdk-item][data-selected="true"]{transition-duration:60ms}
+svg.i{transition:transform var(--dur-menu) var(--ease-out),color var(--dur-micro) var(--ease-std),opacity var(--dur-micro) var(--ease-std)}
+
+/* ---------- Buttons ---------- */
+.btn{box-shadow:var(--shadow-sm)}
+.btn:hover:not(:disabled){border-color:var(--faint)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),var(--shadow-sm)}
+.btn.primary:hover:not(:disabled){background:var(--accent-2)}
+.toast-act{background:var(--accent);color:var(--accent-ink)}
+.toast-act:hover{background:var(--accent-2)}
+.btn:active:not(:disabled),.pill:active,.ib:active:not(:disabled),.xb:active,.seg button:active,.tabs3 button:active,
+.tagcloud button:active,.rtb:active,.res:active,.toast-act:active,.pv:active{transform:scale(.97);transition-duration:var(--dur-press)}
+.btn:disabled,.ib:disabled{transition:opacity var(--dur-micro) var(--ease-std)}
+.btn[aria-busy="true"]{cursor:progress;opacity:.85}
+.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pill:hover,.tagcloud button:hover{border-color:var(--faint)}
+.pill.on,.seg button.on,.tabs3 button.on{box-shadow:var(--shadow-sm)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- Purposeful icon motion ---------- */
+.ib:hover [data-icon="plus"],.btn:hover [data-icon="plus"]{transform:rotate(90deg)}
+.ib:hover [data-icon="search"]{transform:scale(1.08)}
+.ib:hover [data-icon="edit"]{transform:translate(1px,-1px)}
+[aria-expanded="true"] [data-icon="down"]{transform:rotate(180deg)}
+.ib:hover [data-icon="moon"]{transform:rotate(-15deg)}
+.ib:hover [data-icon="sun"]{transform:rotate(45deg)}
+.ib:hover [data-icon="x"]{transform:rotate(90deg)}
+/* the bell rings once when unread notifications increase (class is re-applied by key) */
+.bell-ring [data-icon="bell"]{transform-origin:50% 15%;animation:bell 520ms var(--ease-out)}
+@keyframes bell{0%{transform:rotate(0)}20%{transform:rotate(14deg)}45%{transform:rotate(-10deg)}70%{transform:rotate(5deg)}100%{transform:rotate(0)}}
+/* success check draws itself */
+.ok-check [data-icon="check"] *{stroke-dasharray:30;stroke-dashoffset:30;animation:draw 280ms var(--ease-out) 60ms forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.ok-check{color:var(--ok);display:grid}
+
+/* ---------- Navigation ---------- */
+.ni{position:relative;isolation:isolate}
+.ni>svg.i{color:var(--muted)}
+.ni:hover>svg.i,.ni.active>svg.i{color:var(--text)}
+.ni.active{background:transparent}
+.ni-bg{position:absolute;inset:0;border-radius:inherit;background:var(--active);box-shadow:inset 0 0 0 1px var(--border-2);z-index:-1}
+.tp-tabs button{position:relative;border-bottom-color:transparent!important}
+.tp-tabs button::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);
+  transform:scaleX(0);transition:transform var(--dur-menu) var(--ease-out)}
+.tp-tabs button:hover{color:var(--text-2)}
+.tp-tabs button.on::after{transform:none}
+
+/* header refresh state */
+.live{border:0;background:transparent;cursor:pointer;border-radius:var(--r-sm);height:26px;padding:0 8px;font:inherit;font-size:var(--fs-sm)}
+.live:hover{background:var(--hover);color:var(--text-2)}
+.live i{transition:background-color var(--dur-micro) var(--ease-std)}
+
+/* ---------- Lists, cards, tiles ---------- */
+.row.sel,.orow.sel{box-shadow:inset 2px 0 0 var(--accent)}
+.card,.tile,.trc,.art{box-shadow:var(--shadow-sm)}
+.card:hover,.tile:hover,.trc:hover,.art:hover{transform:translateY(-1px);box-shadow:var(--shadow-lift);border-color:var(--border-2)}
+.art:hover{border-color:var(--border-2)}
+.card.dragging{transform:none!important}
+.card.overlay{transform:rotate(1deg) scale(1.02);box-shadow:var(--shadow)}
+.col.drop{background:var(--hover);box-shadow:inset 0 0 0 1px var(--border-2)}
+
+/* ---------- Inputs ---------- */
+.line-in:focus,.form input:focus,.form select:focus{box-shadow:0 0 0 3px var(--accent-soft)}
+.rt-box:focus-within{box-shadow:0 0 0 3px var(--accent-soft)}
+.rt-bar{transition:opacity var(--dur-micro) var(--ease-std)}
+.kbsearch{box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* ---------- Overlays (enter/exit is driven by Motion; these are the static looks) ---------- */
+.modal{background:var(--scrim)}
+.dlg,.menu{will-change:transform,opacity}
+.side-panel{transition:transform var(--dur-dialog) var(--ease-out)}
+.app.nav-open .side{animation:slidein var(--dur-dialog) var(--ease-out)}
+.app.nav-open .nav-scrim{animation:fade-in var(--dur-menu) var(--ease-out) both;background:var(--scrim)}
+@keyframes fade-in{from{opacity:0}}
+.toast{opacity:1;transform:none;transition:none}
+
+/* ---------- Page transitions: content settles in when a view mounts ---------- */
+.main>.body>*{animation:view-in var(--dur-route) var(--ease-out) both}
+@keyframes view-in{from{opacity:0;transform:translateY(4px)}}
+
+/* ---------- Expanding icon buttons (icon only; label opens on hover / focus / when active) ---------- */
+.xb{display:inline-flex;align-items:center;height:28px;padding:0 7px;border-radius:var(--r-md);border:1px solid var(--border-2);background:transparent;
+  color:var(--text-2);cursor:pointer;font-weight:500;white-space:nowrap}
+.xb .xl{display:grid;grid-template-columns:0fr;transition:grid-template-columns var(--dur-menu) var(--ease-std) 60ms}
+.xb .xl>span{display:inline-flex;align-items:center;gap:4px;min-width:0;overflow:hidden;padding-left:0;opacity:0;
+  transition:opacity var(--dur-micro) var(--ease-in),padding-left var(--dur-menu) var(--ease-std) 60ms}
+.xb:hover,.xb:focus-visible{background:var(--hover);color:var(--text);border-color:var(--faint)}
+.xb:hover .xl,.xb:focus-visible .xl,.xb.open .xl{grid-template-columns:1fr;transition-delay:0ms;transition-timing-function:var(--ease-out)}
+.xb:hover .xl>span,.xb:focus-visible .xl>span,.xb.open .xl>span{padding-left:6px;opacity:1;
+  transition:opacity var(--dur-micro) var(--ease-out) 40ms,padding-left var(--dur-menu) var(--ease-out)}
+.xb.active{border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:var(--accent-soft);color:var(--text)}
+.xb .c{color:var(--muted);font-weight:400}
+.xseg{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--border-2);border-radius:var(--r-lg);background:var(--raised)}
+.xseg .xb{height:24px;border-color:transparent;border-radius:var(--r-sm);padding:0 6px}
+.xseg .xb.on{background:var(--active);color:var(--text);box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--border-2)}
+
+/* ---------- Empty, error and loading states ---------- */
+.empty-st{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:56px 20px;color:var(--muted)}
+.empty-st .ico{width:40px;height:40px;border-radius:var(--r-lg);display:grid;place-items:center;border:1px solid var(--border-2);background:var(--raised);color:var(--text-2);margin-bottom:6px;box-shadow:var(--shadow-sm)}
+.empty-st .ico.err{color:var(--danger)}
+.empty-st b{color:var(--text);font-weight:500;font-size:var(--fs-md)}
+.empty-st p{margin:0;max-width:360px;line-height:1.5}
+.empty-st .btn{margin-top:10px}
+
+/* donut legend: sits beside the donut when there is room, wraps below it in narrow panels; names ellipsize */
+.donut-wrap{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));justify-items:center}
+.donut-wrap>.legend{justify-self:stretch}
+.legend li{grid-template-columns:10px minmax(0,1fr) auto auto}
+.legend li .h,.legend li .p{white-space:nowrap}
+.legend li>span:nth-child(2){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- Small status touches ---------- */
+.timer .rec{animation:pulse 1.8s var(--ease-std) infinite}
+@keyframes pulse{50%{opacity:.35;transform:scale(.8)}}
+.meter i,.trk-prog .bar i{transition:width var(--dur-dialog) var(--ease-out)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
+  .spin{animation:spin 1.6s linear infinite!important}
+}
+
+/* =====================================================================
+   Premium pass: SmoothUI tooltips, collapsible sidebar, icon parts, boards, transports
+   ===================================================================== */
+
+/* ---------- Tooltip (SmoothUI / Base UI). Its utility classes keep the enter/exit scale+fade; this sets the look ---------- */
+.tip{background:var(--menu);color:var(--text);border:1px solid var(--border-2);box-shadow:var(--shadow);border-radius:var(--r-sm);
+  padding:5px 8px;font-size:var(--fs-sm);font-weight:500;line-height:1.3;white-space:nowrap;display:flex;align-items:center;gap:8px;z-index:96}
+.tip-c{color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
+
+/* ---------- Sidebar ---------- */
+.ni-ic{position:relative;display:grid;place-items:center;width:16px;height:16px;flex:none}
+.ni-ic>svg.i{color:var(--muted);transition:color var(--dur-micro) var(--ease-std)}
+.ni:is(:hover,:focus-visible) .ni-ic>svg.i,.ni.active .ni-ic>svg.i{color:var(--text)}
+.ni .lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:opacity var(--dur-micro) var(--ease-std)}
+.ni .c.badge-alert{margin-left:auto;min-width:18px;height:18px;padding:0 6px;border-radius:9px;display:inline-grid;place-items:center;
+  font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft)}
+.ni[href="#transports"] .c.badge-alert{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent)}
+.ni-dot{position:absolute;top:-2px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--app)}
+.env-tag{font-size:11px}
+.side-foot .who{min-width:0;border-radius:var(--r-sm)}
+.side-foot .who .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* collapsible groups: SmoothUI Collapsible restyled as quiet section headers */
+.grp-nav{border:0;background:transparent;border-radius:0;overflow:visible}
+.side .sec{width:100%;border:0;background:transparent;cursor:pointer;font:inherit;font-size:var(--fs-sm);font-weight:500;color:var(--muted);
+  padding:16px 8px 4px;border-radius:var(--r-sm);justify-content:flex-start;gap:4px;text-align:left}
+.side .sec:hover{color:var(--text-2);background:transparent}
+.side .sec svg{width:12px;height:12px;opacity:0;rotate:-90deg;transition:opacity var(--dur-micro) var(--ease-std),rotate var(--dur-menu) var(--ease-out)}
+.side .sec[data-panel-open] svg{rotate:0deg}
+.side .sec:is(:hover,:focus-visible) svg,.side .sec:not([data-panel-open]) svg{opacity:1}
+.side .sec>span{flex:none}
+.grp-panel{font-size:inherit;color:inherit}
+.grp-panel>div{padding:0!important}
+.grp-panel>div>*{margin:0!important}
+
+/* collapsed rail (desktop only); the grid column glides between widths */
+@media (min-width:1001px){
+  .app{transition:grid-template-columns var(--dur-dialog) var(--ease-out)}
+  .app:has(.side[data-collapsed]){grid-template-columns:56px 1fr}
+  .side[data-collapsed]{padding:10px 6px 8px;align-items:stretch}
+  .side[data-collapsed] .ws{flex-direction:column;gap:6px;padding:6px 0 10px}
+  .side[data-collapsed] .ws .name,.side[data-collapsed] .ws .sp{display:none}
+  .side[data-collapsed] .scroll{margin-right:0;padding-right:0;overflow-x:hidden}
+  .side[data-collapsed] .ni{justify-content:center;padding:0;gap:0}
+  .side[data-collapsed] .ni .lbl,.side[data-collapsed] .ni .c{display:none}
+  .side[data-collapsed] .sec{display:none}
+  .side[data-collapsed] .grp-nav{border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
+  .side[data-collapsed] .timer{flex-direction:column;padding:6px 0;gap:4px;align-items:center}
+  .side[data-collapsed] .timer .w{display:none}
+  .side[data-collapsed] .side-foot{flex-direction:column;gap:6px;padding-top:8px}
+  .side[data-collapsed] .side-foot .lbl,.side[data-collapsed] .env-tag{display:none}
+}
+@media (max-width:1000px){.collapse-btn{display:none}}
+
+/* ---------- Icon parts: purposeful micro-animations on hover / keyboard focus (Lucide, same stroke) ---------- */
+svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-micro) var(--ease-std);transform-box:fill-box}
+:is(.ib,.btn,.xb):is(:hover,:focus-visible) [data-icon="plus"]{transform:rotate(90deg)}
+:is(.ib,.btn):is(:hover,:focus-visible) [data-icon="search"]{transform:scale(1.08)}
+:is(.ib,.btn):is(:hover,:focus-visible) [data-icon="trash"]>:is(:nth-child(1),:nth-child(3)){transform:translateY(-1.5px) rotate(-8deg);transform-origin:left bottom}
+:is(.ib,.btn,.live):is(:hover,:focus-visible) [data-icon="refresh"]:not(.spin){transform:rotate(180deg)}
+:is(.ib,.btn):is(:hover,:focus-visible) [data-icon="stop"]>*{transform:scale(.82);transform-origin:center}
+:is(.ib,.btn):is(:hover,:focus-visible) [data-icon="play"]{transform:translateX(1px)}
+:is(.ib,.btn):is(:hover,:focus-visible) [data-icon="panel-close"]>:nth-child(3){transform:translateX(-1.5px)}
+:is(.ib,.btn):is(:hover,:focus-visible) [data-icon="panel-open"]>:nth-child(3){transform:translateX(1.5px)}
+.ni:is(:hover,:focus-visible) [data-icon="bell"]{transform-origin:50% 15%;animation:bell 520ms var(--ease-out)}
+.swap-in{display:grid;animation:swap-in var(--dur-dialog) var(--ease-out)}
+@keyframes swap-in{from{opacity:0;transform:rotate(-60deg) scale(.7)}}
+.timer.running [data-icon="stop"]{color:var(--text)}
+
+/* ---------- Boards ---------- */
+.col-h .c{min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:var(--hover);display:inline-grid;place-items:center;font-size:11.5px}
+.col.is-empty .col-h{color:var(--muted)}
+.col.is-empty{background:transparent;border-top-color:color-mix(in srgb,var(--c) 45%,transparent)}
+.col-empty{border:1px dashed var(--border-2);border-radius:var(--r-md);padding:14px;text-align:center;color:var(--faint);font-size:var(--fs-sm);margin:2px 0 6px}
+.card .t{font-weight:500;letter-spacing:-.005em}
+.card:focus-visible{outline-offset:1px}
+/* overdue severity: 1–3 days late (warning), 4–14 (late), 15+ (serious, tinted chip) */
+.due.over.sev-1{color:var(--urgent)}
+.due.over.sev-2{color:var(--danger)}
+.due.over.sev-3{color:var(--danger);background:color-mix(in srgb,var(--danger) 13%,transparent);border-radius:5px;padding:1px 6px;font-weight:500}
+
+/* ---------- Transports pipeline ---------- */
+.trk-prog .bar{height:6px;gap:2px;background:transparent}
+.trk-prog .bar i{border-radius:3px}
+.trk-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:-6px 4px 14px;color:var(--muted);font-size:var(--fs-sm)}
+.trk-legend span{display:inline-flex;align-items:center;gap:6px}
+.trk-legend i{width:8px;height:8px;border-radius:2px}
+.phase>header{border-top-width:2px;gap:8px}
+.ph-dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.phase.is-empty>header{color:var(--muted)}
+.phase .col-empty{margin:10px}
+.trc{border-top-width:2px}
+.trc.failed{border-color:color-mix(in srgb,var(--danger) 40%,var(--border));border-top-color:var(--danger)}
+.fail{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)}
+
+/* ---------- SmoothUI dropdown menu (every app dropdown) ---------- */
+.dd-menu{min-width:220px;max-width:min(420px,calc(100vw - 16px));border-color:var(--border-2);border-radius:var(--r-md);box-shadow:var(--shadow);padding:4px}
+.dd-menu [role="menuitem"]{min-height:32px;padding:0 10px;border-radius:var(--r-sm);cursor:pointer;white-space:nowrap;color:var(--text)}
+.dd-menu [role="menuitem"]>span:not([data-slot]){display:grid;margin-right:2px}
+.dd-menu [data-slot="dropdown-menu-filter"]{height:34px;padding:0 10px;margin:-4px -4px 4px;width:calc(100% + 8px);border-color:var(--border);color:var(--text)}
+.dd-menu [data-slot="dropdown-menu-filter"]::placeholder{color:var(--faint)}
+
+/* select fields (MenuSelect) and the calendar popover */
+.sel-btn{width:100%;height:30px;display:flex;align-items:center;gap:8px;border:1px solid var(--border-2);border-radius:var(--r-sm);background:var(--raised);
+  padding:0 8px;cursor:pointer;color:var(--text);text-align:left;font:inherit}
+.sel-btn:hover{border-color:var(--faint)}
+.sel-btn[aria-expanded="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sel-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sel-btn>svg.i:last-child,.pill>svg.i:last-child{color:var(--muted)}
+.cal-pos{z-index:97}
+.cal-pop{background:var(--menu);border:1px solid var(--border-2);border-radius:var(--r-lg);box-shadow:var(--shadow);color:var(--text);outline:none;
+  transform-origin:var(--transform-origin);transition:opacity var(--dur-menu) var(--ease-out),transform var(--dur-menu) var(--ease-out)}
+.cal-pop[data-starting-style],.cal-pop[data-ending-style]{opacity:0;transform:scale(.97) translateY(-4px)}

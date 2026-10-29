@@ -4,7 +4,7 @@ import type { Ticket, Worklog } from '../api';
 import { isOpen, isOverdue, lastWorkdays, PRIORITY_NAME, r1, today, urgency, weekStart, isoDate, DAY } from '../lib/format';
 import { Donut } from '../components/Donut';
 import { Icon, StatusIcon } from '../components/Icons';
-import { Due, Page } from '../components/ui';
+import { CountUp, Due, Empty, Page } from '../components/ui';
 import { TIMER_WARN_H } from '../components/Dialogs';
 
 const BADGE: Record<string, [string, string]> = { '1': ['var(--danger)', '#fff'], '2': ['var(--urgent)', '#1b1c1f'], '3': ['var(--st-todo)', '#0f1011'], '4': ['var(--hover)', 'var(--text-2)'] };
@@ -53,10 +53,10 @@ export function Home() {
         <h2>Good {h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'}{first ? `, ${first}` : ''}</h2>
         <div className="subt">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
         <div className="tiles">
-          <a className="tile" href="#list/active"><div className="l"><Icon name="my" size={14} />Open tickets</div><div className="v num">{open.length}</div><div className="s">across {new Set(open.map(t => t.Project)).size} projects</div></a>
-          <a className="tile" href="#list/overdue"><div className="l" style={over.length ? { color: 'var(--danger)' } : undefined}><Icon name="alert" size={14} />Overdue</div><div className="v num">{over.length}</div><div className="s">{over.length ? 'needs attention' : 'all on track'}</div></a>
-          <a className="tile" href="#timesheet"><div className="l"><Icon name="clock" size={14} />Hours this week</div><div className="v num">{r1(hours)}<span style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 400 }}> h</span></div><div className="s">from work logs · target 40 h</div></a>
-          <a className="tile" href="#list/active"><div className="l"><StatusIcon status="TEST" />In testing</div><div className="v num">{testing.length}</div><div className="s">awaiting verification</div></a>
+          <a className="tile" href="#list/active"><div className="l"><Icon name="my" size={14} />Open tickets</div><div className="v num"><CountUp value={open.length} /></div><div className="s">across {new Set(open.map(t => t.Project)).size} projects</div></a>
+          <a className="tile" href="#list/overdue"><div className="l" style={over.length ? { color: 'var(--danger)' } : undefined}><Icon name="alert" size={14} />Overdue</div><div className="v num"><CountUp value={over.length} /></div><div className="s">{over.length ? 'needs attention' : 'all on track'}</div></a>
+          <a className="tile" href="#timesheet"><div className="l"><Icon name="clock" size={14} />Hours this week</div><div className="v num"><CountUp value={r1(hours)} decimals={hours % 1 ? 1 : 0} /><span style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 400 }}> h</span></div><div className="s">from work logs · target 40 h</div></a>
+          <a className="tile" href="#list/active"><div className="l"><StatusIcon status="TEST" />In testing</div><div className="v num"><CountUp value={testing.length} /></div><div className="s">awaiting verification</div></a>
         </div>
         <div className="home-grid">
           <div className="panel focus">
@@ -70,7 +70,7 @@ export function Home() {
                   <div className="t2">{s.text('TECH', t.Tech)} · {s.project(t.Project)?.Name ?? t.Project} · {t.EstimateHours} h estimated · {r1(t.LoggedHours)} h logged</div></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><StatusIcon status={t.Status} /><Due t={t} short /></div></a>;
             })}
-            {!focus.length && <div className="empty">Nothing in progress. Press <kbd>C</kbd> to create a ticket.</div>}
+            {!focus.length && <Empty icon="check" title="Nothing in progress">Press <kbd>C</kbd> to create a ticket.</Empty>}
           </div>
           <div className="stack">
             <div className="panel"><div className="ph">Time this week<span className="sp" /><span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>by activity</span></div>

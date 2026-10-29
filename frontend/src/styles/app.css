@@ -1,7 +1,7 @@
-@font-face{font-family:Inter;font-weight:400;src:url(../assets/fonts/inter-latin-400-normal.woff2) format("woff2")}
-@font-face{font-family:Inter;font-weight:500;src:url(../assets/fonts/inter-latin-500-normal.woff2) format("woff2")}
-@font-face{font-family:Inter;font-weight:600;src:url(../assets/fonts/inter-latin-600-normal.woff2) format("woff2")}
-@font-face{font-family:Inter;font-weight:700;src:url(../assets/fonts/inter-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:Poppins;font-weight:400;font-display:swap;src:url(../assets/fonts/poppins-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:Poppins;font-weight:500;font-display:swap;src:url(../assets/fonts/poppins-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:Poppins;font-weight:600;font-display:swap;src:url(../assets/fonts/poppins-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:Poppins;font-weight:700;font-display:swap;src:url(../assets/fonts/poppins-latin-700-normal.woff2) format("woff2")}
 
 /* ---------- Tokens (dark is the default) ---------- */
 :root{
@@ -28,8 +28,8 @@
 
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{font-family:Inter,"Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:13px;line-height:1.45;color:var(--text);background:var(--app);
-  -webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01";overflow:hidden}
+body{font-family:Poppins,"Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:13px;line-height:1.45;color:var(--text);background:var(--app);
+  -webkit-font-smoothing:antialiased;overflow:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:inherit;text-decoration:none}
 .num{font-variant-numeric:tabular-nums}

@@ -6,7 +6,7 @@ import type { Article, ArticleType, Status } from '../api';
 import { useArticles, useObjects, useStore } from '../store';
 import { DAY, fmtDate } from '../lib/format';
 import { Icon, StatusIcon } from '../components/Icons';
-import { go, isTyping, Page, useMenu } from '../components/ui';
+import { Empty, go, isTyping, Page, useMenu } from '../components/ui';
 import { Area, Line, ObjType, usePickers } from '../components/p2';
 
 const TYPES: [ArticleType, string][] = [['SNIP', 'book'], ['FIX', 'bug'], ['API', 'link'], ['CONF', 'tag'], ['DECI', 'graph']];
@@ -71,7 +71,7 @@ function KbList() {
             {a._Link.some(l => l.TicketUUID) && <span><Icon name="my" size={13} /> {a._Link.filter(l => l.TicketUUID).length}</span>}
             {a._Link.some(l => l.ObjectUUID) && <span><Icon name="cube" size={13} /> {a._Link.filter(l => l.ObjectUUID).length}</span>}
             <span className="num">{a.ArticleId}</span><span>{fmtDate(a.CreatedAt)}</span></div></div>)}
-        {!q.isLoading && !list.length && <div className="empty">{all.length ? 'No articles match. Try fewer words or clear the filters.' : 'No articles yet. Create the first one – e.g. the fix for the last dump you solved.'}</div>}
+        {!q.isLoading && !list.length && <Empty icon={all.length ? 'search' : 'book'} title={all.length ? 'No articles match' : 'No articles yet'}>{all.length ? 'Try fewer words or clear the filters.' : 'Create the first one – e.g. the fix for the last dump you solved.'}</Empty>}
       </div>
         <aside className="filters"><h4><Icon name="list" size={14} />Filters</h4>
           <div className="fgroup"><div className="t"><Icon name="tag" size={14} />Type</div>{TYPES.map(([t]) =>
@@ -94,7 +94,7 @@ function ArticlePage({ uuid }: { uuid: string }) {
   const a = (q.data ?? []).find(x => x.ArticleUUID === uuid);
   const crumb = <><a href="#kb">Knowledge</a><span className="sepr">›</span><b>{a?.ArticleId ?? ''}</b></>;
   if (q.isLoading) return <Page crumb={crumb}><div className="artpage"><div className="sk" style={{ height: 26, width: '60%' }} /></div></Page>;
-  if (!a) return <Page crumb={crumb}><div className="empty">Article not found. <a href="#kb">All articles</a></div></Page>;
+  if (!a) return <Page crumb={crumb}><Empty icon="book" title="Article not found" action={<a className="btn" href="#kb">All articles</a>} /></Page>;
 
   const upd = (p: Partial<Article>) => s.run(() => api.updateRoot('Article', a as never, p), { ok: 'Saved' });
   const tickets = a._Link.filter(l => l.TicketUUID).map(l => ({ l, t: s.tickets.find(t => t.TicketUUID === l.TicketUUID) }));

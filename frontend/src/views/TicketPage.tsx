@@ -8,7 +8,7 @@ import { DuePicker } from '../components/DuePicker';
 import { lastOrder } from '../lib/listPrefs';
 import { ago, fmtDate, PRIORITY_NAME, r1 } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Avatar, Due, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
+import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
 import { TicketSap } from './TicketSap';
 
@@ -44,7 +44,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   });
 
   if (!s.ready) return <Page crumb={<b>{ticketId}</b>}><div className="tp"><div className="tp-main"><div className="sk" style={{ height: 26, width: '60%', marginBottom: 16 }} /><div className="tp-sec" style={{ marginTop: 6 }} aria-busy="true">{[70, 55, 80].map((w, i) => <div key={i} className="sk" style={{ height: 14, width: w + '%', margin: '10px 0' }} />)}</div></div></div></Page>;
-  if (!t) return <Page crumb={<b>{ticketId}</b>}><div className="empty">Ticket {ticketId} not found. <a href="#list/all">All tickets</a></div></Page>;
+  if (!t) return <Page crumb={<b>{ticketId}</b>}><Empty icon="search" title={`Ticket ${ticketId} not found`} action={<a className="btn" href="#list/all">All tickets</a>}>It may have been deleted.</Empty></Page>;
 
   const uuids = [t.TicketUUID];
   const patch = (p: Partial<Ticket>) => s.run(() => api.updateTicket(t, p), { uuids, optimistic: x => ({ ...x, ...p }) });

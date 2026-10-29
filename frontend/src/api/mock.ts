@@ -178,7 +178,7 @@ function seedPhase2(tickets: Ticket[]): Pick<Db, 'kbSeq' | 'transports' | 'objec
       FixLocation: 'ZBP_R_MM_GATEENTRY, local handler for the item', FixText: 'Moved the action to the root entity and passed the item key as a parameter.', TestNote: 'Action works from the list and the object page.' }, ['ZBP_R_MM_GATEENTRY'], 40),
     art(2, { ArticleType: 'SNIP', Title: 'Application log with context fields', Tags: 'abap,log', CodeLang: 'ABAP',
       CodeText: "DATA(lo_log) = zcl_ca_applog=>create( object = 'ZDD' subobject = 'TICKET' ).\nlo_log->add_text( |Ticket { lv_ticket }: { lv_text }| ).\nlo_log->save( ).",
-      NoteText: 'Always pass the ticket number so the log can be found from DevDesk.' }, ['ZCL_CA_APPLOG'], 30),
+      NoteText: 'Always pass the ticket number so the log can be found from SLATE·SPACE.' }, ['ZCL_CA_APPLOG'], 30),
     art(3, { ArticleType: 'API', Title: 'IRP: generate IRN', Tags: 'gst,einvoice,api', HttpMethod: 'POST', Endpoint: '/eicore/v1.03/Invoice',
       RequestBody: '{\n  "Version": "1.1",\n  "TranDtls": { "TaxSch": "GST", "SupTyp": "B2B" }\n}', ResponseBody: '{ "Irn": "...", "AckNo": 112010000001, "Status": "ACT" }',
       ResponseCodes: '200 ok, 2150 duplicate IRN, 5002 timeout', AuthReference: 'Token from destination IRP_GSP (no credentials here)' }, ['IRP e-invoice API', 'ZCL_EINV_IRP_CLIENT'], 22),

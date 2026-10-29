@@ -1,6 +1,9 @@
 // Shared UI pieces: hash router, popover menu, page frame, small labels.
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useIsFetching } from '@tanstack/react-query';
 import type { Status, Ticket } from '../api';
+import DropdownMenu from './smoothui/dropdown-menu';
+import Tooltip from './smoothui/tooltip';
 import { useStore } from '../store';
 import { daysUntil, fmtDate, PRIORITY_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
@@ -17,51 +20,48 @@ export function useHash(): string {
 }
 export const go = (h: string) => { location.hash = h };
 
-/* ---------- Popover menu ---------- */
+/* ---------- Dropdown menu (SmoothUI DropdownMenu on Base UI Menu) ----------
+   Opened from code with an anchor element, so every dropdown in the app goes through this one provider.
+   Keyboard: arrows / Home / End, type-ahead, Enter, Esc (Base UI); long lists get a filter box. */
 export interface MenuItem { label: string; value: string; icon?: React.ReactNode; checked?: boolean }
-interface MenuState { rect: DOMRect; items: MenuItem[]; pick: (v: string) => void; search: boolean }
+interface MenuState { id: number; anchor: Element; items: MenuItem[]; pick: (v: string) => void; search: boolean }
 const MenuCtx = createContext<(anchor: Element, items: MenuItem[], pick: (v: string) => void, search?: boolean) => void>(() => {});
 export const useMenu = () => useContext(MenuCtx);
+/** True while a dropdown is open (dialogs and global shortcuts leave Esc and keys to it) */
+export const menuOpen = () => !!document.querySelector('.dd-menu[data-open]');
+const FILTER_FROM = 8;
 
 export function MenuProvider({ children }: { children: React.ReactNode }) {
   const [m, setM] = useState<MenuState | null>(null);
-  const [q, setQ] = useState('');
-  const [sel, setSel] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ left: 0, top: 0 });
-  const open = useCallback((anchor: Element, items: MenuItem[], pick: (v: string) => void, search = true) => {
-    setM({ rect: anchor.getBoundingClientRect(), items, pick, search }); setQ(''); setSel(Math.max(0, items.findIndex(i => i.checked)));
+  const [open, setOpen] = useState(false);
+  const show = useCallback((anchor: Element, items: MenuItem[], pick: (v: string) => void, search = true) => {
+    setM(prev => ({ id: (prev?.id ?? 0) + 1, anchor, items, pick, search })); setOpen(true);
   }, []);
-  const vis = m ? m.items.filter(i => !q || i.label.toLowerCase().includes(q.toLowerCase())) : [];
-  useLayoutEffect(() => {
-    if (!m || !ref.current) return;
-    const h = ref.current.offsetHeight, w = ref.current.offsetWidth, r = m.rect;
-    setPos({ left: Math.max(8, Math.min(r.left, innerWidth - w - 8)), top: r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4 });
-  }, [m]);
+  // the anchor reports its state to assistive tech, and CSS turns its chevron while the menu is open
   useEffect(() => {
-    if (!m) return;
-    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setM(null) };
-    addEventListener('mousedown', close);
-    return () => removeEventListener('mousedown', close);
-  }, [m]);
-  const choose = (v: string) => { const p = m!.pick; setM(null); p(v) };
+    if (!m || !open) return;
+    m.anchor.setAttribute('aria-expanded', 'true');
+    return () => m.anchor.setAttribute('aria-expanded', 'false');
+  }, [m, open]);
   return (
-    <MenuCtx.Provider value={open}>
+    <MenuCtx.Provider value={show}>
       {children}
-      {m && <div className="menu on" ref={ref} style={pos}
-        onKeyDown={e => {
-          if (e.key === 'ArrowDown') { setSel(s => (s + 1) % vis.length); e.preventDefault() }
-          if (e.key === 'ArrowUp') { setSel(s => (s - 1 + vis.length) % vis.length); e.preventDefault() }
-          if (e.key === 'Enter' && vis[sel]) { choose(vis[sel].value); e.preventDefault() }
-          if (e.key === 'Escape') { setM(null); e.stopPropagation() }
-        }}>
-        {m.search ? <input autoFocus placeholder="Change to…" value={q} onChange={e => { setQ(e.target.value); setSel(0) }} /> : <input autoFocus style={{ position: 'absolute', opacity: 0, height: 0, padding: 0, border: 0 }} readOnly />}
-        {vis.map((it, i) => <div key={it.value} className={'mi' + (i === sel ? ' sel' : '')} onMouseEnter={() => setSel(i)} onClick={() => choose(it.value)}>
-          {it.icon}<span>{it.label}</span>{it.checked && <span className="ck"><Icon name="check" /></span>}</div>)}
-        {!vis.length && <div className="mi muted">No match</div>}
-      </div>}
+      {m && <DropdownMenu key={m.id} anchor={m.anchor} open={open} onOpenChange={setOpen} className="dd-menu" sideOffset={4}
+        filter={m.search && m.items.length >= FILTER_FROM} filterPlaceholder="Filter…"
+        items={m.items.map(it => ({ key: it.value, label: it.label, icon: it.icon, checked: it.checked, onSelect: () => m.pick(it.value) }))} />}
     </MenuCtx.Provider>
   );
+}
+
+/** Select field rendered as a SmoothUI dropdown: a button showing the current option (long lists get a filter box) */
+export function MenuSelect({ value, options, onChange, label, id, className = 'sel-btn' }: {
+  value: string; options: { value: string; label: string; icon?: React.ReactNode }[]; onChange(v: string): void; label: string; id?: string; className?: string;
+}) {
+  const menu = useMenu();
+  const cur = options.find(o => o.value === value);
+  return <button type="button" id={id} className={className} aria-haspopup="menu" aria-label={`${label}: ${cur?.label ?? 'none'}`}
+    onClick={e => menu(e.currentTarget, options.map(o => ({ ...o, checked: o.value === value })), onChange)}>
+    {cur?.icon}<span className="sel-v">{cur?.label ?? 'Select…'}</span><Icon name="down" size={14} /></button>;
 }
 
 /** Menu items for the ticket properties; values are the backend codes */
@@ -81,7 +81,8 @@ export function useFieldMenus() {
 
 /* ---------- Page frame: header bars + scrolling body ---------- */
 export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.ReactNode; bar2?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; bodyRef?: React.Ref<HTMLDivElement> }) {
-  const { lastSync } = useStore();
+  const { lastSync, reload } = useStore();
+  const fetching = useIsFetching() > 0;
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(id) }, []);
   const age = (Date.now() - lastSync) / 1000;
@@ -90,7 +91,8 @@ export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.R
       <header className="bar1">
         <button className="ib nav-btn" aria-label="Open navigation" onClick={() => dispatchEvent(new Event('devdesk-nav'))}><Icon name="list" /></button>
         <div className="crumb">{crumb}</div><span className="sp" />
-        <span className="live" title="Changes are fetched every 30 seconds"><i />{age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago`}</span>
+        <button className="live" title="Changes are fetched every 30 seconds – click to refresh now" aria-live="polite" onClick={() => reload()}>
+          {fetching ? <><Icon name="refresh" size={12} className="spin" />Syncing…</> : <><i />{age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago`}</>}</button>
         {right}
         <button className="ib" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
       </header>
@@ -100,11 +102,54 @@ export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.R
   );
 }
 
+/* ---------- States ---------- */
+/** Empty / error state: icon tile, title, one line of help and an optional action */
+export function Empty({ icon = 'inbox', title, children, action, error }: { icon?: string; title: React.ReactNode; children?: React.ReactNode; action?: React.ReactNode; error?: boolean }) {
+  return <div className="empty-st" role={error ? 'alert' : undefined}>
+    <span className={'ico' + (error ? ' err' : '')}><Icon name={icon} size={18} /></span><b>{title}</b>{children && <p>{children}</p>}{action}</div>;
+}
+
+/** Number that counts to its new value when it changes; the first render shows the value as-is (instant for reduced motion) */
+export function CountUp({ value, decimals = 0 }: { value: number; decimals?: number }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = from.current, end = value;
+    if (start === end || matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(end); from.current = end; return }
+    const t0 = performance.now(), dur = 520;
+    let id = requestAnimationFrame(function step(t) {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      setShown(start + (end - start) * e);
+      if (p < 1) id = requestAnimationFrame(step); else from.current = end;
+    });
+    return () => { cancelAnimationFrame(id); from.current = end };
+  }, [value]);
+  return <>{shown.toFixed(decimals)}</>;
+}
+
+/** SmoothUI (Base UI) tooltip; renders the child unchanged when disabled */
+export function Tip({ label, side = 'top', disabled, children }: { label: React.ReactNode; side?: 'top' | 'right' | 'bottom' | 'left'; disabled?: boolean; children: React.ReactElement }) {
+  return disabled ? children : <Tooltip content={label} side={side} sideOffset={8} delay={350} className="tip">{children}</Tooltip>;
+}
+
+/** Briefly highlights an element when a value changes after the first render (status, transport phase, …) */
+export function useChangeFlash<T extends Element>(value: unknown) {
+  const ref = useRef<T | null>(null), prev = useRef(value);
+  useEffect(() => {
+    if (prev.current === value) return;
+    prev.current = value;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    ref.current?.animate?.([{ boxShadow: '0 0 0 2px var(--accent-soft), var(--shadow-sm)' }, { boxShadow: '0 0 0 0 transparent, var(--shadow-sm)' }], { duration: 900, easing: 'cubic-bezier(.2,0,0,1)' });
+  }, [value]);
+  return ref;
+}
+
 /* ---------- Labels ---------- */
 export function Due({ t, short }: { t: Pick<Ticket, 'DueDate' | 'Status'>; short?: boolean }) {
   if (t.Status === 'DONE' || !t.DueDate) return <span className="due muted">{fmtDate(t.DueDate)}</span>;
   const d = daysUntil(t.DueDate)!;
-  if (d < 0) return <span className="due over" title="Overdue"><Icon name="alert" size={13} />{-d}d late</span>;
+  // overdue severity: a few days late is a warning, two weeks or more is serious
+  if (d < 0) return <span className={'due over sev-' + (d >= -3 ? 1 : d >= -14 ? 2 : 3)} title={`Due ${fmtDate(t.DueDate)} · ${-d} day${d === -1 ? '' : 's'} overdue`}><Icon name="alert" size={13} />{-d}d late</span>;
   if (d === 0) return <span className="due soon">Today</span>;
   if (d <= 3) return <span className="due soon">{short ? '' : 'in '}{d}d</span>;
   return <span className="due">{fmtDate(t.DueDate)}</span>;
@@ -122,8 +167,15 @@ export const Avatar = ({ name, size = 20 }: { name: string; size?: number }) => 
   return <span className="av" style={{ width: size, height: size, fontSize: size * .45 }}>{initials}</span>;
 };
 
+/** Icon button whose label slides open on hover/focus; `open` keeps it expanded (active view, applied filter) */
+export function XBtn({ icon, label, open, on, className = '', ...rest }:
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: string; label: React.ReactNode; open?: boolean; on?: boolean }) {
+  return <button {...rest} className={`xb ${className}${open ? ' open' : ''}${on ? ' on' : ''}`}>
+    <Icon name={icon} size={14} /><span className="xl"><span>{label}</span></span></button>;
+}
+
 /** True while the user types in a field or a dialog/menu is open (keyboard shortcuts are ignored then) */
 export const isTyping = (e: KeyboardEvent) => {
   const el = e.target instanceof Element ? e.target : null;
-  return !!el?.closest('input,textarea,select,[contenteditable],.modal,.menu') || !!document.querySelector('.modal.on');
+  return !!el?.closest('input,textarea,select,[contenteditable],.modal,[role=menu]') || !!document.querySelector('.modal.on') || menuOpen();
 };

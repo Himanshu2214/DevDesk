@@ -4,7 +4,7 @@ import type { Status, Ticket, TicketEvent, Transport } from '../api';
 import { useStore, useTransports } from '../store';
 import { ago, DAY, isOverdue, PRIORITY_NAME, today } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Due, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
+import { Due, Empty, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { missingTime } from './Home';
 import { useDialogs } from '../components/Dialogs';
 
@@ -58,7 +58,7 @@ export function Inbox() {
             <span style={{ paddingTop: 2 }}>{i.icon}</span>
             <div style={{ minWidth: 0 }}><div className="a">{i.title}</div><div className="b">{i.text}</div></div>
             <span className="w">{i.pinned ? '' : ago(i.at)}</span></div>)}
-          {!items.length && <div className="empty">Inbox zero.</div>}</div>
+          {!items.length && <Empty icon="bell" title="Inbox zero">New activity on your tickets and failed imports show up here.</Empty>}</div>
         <div className="pre">{t ? <>
           <div className="muted num">{t.TicketId}</div>
           <h1 className="tp-title" style={{ marginTop: 4 }}>{t.Title}</h1>
@@ -71,7 +71,7 @@ export function Inbox() {
             <a className="btn primary" href={'#ticket/' + t.TicketId}>Open ticket</a>
             <button className="btn" onClick={e => menu(e.currentTarget, menus.status(t), v => s.changeStatus(t, v as Status))}><StatusIcon status={t.Status} /> Change status</button>
             <button className="btn" onClick={() => openLog(t.TicketUUID)}><Icon name="clock" size={14} />Log time</button></div>
-        </> : <div className="empty">Select a notification</div>}</div>
+        </> : <Empty icon="inbox" title="Select a notification">Details and quick actions appear here.</Empty>}</div>
       </div>
     </Page>
   );

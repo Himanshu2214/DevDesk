@@ -1,4 +1,6 @@
-# DevDesk – personal ticketing tool for SAP ABAP work
+# SLATE·SPACE – personal ticketing tool for SAP ABAP work
+
+*Work. Without friction.*
 
 A personal work tracker for SAP development. It covers tickets with acceptance criteria and tests, the SAP objects and transports behind each change, time tracking, and a knowledge base of fixes, snippets and API examples.
 
@@ -15,7 +17,7 @@ A personal work tracker for SAP development. It covers tickets with acceptance c
 
 ## View the mockup
 
-Everything is bundled, so no CDN is needed: the Inter font (OFL) is in `mockup/assets/fonts` and ECharts 5.6.0 (Apache-2.0) is in `mockup/vendor`.
+Everything is bundled, so no CDN is needed: the Poppins font (OFL) is in `mockup/assets/fonts`, and ECharts 5.6.0 (Apache-2.0) and the Lucide icon license (ISC) are in `mockup/vendor`.
 
 ```bash
 cd mockup && python -m http.server 5180
@@ -51,7 +53,8 @@ In the mockup, a simulated event every 15 s (status change, TR import, time logg
 ## Files
 
 - `mockup/index.html` – page shell
-- `mockup/app.css`, `mockup/app2.css` – design tokens (dark default, light) and components
+- `mockup/app.css`, `mockup/app2.css`, `mockup/motion.css` – shared with the React app (`frontend/src/styles`): design tokens, components, motion
+- `mockup/mockup.css` – CSS enter/exit transitions that Motion handles in the React app
 - `mockup/data.js` – sample data generator (replaced by the OData service later)
 - `mockup/charts.js` – metrics and charts (donut, progress, hours)
 - `mockup/core.js` – helpers, state, router, menus, palette, timer, live updates

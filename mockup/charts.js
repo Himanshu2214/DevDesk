@@ -44,10 +44,10 @@ const M={
 /* ---------- Charts ---------- */
 function base(){
   return {
-    textStyle:{fontFamily:'Inter, Segoe UI, sans-serif',color:css('--muted'),fontSize:11.5},
+    textStyle:{fontFamily:'Poppins, Segoe UI, sans-serif',color:css('--muted'),fontSize:11.5},
     animationDuration:600,animationDurationUpdate:700,animationEasingUpdate:'cubicOut',
     tooltip:{backgroundColor:css('--menu'),borderColor:css('--border-2'),borderWidth:1,padding:[8,10],
-      textStyle:{color:css('--text'),fontSize:12,fontFamily:'Inter, Segoe UI, sans-serif'},extraCssText:'box-shadow:0 8px 28px rgba(0,0,0,.3);border-radius:8px;'}
+      textStyle:{color:css('--text'),fontSize:12,fontFamily:'Poppins, Segoe UI, sans-serif'},extraCssText:'box-shadow:0 8px 28px rgba(0,0,0,.3);border-radius:8px;'}
   };
 }
 const DEF={
@@ -56,7 +56,7 @@ const DEF={
     const total=f.data.reduce((s,d)=>s+d.value,0);
     return {...base(),
       tooltip:{...base().tooltip,trigger:'item',formatter:p=>`${p.marker}${p.name}<br><b>${p.value} h</b> · ${p.percent}%`},
-      title:{text:`${r1(total)} h`,subtext:f.sub||'this week',left:'center',top:'36%',textStyle:{color:css('--text'),fontSize:20,fontWeight:600,fontFamily:'Inter, Segoe UI, sans-serif'},
+      title:{text:`${r1(total)} h`,subtext:f.sub||'this week',left:'center',top:'36%',textStyle:{color:css('--text'),fontSize:20,fontWeight:600,fontFamily:'Poppins, Segoe UI, sans-serif'},
         subtextStyle:{color:css('--muted'),fontSize:11}},
       series:[{type:'pie',radius:['66%','88%'],avoidLabelOverlap:false,label:{show:false},padAngle:2,itemStyle:{borderRadius:4,borderColor:css('--panel'),borderWidth:2},
         data:f.data.filter(d=>d.value>0).map(d=>({name:d.name,value:r1(d.value),itemStyle:{color:d.color}}))}]};

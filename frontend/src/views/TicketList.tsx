@@ -6,7 +6,7 @@ import type { Status, Ticket } from '../api';
 import { useStore } from '../store';
 import { fmtDate, isOpen, STATUS_ORDER } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Avatar, Due, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
+import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TechTag, Tip, useChangeFlash, useFieldMenus, useMenu, XBtn } from '../components/ui';
 import { VIEWS, type ViewKey } from '../components/Sidebar';
 import { useDialogs } from '../components/Dialogs';
 import { activeFilterCount, applyFilters, EMPTY_PREFS, rememberOrder, sorter, useListPrefs } from '../lib/listPrefs';
@@ -86,40 +86,41 @@ export function TicketList({ route }: { route: string }) {
     const cur = prefs.filters[f];
     setPrefs({ ...prefs, filters: { ...prefs.filters, [f]: cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v] } });
   };
-  const filterPill = (f: FilterField, label: string) => {
+  const filterPill = (f: FilterField, label: string, icon: string) => {
     const n = prefs.filters[f].length;
-    return <button key={f} className={'pill fpill' + (n ? ' active' : '')} onClick={e => menu(e.currentTarget,
-      menus[f]({ [f]: '' } as never).map(i => ({ ...i, checked: prefs.filters[f].includes(i.value) })), v => toggleFilter(f, v), f === 'Project' || f === 'Tech')}>
-      {label}{n ? <span className="c num">{' · ' + n}</span> : null}<Icon name="down" size={12} /></button>;
+    return <XBtn key={f} icon={icon} title={label} aria-label={label} open={!!n} className={'fpill' + (n ? ' active' : '')} onClick={e => menu(e.currentTarget,
+      menus[f]({ [f]: '' } as never).map(i => ({ ...i, checked: prefs.filters[f].includes(i.value) })), v => toggleFilter(f, v), f === 'Project' || f === 'Tech')}
+      label={<>{label}{n ? <span className="c num">{' · ' + n}</span> : null}<Icon name="down" size={12} /></>} />;
   };
   const DUE: [DueFilter, string][] = [['any', 'Any due date'], ['overdue', 'Overdue'], ['week', 'Due within 7 days'], ['none', 'No due date']];
   const GROUP: [GroupBy, string][] = [['status', 'Group by status'], ['project', 'Group by project'], ['priority', 'Group by priority']];
   const SORT: [SortBy, string][] = [['urgency', 'Sort: priority, then due'], ['due', 'Sort: due date'], ['priority', 'Sort: priority'], ['created', 'Sort: newest first'], ['updated', 'Sort: recently changed']];
   const filterBar = <>
-    {filterPill('Priority', 'Priority')}{filterPill('Project', 'Project')}{filterPill('Tech', 'Tech')}{filterPill('TicketType', 'Type')}
-    <button className={'pill fpill' + (prefs.due !== 'any' ? ' active' : '')} onClick={e => menu(e.currentTarget, DUE.map(([v, l]) => ({ label: l, value: v, checked: prefs.due === v })), v => setPrefs({ ...prefs, due: v as DueFilter }), false)}>
-      {prefs.due === 'any' ? 'Due' : DUE.find(d => d[0] === prefs.due)![1]}<Icon name="down" size={12} /></button>
-    {nFilters > 0 && <button className="pill" onClick={clearFilters} title="Clear all filters">{'Clear · ' + nFilters}</button>}
-    <button className="pill" title="Grouping and sorting" onClick={e => menu(e.currentTarget, [
+    {filterPill('Priority', 'Priority', 'priority')}{filterPill('Project', 'Project', 'folder')}{filterPill('Tech', 'Tech', 'tag')}{filterPill('TicketType', 'Type', 'bug')}
+    <XBtn icon="cal" title="Due date" aria-label="Due date" open={prefs.due !== 'any'} className={'fpill' + (prefs.due !== 'any' ? ' active' : '')}
+      onClick={e => menu(e.currentTarget, DUE.map(([v, l]) => ({ label: l, value: v, checked: prefs.due === v })), v => setPrefs({ ...prefs, due: v as DueFilter }), false)}
+      label={<>{prefs.due === 'any' ? 'Due' : DUE.find(d => d[0] === prefs.due)![1]}<Icon name="down" size={12} /></>} />
+    {nFilters > 0 && <XBtn icon="x" open onClick={clearFilters} title="Clear all filters" label={'Clear · ' + nFilters} />}
+    <XBtn icon="list" title="Grouping and sorting" aria-label="Display" onClick={e => menu(e.currentTarget, [
       ...(layout === 'list' ? GROUP.map(([v, l]) => ({ label: l, value: 'g:' + v, checked: prefs.group === v })) : []),
       ...SORT.map(([v, l]) => ({ label: l, value: 's:' + v, checked: prefs.sort === v }))],
-      v => setPrefs(v.startsWith('g:') ? { ...prefs, group: v.slice(2) as GroupBy } : { ...prefs, sort: v.slice(2) as SortBy }), false)}>
-      <Icon name="list" size={13} />Display</button>
+      v => setPrefs(v.startsWith('g:') ? { ...prefs, group: v.slice(2) as GroupBy } : { ...prefs, sort: v.slice(2) as SortBy }), false)}
+      label="Display" />
   </>;
   const bar2 = <>
     {view ? <span className="muted">{set.length} tickets</span> : ([['active', 'Active', (t: Ticket) => isOpen(t) && t.Status !== 'BACKLOG'], ['backlog', 'Backlog', (t: Ticket) => t.Status === 'BACKLOG'], ['all', 'All', () => true]] as const)
       .map(([k, l, f]) => <a key={k} className={'pill' + (tab === k ? ' on' : '')} href={base + k}>{l}<span className="c num">{count(f)}</span></a>)}
     <span style={{ width: 8 }} />{filterBar}
     <span className="sp" />
-    <div className="seg"><button className={layout === 'list' ? 'on' : ''} title="List" onClick={() => setLayout('list')}><Icon name="list" size={14} /></button>
-      <button className={layout === 'board' ? 'on' : ''} title="Board" onClick={() => setLayout('board')}><Icon name="board" size={14} /></button></div>
+    <div className="xseg"><XBtn icon="list" label="List" title="List" aria-label="List" on={layout === 'list'} open={layout === 'list'} onClick={() => setLayout('list')} />
+      <XBtn icon="board" label="Board" title="Board" aria-label="Board" on={layout === 'board'} open={layout === 'board'} onClick={() => setLayout('board')} /></div>
   </>;
 
   if (!s.ready) return <Page crumb={crumb}>{[...Array(8)].map((_, i) => <div key={i} className="sk-row"><span className="sk" /><span className="sk" />
     <span className="sk" style={{ borderRadius: '50%', width: 14, height: 14 }} /><span className="sk" style={{ width: (45 + (i * 13) % 40) + '%' }} /><span className="sk" /><span className="sk" /></div>)}</Page>;
   const emptyState = nFilters > 0
-    ? <div className="empty">No tickets match the filters.<br /><button className="btn" onClick={clearFilters}>Clear filters</button></div>
-    : <div className="empty">No tickets here. Press <kbd>C</kbd> to create one.</div>;
+    ? <Empty icon="search" title="No tickets match the filters" action={<button className="btn" onClick={clearFilters}>Clear filters</button>} />
+    : <Empty icon="check" title="No tickets here">Press <kbd>C</kbd> to create one.</Empty>;
 
   if (layout === 'list') {
     let n = -1;
@@ -168,10 +169,11 @@ export function TicketList({ route }: { route: string }) {
           const g = set.filter(t => t.Status === k).sort(sorter(prefs.sort)).slice(0, k === 'DONE' ? 20 : 999);
           const wip = s.wip(k), over = wip > 0 && g.length > wip;
           return (
-            <Column key={k} status={k}>
+            <Column key={k} status={k} empty={!g.length}>
               <div className="col-h"><StatusIcon status={k} />{s.text('STATUS', k)}<span className="c">{g.length}</span><span className="sp" />
                 {wip > 0 && <span className={'wip' + (over ? ' over' : '')} title="Work-in-progress limit">{g.length}/{wip}</span>}
-                <button className="ib" onClick={() => openNew({ status: k, ...(project ? { Project: project } : {}) })}><Icon name="plus" /></button></div>
+                <Tip label={'New ticket in ' + s.text('STATUS', k)}><button className="ib" aria-label={'New ticket in ' + s.text('STATUS', k)} onClick={() => openNew({ status: k, ...(project ? { Project: project } : {}) })}><Icon name="plus" /></button></Tip></div>
+              {!g.length && <div className="col-empty">No tickets</div>}
               {g.map(t => <DraggableCard key={t.TicketUUID} t={t} hidden={dragId === t.TicketUUID} justDragged={justDragged} onPrio={prioMenu} />)}
             </Column>);
         })}</div>
@@ -182,9 +184,9 @@ export function TicketList({ route }: { route: string }) {
 }
 
 const STATUS_VAR: Record<Status, string> = { BACKLOG: 'backlog', TODO: 'todo', PROG: 'prog', TEST: 'test', BLOCK: 'block', DONE: 'done' };
-function Column({ status, children }: { status: Status; children: React.ReactNode }) {
+function Column({ status, empty, children }: { status: Status; empty: boolean; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
-  return <div ref={setNodeRef} className={'col' + (isOver ? ' drop' : '')} style={{ ['--c' as string]: `var(--st-${STATUS_VAR[status]})` }}>{children}</div>;
+  return <div ref={setNodeRef} className={'col' + (isOver ? ' drop' : '') + (empty ? ' is-empty' : '')} style={{ ['--c' as string]: `var(--st-${STATUS_VAR[status]})` }}>{children}</div>;
 }
 
 function CardBody({ t, onPrio }: { t: Ticket; onPrio?: (e: React.MouseEvent, t: Ticket) => void }) {
@@ -201,8 +203,10 @@ function CardBody({ t, onPrio }: { t: Ticket; onPrio?: (e: React.MouseEvent, t: 
 /** Card link; a drag starts after 6 px, so a normal click still opens the ticket */
 function DraggableCard({ t, hidden, justDragged, onPrio }: { t: Ticket; hidden: boolean; justDragged: React.MutableRefObject<number>; onPrio: (e: React.MouseEvent, t: Ticket) => void }) {
   const { setNodeRef, attributes, listeners } = useDraggable({ id: t.TicketUUID });
+  const flash = useChangeFlash<HTMLAnchorElement>(t.Status + t.Priority);
+  const ref = (el: HTMLAnchorElement | null) => { setNodeRef(el); flash.current = el };
   return (
-    <a ref={setNodeRef} {...attributes} {...listeners} className={'card' + (hidden ? ' dragging' : '')} href={'#ticket/' + t.TicketId}
+    <a ref={ref} {...attributes} {...listeners} className={'card' + (hidden ? ' dragging' : '')} href={'#ticket/' + t.TicketId}
       onClick={e => { if (Date.now() - justDragged.current < 300) e.preventDefault() }}>
       <CardBody t={t} onPrio={onPrio} />
     </a>);

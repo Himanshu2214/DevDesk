@@ -25,9 +25,10 @@ export function Donut({ data, sub, height = 150 }: { data: { name: string; value
     const total = data.reduce((s, d) => s + d.value, 0);
     chart.current?.setOption({
       animationDuration: 500,
-      tooltip: { trigger: 'item', backgroundColor: css('--menu'), borderColor: css('--border-2'), textStyle: { color: css('--text'), fontSize: 12 },
+      textStyle: { fontFamily: 'Poppins, Segoe UI, sans-serif' },
+      tooltip: { trigger: 'item', backgroundColor: css('--menu'), borderColor: css('--border-2'), textStyle: { color: css('--text'), fontSize: 12, fontFamily: 'Poppins, Segoe UI, sans-serif' },
         formatter: (p: { marker: string; name: string; value: number; percent: number }) => `${p.marker}${p.name}<br><b>${p.value} h</b> · ${p.percent}%` },
-      title: { text: `${r1(total)} h`, subtext: sub, left: 'center', top: '36%', textStyle: { color: css('--text'), fontSize: 20, fontWeight: 600, fontFamily: 'Inter, Segoe UI, sans-serif' },
+      title: { text: `${r1(total)} h`, subtext: sub, left: 'center', top: '36%', textStyle: { color: css('--text'), fontSize: 20, fontWeight: 600, fontFamily: 'Poppins, Segoe UI, sans-serif' },
         subtextStyle: { color: css('--muted'), fontSize: 11 } },
       series: [{ type: 'pie', radius: ['66%', '88%'], label: { show: false }, padAngle: 2, itemStyle: { borderRadius: 4, borderColor: css('--panel'), borderWidth: 2 },
         data: data.filter(d => d.value > 0).map(d => ({ name: d.name, value: r1(d.value), itemStyle: { color: d.color } })) }],

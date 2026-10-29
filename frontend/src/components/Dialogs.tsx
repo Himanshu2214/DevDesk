@@ -1,13 +1,16 @@
 // New ticket, log time and the command palette – opened from anywhere via useDialogs().
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Command } from 'cmdk';
+import { AnimatePresence, m } from 'motion/react';
 import { api } from '../api';
 import type { NewTicket, Status, Ticket } from '../api';
 import { useArticles, useObjects, useStore, useTransports } from '../store';
 import { recentTickets } from '../lib/recent';
 import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME, STATUS_ORDER } from '../lib/format';
-import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
-import { go, useFieldMenus, useMenu } from './ui';
+import { Dot, Icon, PriorityIcon, Spinner, StatusIcon } from './Icons';
+import { go, MenuSelect, menuOpen, useFieldMenus, useMenu } from './ui';
+import { DatePicker, DuePicker } from './DuePicker';
+import { dialogMotion, scrimMotion } from '../lib/motion';
 
 interface Dialogs { openNew(pre?: Partial<NewTicket>): void; openLog(ticketUUID?: string): void; openPalette(): void; openStop(t: Ticket): void }
 const Ctx = createContext<Dialogs>({ openNew() {}, openLog() {}, openPalette() {}, openStop() {} });
@@ -22,20 +25,24 @@ export function DialogsProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      {newPre && <NewTicketDialog pre={newPre} close={() => setNewPre(null)} />}
-      {log !== undefined && <LogTimeDialog ticketUUID={log} close={() => setLog(undefined)} />}
-      {palette && <Palette close={() => setPalette(false)} />}
-      {stop && <StopTimerDialog ticket={stop} close={() => setStop(null)} />}
+      <AnimatePresence>
+        {newPre && <NewTicketDialog key="new" pre={newPre} close={() => setNewPre(null)} />}
+        {log !== undefined && <LogTimeDialog key="log" ticketUUID={log} close={() => setLog(undefined)} />}
+        {palette && <Palette key="palette" close={() => setPalette(false)} />}
+        {stop && <StopTimerDialog key="stop" ticket={stop} close={() => setStop(null)} />}
+      </AnimatePresence>
     </Ctx.Provider>
   );
 }
 
-function Modal({ close, width, children }: { close(): void; width?: number; children: React.ReactNode }) {
+/** Centered dialog with backdrop; fades/scales in and out (the parent wraps it in AnimatePresence) */
+export function Modal({ close, width, label, children }: { close(): void; width?: number; label?: string; children: React.ReactNode }) {
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.menu.on')) close() };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuOpen()) close() };
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [close]);
-  return <div className="modal on" onMouseDown={e => { if (e.target === e.currentTarget) close() }}><div className="dlg" style={width ? { width: `min(${width}px,94vw)` } : undefined}>{children}</div></div>;
+  return <m.div className="modal on" {...scrimMotion} onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
+    <m.div className="dlg" role="dialog" aria-modal="true" aria-label={label} {...dialogMotion} style={width ? { width: `min(${width}px,94vw)` } : undefined}>{children}</m.div></m.div>;
 }
 
 /* ---------- New ticket ---------- */
@@ -64,8 +71,8 @@ function NewTicketDialog({ pre, close }: { pre: Partial<NewTicket>; close(): voi
   }
   const p = s.project(d.Project);
   return (
-    <Modal close={close}>
-      <div className="top"><span className="chip">DevDesk</span><span>›</span><span>New ticket</span><span className="sp" />
+    <Modal close={close} label="New ticket">
+      <div className="top"><span className="chip">SLATE·SPACE</span><span>›</span><span>New ticket</span><span className="sp" />
         <button className="ib" onClick={close} title="Close (Esc)"><Icon name="x" /></button></div>
       <input className="nt-title" autoFocus placeholder="Ticket title" value={d.Title} onChange={e => set({ Title: e.target.value })}
         onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) create() }} />
@@ -83,13 +90,13 @@ function NewTicketDialog({ pre, close }: { pre: Partial<NewTicket>; close(): voi
         {pill('Environment', <><Icon name="env" size={13} />{d.Environment}</>)}
         <input placeholder="Requester" list="reqList" value={d.Requester} onChange={e => set({ Requester: e.target.value })} />
         <datalist id="reqList">{requesters.map(r => <option key={r} value={r} />)}</datalist>
-        <input type="date" title="Due date" value={d.DueDate} onChange={e => set({ DueDate: e.target.value })} />
+        <DuePicker value={d.DueDate} onChange={v => set({ DueDate: v })} className="pill" />
         <input type="number" min={0} step={0.5} title="Estimate (h)" style={{ width: 70 }} value={d.EstimateHours} onChange={e => set({ EstimateHours: Number(e.target.value) })} />
         <input placeholder="Reference (optional)" style={{ flex: 1, minWidth: 160 }} value={d.Reference} onChange={e => set({ Reference: e.target.value })} />
       </div>
       <div className="ft"><span className="muted" style={{ fontSize: 12 }}><kbd>Ctrl</kbd> <kbd>Enter</kbd> to create</span><span className="sp" />
         <button className="btn" onClick={close}>Cancel</button>
-        <button className="btn primary" disabled={!d.Title.trim() || busy} onClick={create}>{busy ? 'Creating…' : 'Create ticket'}</button></div>
+        <button className="btn primary" disabled={!d.Title.trim() || busy} aria-busy={busy} onClick={create}>{busy && <Spinner />}{busy ? 'Creating…' : 'Create ticket'}</button></div>
     </Modal>
   );
 }
@@ -102,6 +109,7 @@ function LogTimeDialog({ ticketUUID, close }: { ticketUUID: string | null; close
   const [date, setDate] = useState(isoDate(new Date()));
   const [hours, setHours] = useState('1');
   const [activity, setActivity] = useState('CODE');
+  const activities = s.values.filter(v => v.ListType === 'ACTIVITY').map(v => ({ value: v.Code, label: v.Text, icon: <Dot color={v.Color || 'var(--muted)'} /> }));
   const [comment, setComment] = useState('');
   async function save() {
     const t = s.tickets.find(x => x.TicketUUID === id); const h = Number(hours);
@@ -111,13 +119,13 @@ function LogTimeDialog({ ticketUUID, close }: { ticketUUID: string | null; close
     if (ok) close();
   }
   return (
-    <Modal close={close} width={520}>
+    <Modal close={close} width={520} label="Log time">
       <div className="top"><span>Log time</span><span className="sp" /><button className="ib" onClick={close}><Icon name="x" /></button></div>
       <div className="form" style={{ padding: '14px 16px' }}>
-        <div className="full"><label>Ticket</label><select value={id} onChange={e => setId(e.target.value)}>{options.map(t => <option key={t.TicketUUID} value={t.TicketUUID}>{t.TicketId} · {t.Title}</option>)}</select></div>
-        <div><label>Date</label><input type="date" value={date} max={isoDate(new Date())} onChange={e => setDate(e.target.value)} /></div>
+        <div className="full"><label>Ticket</label><MenuSelect label="Ticket" value={id} onChange={setId} options={options.map(t => ({ value: t.TicketUUID, label: `${t.TicketId} · ${t.Title}`, icon: <StatusIcon status={t.Status} /> }))} /></div>
+        <div><label>Date</label><DatePicker label="Work date" value={date} max={isoDate(new Date())} onChange={setDate} className="sel-btn" /></div>
         <div><label>Hours</label><input type="number" min={0.25} max={24} step={0.25} autoFocus value={hours} onChange={e => setHours(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save() }} /></div>
-        <div className="full"><label>Activity</label><select value={activity} onChange={e => setActivity(e.target.value)}>{s.values.filter(v => v.ListType === 'ACTIVITY').map(v => <option key={v.Code} value={v.Code}>{v.Text}</option>)}</select></div>
+        <div className="full"><label>Activity</label><MenuSelect label="Activity" value={activity} onChange={setActivity} options={activities} /></div>
         <div className="full"><label>Comment</label><input placeholder="Optional" value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save() }} /></div>
       </div>
       <div className="ft"><span className="sp" /><button className="btn" onClick={close}>Cancel</button><button className="btn primary" onClick={save}>Log time</button></div>
@@ -134,6 +142,7 @@ function StopTimerDialog({ ticket, close }: { ticket: Ticket; close(): void }) {
   const long = elapsed > TIMER_WARN_H;
   const [hours, setHours] = useState(String(long ? 1 : quarter(elapsed)));
   const [activity, setActivity] = useState(ticket.Status === 'TEST' ? 'TEST' : ticket.Status === 'TODO' ? 'ANA' : 'CODE');
+  const activities = s.values.filter(v => v.ListType === 'ACTIVITY').map(v => ({ value: v.Code, label: v.Text, icon: <Dot color={v.Color || 'var(--muted)'} /> }));
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const fmt = (h: number) => (h >= 48 ? `${Math.floor(h / 24)} days ${Math.round(h % 24)} h` : `${Math.floor(h)} h ${Math.round((h % 1) * 60)} min`);
@@ -155,7 +164,7 @@ function StopTimerDialog({ ticket, close }: { ticket: Ticket; close(): void }) {
     if (ok) close();
   }
   return (
-    <Modal close={close} width={500}>
+    <Modal close={close} width={500} label="Stop timer">
       <div className="top"><span>Stop timer · {ticket.TicketId}</span><span className="sp" /><button className="ib" aria-label="Close" onClick={close}><Icon name="x" /></button></div>
       <div style={{ padding: '14px 16px 0' }}>
         <div className="t2" style={{ fontWeight: 500 }}>{ticket.Title}</div>
@@ -164,11 +173,11 @@ function StopTimerDialog({ ticket, close }: { ticket: Ticket; close(): void }) {
       </div>
       <div className="form" style={{ padding: '12px 16px' }}>
         <div><label>Hours to log</label><input type="number" min={0.25} max={24} step={0.25} autoFocus value={hours} onChange={e => setHours(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') finish(true) }} /></div>
-        <div><label>Activity</label><select value={activity} onChange={e => setActivity(e.target.value)}>{s.values.filter(v => v.ListType === 'ACTIVITY').map(v => <option key={v.Code} value={v.Code}>{v.Text}</option>)}</select></div>
+        <div><label>Activity</label><MenuSelect label="Activity" value={activity} onChange={setActivity} options={activities} /></div>
         <div className="full"><label>Comment</label><input placeholder="Optional" value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') finish(true) }} /></div>
       </div>
       <div className="ft"><button className="btn" disabled={busy} onClick={() => finish(false)}>Discard time</button><span className="sp" />
-        <button className="btn" onClick={close}>Keep running</button><button className="btn primary" disabled={busy} onClick={() => finish(true)}>Log {Number(hours) || 0} h</button></div>
+        <button className="btn" onClick={close}>Keep running</button><button className="btn primary" disabled={busy} aria-busy={busy} onClick={() => finish(true)}>{busy && <Spinner />}Log {Number(hours) || 0} h</button></div>
     </Modal>
   );
 }
@@ -190,7 +199,7 @@ function Palette({ close }: { close(): void }) {
   const action = (label: string, icon: string, fn: () => void, hint = '') => (
     <Command.Item key={label} value={label} onSelect={() => pick(fn)}><Icon name={icon} size={14} style={{ color: 'var(--muted)' }} /><span>{label}</span><span className="pal-k">{hint}</span></Command.Item>);
   return (
-    <Modal close={close} width={640}>
+    <Modal close={close} width={640} label="Command palette">
       <Command className="pal" label="Command palette" loop>
         <Command.Input autoFocus value={search} onValueChange={setSearch} placeholder="Search tickets, or type a command…" />
         <Command.List className="res">

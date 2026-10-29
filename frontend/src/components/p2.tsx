@@ -4,7 +4,7 @@ import type { Status, TechObject, Ticket, Transport } from '../api';
 import { useStore } from '../store';
 import { fmtDate } from '../lib/format';
 import { Icon, StatusIcon } from './Icons';
-import { useMenu } from './ui';
+import { menuOpen, useMenu } from './ui';
 
 export function ObjType({ type, small }: { type: string; small?: boolean }) {
   const s = useStore();
@@ -17,7 +17,7 @@ export function SidePanel({ head, close, children }: { head: React.ReactNode; cl
   const [on, setOn] = useState(false);
   useEffect(() => { const id = requestAnimationFrame(() => setOn(true)); return () => cancelAnimationFrame(id) }, []);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.menu.on, .modal.on')) close() };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && !menuOpen() && !document.querySelector('.modal.on')) close() };
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [close]);
   return (

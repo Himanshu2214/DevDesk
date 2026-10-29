@@ -1,11 +1,11 @@
 // Transport tracker: DEV → QA → PRD board, entered by hand in phase 2 (phase 3 reads E070 / TMS).
 import { useState } from 'react';
 import { api } from '../api';
-import type { Status, Transport } from '../api';
+import type { Status, Ticket, Transport } from '../api';
 import { useStore, useTransports } from '../store';
 import { fmtDate } from '../lib/format';
-import { Dot, Icon, StatusIcon } from '../components/Icons';
-import { go, Page, useMenu } from '../components/ui';
+import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
+import { Empty, go, Page, useChangeFlash, useMenu } from '../components/ui';
 import { Area, Line, SidePanel, trEdge, trState, usePickers } from '../components/p2';
 
 const RC_ITEMS = [['0', 'RC 0 – success'], ['4', 'RC 4 – warnings'], ['8', 'RC 8 – errors'], ['12', 'RC 12 – aborted']].map(([value, label]) => ({ label, value }));
@@ -26,27 +26,18 @@ export function Transports({ route }: { route: string }) {
   const failed = set.filter(x => x.Phase === 'FAILED').length, n = set.length || 1;
   const open = list.find(x => x.TrKorr === sel);
 
-  const card = (x: Transport) => {
-    const t = tk(x.TicketUUID);
-    const d = x.PrdImportedAt ?? x.QaImportedAt ?? x.ReleasedOn ?? x.CreatedAt;
-    return <div key={x.TransportUUID} className="trc" style={{ '--edge': trEdge(x) } as React.CSSProperties} role="button" tabIndex={0}
-      onClick={() => go('transports/' + x.TrKorr)} onKeyDown={e => { if (e.key === 'Enter') go('transports/' + x.TrKorr) }}>
-      <div className="r1"><span className="mono" style={{ fontWeight: 600 }}>{x.TrKorr}</span>
-        {x._Dependency.length > 0 && <span title={'Depends on ' + x._Dependency.map(d => d.DependsOn).join(', ')} style={{ color: 'var(--muted)', display: 'grid' }}><Icon name="link" size={14} /></span>}
-        <span className="sp" />{trState(x)}</div>
-      <div className="tt">{x.TrText || <span className="muted">No description</span>}</div>
-      <div className="r3">{t ? <><StatusIcon status={t.Status as Status} /><span className="num">{t.TicketId}</span><span>·</span></> : <span>No ticket ·</span>}
-        <span>{fmtDate(d)}</span>
-        {x.TestEvidence && <span title="Test evidence recorded" style={{ color: 'var(--ok)', display: 'grid', marginLeft: 'auto' }}><Icon name="check" size={14} /></span>}</div>
-    </div>;
-  };
+  const card = (x: Transport) => <TransportCard key={x.TransportUUID} x={x} t={tk(x.TicketUUID)} />;
   const phase = (title: string, color: string, items: Transport[], hint: string, limit = 99) =>
-    <section className="phase" style={{ '--c': color } as React.CSSProperties}>
-      <header>{title}<span className="c num">{items.length}</span><span className="sp" /><span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{hint}</span></header>
+    <section className={'phase' + (items.length ? '' : ' is-empty')} style={{ '--c': color } as React.CSSProperties}>
+      <header><i className="ph-dot" />{title}<span className="c num">{items.length}</span><span className="sp" /><span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{hint}</span></header>
       {items.slice(0, limit).map(card)}
-      {!items.length && <div className="empty" style={{ padding: 24 }}>Nothing here</div>}
+      {!items.length && <div className="col-empty">Nothing here</div>}
       {items.length > limit && <div className="muted" style={{ padding: '6px 14px 12px' }}>+ {items.length - limit} older imports</div>}
     </section>;
+  // successful imports only; failed ones (RC > 4) are counted once, as failed
+  const qaOk = qa.filter(x => x.QaRc <= 4).length, prdOk = prd.filter(x => x.PrdRc <= 4).length;
+  const seg = (count: number, color: string, label: string) => count > 0 &&
+    <i style={{ width: `${count / n * 100}%`, background: color }} title={`${count} ${label}`} />;
 
   const bar2 = <>
     {[['all', 'All projects'], ...s.projects.map(p => [p.Project, p.Name])].map(([k, l]) =>
@@ -61,11 +52,14 @@ export function Transports({ route }: { route: string }) {
       {q.isLoading ? <div className="trk" aria-busy="true"><div className="sk" style={{ height: 10, width: '100%', marginBottom: 18 }} />
         <div className="phases">{[0, 1, 2].map(i => <div key={i} className="phase" style={{ height: 180 }} />)}</div></div>
         : <div className="trk">
-          <div className="trk-prog"><span className="t2" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{prd.length} of {set.length} in production</span>
-            <div className="bar"><i style={{ width: `${prd.length / n * 100}%`, background: 'var(--ok)' }} /><i style={{ width: `${(qa.length - qa.filter(x => x.QaRc > 4).length) / n * 100}%`, background: 'var(--st-test)' }} />
-              <i style={{ width: `${failed / n * 100}%`, background: 'var(--danger)' }} /><i style={{ width: `${dev.length / n * 100}%`, background: 'var(--border-2)' }} /></div>
+          <div className="trk-prog"><span className="t2" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{prdOk} of {set.length} in production</span>
+            <div className="bar" role="img" aria-label={`${prdOk} in production, ${qaOk} in QA, ${failed} failed, ${dev.length} in development`}>
+              {seg(prdOk, 'var(--ok)', 'in production')}{seg(qaOk, 'var(--st-test)', 'in QA')}{seg(failed, 'var(--danger)', 'failed')}{seg(dev.length, 'var(--faint)', 'in development')}</div>
             {failed > 0 && <span className="fail">{failed} failed</span>}</div>
-          {!list.length && <div className="empty">No transports tracked yet. Add one with <b>New transport</b>, or from a ticket (tab SAP &amp; files).</div>}
+          <div className="trk-legend">
+            <span><i style={{ background: 'var(--ok)' }} />Production {prdOk}</span><span><i style={{ background: 'var(--st-test)' }} />QA {qaOk}</span>
+            {failed > 0 && <span><i style={{ background: 'var(--danger)' }} />Failed {failed}</span>}<span><i style={{ background: 'var(--faint)' }} />Development {dev.length}</span></div>
+          {!list.length && <Empty icon="truck" title="No transports tracked yet">Add one with <b>New transport</b>, or from a ticket (tab SAP &amp; files).</Empty>}
           <div className="phases">
             {phase('Development', 'var(--st-prog)', dev, 'not imported')}
             {phase('Quality (QA)', 'var(--st-test)', qa, 'waiting for PRD')}
@@ -76,6 +70,23 @@ export function Transports({ route }: { route: string }) {
       {sel && !creating && !open && !q.isLoading && <SidePanel head={<b className="mono">{sel}</b>} close={() => go('transports')}><div className="empty">Transport {sel} is not tracked.</div></SidePanel>}
     </Page>
   );
+}
+
+/** Transport card; a failed import gets a red edge and badge (not a red card), and the card flashes when its phase or RC changes */
+function TransportCard({ x, t }: { x: Transport; t?: Ticket }) {
+  const d = x.PrdImportedAt ?? x.QaImportedAt ?? x.ReleasedOn ?? x.CreatedAt;
+  const flash = useChangeFlash<HTMLDivElement>(`${x.Phase}|${x.QaRc}|${x.PrdRc}|${x.QaImportedAt}|${x.PrdImportedAt}`);
+  return <div ref={flash} className={'trc' + (x.Phase === 'FAILED' ? ' failed' : '')} style={{ '--edge': trEdge(x) } as React.CSSProperties} role="button" tabIndex={0}
+    aria-label={`Transport ${x.TrKorr}${x.Phase === 'FAILED' ? ', import failed' : ''}`}
+    onClick={() => go('transports/' + x.TrKorr)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go('transports/' + x.TrKorr) } }}>
+    <div className="r1"><span className="mono" style={{ fontWeight: 600 }}>{x.TrKorr}</span>
+      {x._Dependency.length > 0 && <span title={'Depends on ' + x._Dependency.map(d => d.DependsOn).join(', ')} style={{ color: 'var(--muted)', display: 'grid' }}><Icon name="link" size={14} /></span>}
+      <span className="sp" />{trState(x)}</div>
+    <div className="tt">{x.TrText || <span className="muted">No description</span>}</div>
+    <div className="r3">{t ? <><StatusIcon status={t.Status as Status} /><span className="num">{t.TicketId}</span><span>·</span></> : <span>No ticket ·</span>}
+      <span>{fmtDate(d)}</span>
+      {x.TestEvidence && <span title="Test evidence recorded" style={{ color: 'var(--ok)', display: 'grid', marginLeft: 'auto' }}><Icon name="check" size={14} /></span>}</div>
+  </div>;
 }
 
 function TransportPanel({ x, all, close }: { x: Transport; all: Transport[]; close(): void }) {
@@ -165,7 +176,7 @@ function NewTransport({ close, ticketUUID }: { close(): void; ticketUUID?: strin
         Phase 3 reads them from E070 and the TMS import log.</p>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button className="btn" onClick={close}>Cancel</button>
-        <button className="btn primary" disabled={!d.TrKorr.trim() || busy} onClick={create}>Add transport</button></div>
+        <button className="btn primary" disabled={!d.TrKorr.trim() || busy} aria-busy={busy} onClick={create}>{busy && <Spinner />}Add transport</button></div>
     </SidePanel>
   );
 }

@@ -1,4 +1,4 @@
-// DevDesk mockup core: helpers, icons, state, mutations, menus, router, sidebar, palette, timer, live updates.
+// SLATE·SPACE mockup core: helpers, icons, state, mutations, menus, router, sidebar, palette, timer, live updates.
 // Screens live in views-*.js and register themselves in DD.views.
 (function(){
 const {DAY,STATUSES,PRIORITIES,TYPES,PROJECTS,AREAS,TECHS,ENVS,ACTIVITIES,OBJECTS,ARTICLES,tickets,transports,startOfDay,ME}=TD;
@@ -37,22 +37,50 @@ function pIcon(p){
   const lv={High:3,Medium:2,Low:1}[p]||0;
   return `<svg class="pi" viewBox="0 0 16 16">${[0,1,2].map(i=>`<rect x="${2+i*4.5}" y="${10-i*3.5}" width="3" height="${4+i*3.5}" rx="1" fill="${i<lv?'var(--text-2)':'var(--faint)'}"/>`).join('')}</svg>`;
 }
-const I={
-  home:'<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>',inbox:'<path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5 5h14l2 8v6H3v-6z"/>',
-  my:'<circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="3"/>',truck:'<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
-  cube:'<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',book:'<path d="M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 1-4-4z"/><path d="M5 16a4 4 0 0 1 4-4h10"/>',
-  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
-  move:'<path d="M5 12h14m-5-5 5 5-5 5"/>',plus:'<path d="M12 5v14M5 12h14"/>',chat:'<path d="M4 5h16v11H8l-4 3z"/>',alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
-  list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',board:'<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
-  play:'<path d="M8 5v14l11-7z"/>',pause:'<path d="M9 5v14M15 5v14"/>',up:'<path d="m6 15 6-6 6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',
-  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',tr:'<path d="M4 7h16M4 12h10M4 17h7"/>',
-  cal:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',user:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',
-  tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',check:'<path d="m5 12 4.5 4.5L19 7"/>',search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/>',
-  filter:'<path d="M4 5h16l-6 7v6l-4 2v-8z"/>',refresh:'<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',x:'<path d="M6 6l12 12M18 6 6 18"/>',
-  folder:'<path d="M3 6h6l2 2h10v11H3z"/>',bug:'<rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 7V4M4 13h3M17 13h3M5 8l3 2M19 8l-3 2M5 19l3-2M19 19l-3-2"/>',
-  env:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',graph:'<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 8 11 16M16.5 8 13 16"/>'
+const I={ // Lucide icons (ISC, see vendor/LUCIDE-LICENSE.txt), same set as the React app
+  home:'<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
+  inbox:'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>',
+  my:'<path d="M10.1 2.182a10 10 0 0 1 3.8 0"></path><path d="M13.9 21.818a10 10 0 0 1-3.8 0"></path><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"></path><path d="M2.182 13.9a10 10 0 0 1 0-3.8"></path><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"></path><path d="M21.818 10.1a10 10 0 0 1 0 3.8"></path><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"></path><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"></path>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"></path><path d="M15 18H9"></path><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"></path><circle cx="17" cy="18" r="2"></circle><circle cx="7" cy="18" r="2"></circle>',
+  cube:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path>',
+  book:'<path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path>',
+  clock:'<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>',
+  chart:'<path d="M3 3v16a2 2 0 0 0 2 2h16"></path><rect x="15" y="5" width="4" height="12" rx="1"></rect><rect x="7" y="8" width="4" height="9" rx="1"></rect>',
+  move:'<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>',
+  plus:'<path d="M5 12h14"></path><path d="M12 5v14"></path>',
+  chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path>',
+  list:'<path d="M3 12h.01"></path><path d="M3 18h.01"></path><path d="M3 6h.01"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M8 6h13"></path>',
+  board:'<rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="M15 3v18"></path>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"></polygon>',
+  pause:'<rect x="14" y="4" width="4" height="16" rx="1"></rect><rect x="6" y="4" width="4" height="16" rx="1"></rect>',
+  stop:'<rect width="18" height="18" x="3" y="3" rx="2"></rect>',
+  up:'<path d="m18 15-6-6-6 6"></path>',
+  down:'<path d="m6 9 6 6 6-6"></path>',
+  link:'<path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 1 1 0 10h-2"></path><line x1="8" x2="16" y1="12" y2="12"></line>',
+  tr:'<path d="M15 12H3"></path><path d="M17 18H3"></path><path d="M21 6H3"></path>',
+  cal:'<path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
+  tag:'<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"></circle>',
+  check:'<path d="M20 6 9 17l-5-5"></path>',
+  search:'<circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>',
+  filter:'<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path>',
+  x:'<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>',
+  bug:'<path d="m8 2 1.88 1.88"></path><path d="M14.12 3.88 16 2"></path><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"></path><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"></path><path d="M12 20v-9"></path><path d="M6.53 9C4.6 8.8 3 7.1 3 5"></path><path d="M6 13H2"></path><path d="M3 21c0-2.1 1.7-3.9 3.8-4"></path><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"></path><path d="M22 13h-4"></path><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"></path>',
+  env:'<rect width="20" height="14" x="2" y="3" rx="2"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path>',
+  graph:'<rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>',
+  sun:'<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>',
+  edit:'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path>',
+  loader:'<path d="M21 12a9 9 0 1 1-6.219-8.56"></path>'
 };
-const ic=(n,style='')=>`<svg class="i" viewBox="0 0 24 24" style="${style}">${I[n]}</svg>`;
+const ic=(n,style='')=>`<svg class="i" data-icon="${n}" viewBox="0 0 24 24" style="${style}">${I[n]}</svg>`;
+// icons written straight into index.html are filled from the same map
+document.querySelectorAll('svg.i[data-icon]').forEach(s=>{if(!s.innerHTML.trim())s.innerHTML=I[s.dataset.icon]});
 const ic14=n=>ic(n,'width:14px;height:14px');
 function dueHtml(t,short){
   if(t.status==='DONE')return `<span class="due muted">${fmtD(t.due)}</span>`;
@@ -113,11 +141,12 @@ function logTime(t,h,activity,date,comment=''){
 }
 
 /* ---------- Popover menu ---------- */
-let menuCb=null,menuItems=[],menuSel=0;
+let menuCb=null,menuItems=[],menuSel=0,menuAnchor=null;
 function openMenu(anchor,items,cb,{search=true}={}){
   menuCb=cb;menuItems=items;menuSel=Math.max(0,items.findIndex(i=>i.checked));
   const m=$('#menu');m.innerHTML=(search?'<input placeholder="Change to…" id="menuQ">':'')+'<div id="menuL"></div>';
   drawMenu('');m.classList.add('on');
+  menuAnchor?.setAttribute('aria-expanded','false');menuAnchor=anchor;anchor.setAttribute('aria-expanded','true');
   const r=anchor.getBoundingClientRect(),h=m.offsetHeight,w=m.offsetWidth;
   m.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';m.style.top=(r.bottom+h+8>innerHeight?Math.max(8,r.top-h-4):r.bottom+4)+'px';
   if(search){const q=$('#menuQ');q.focus();q.oninput=()=>{menuSel=0;drawMenu(q.value)}}
@@ -127,7 +156,7 @@ function drawMenu(q){
   $('#menuL').innerHTML=vis.map((it,n)=>`<div class="mi ${n===menuSel?'sel':''}" data-v="${esc(it.value)}">${it.icon||''}<span>${esc(it.label)}</span>${it.checked?`<span class="ck">${ic('check')}</span>`:''}</div>`).join('');
   menuItems._vis=vis;
 }
-function closeMenu(){$('#menu').classList.remove('on');menuCb=null}
+function closeMenu(){$('#menu').classList.remove('on');menuCb=null;menuAnchor?.setAttribute('aria-expanded','false');menuAnchor=null}
 $('#menu').addEventListener('click',e=>{const mi=e.target.closest('.mi');if(mi&&menuCb){const cb=menuCb;closeMenu();cb(mi.dataset.v)}});
 document.addEventListener('mousedown',e=>{if(!e.target.closest('#menu')&&!e.target.closest('[data-menu]'))closeMenu()});
 const dot=c=>`<span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block;margin:0 3px"></span>`;
@@ -151,7 +180,7 @@ const VIEWS={
   done:{name:'Recently done',icon:()=>sIcon('DONE'),fn:t=>{const c=M.closedAt(t);return c&&c>=Date.now()-14*DAY}}
 };
 function renderSide(){
-  const nav=[['home','Home','home'],['inbox','Inbox','inbox'],['list/active','My tickets','my'],['transports','Transports','truck'],['objects','Objects','cube'],['kb','Knowledge','book'],['timesheet','Timesheet','clock'],['insights','Insights','chart']];
+  const nav=[['home','Home','home'],['inbox','Inbox','bell'],['list/active','My tickets','my'],['transports','Transports','truck'],['objects','Objects','cube'],['kb','Knowledge','book'],['timesheet','Timesheet','clock'],['insights','Insights','chart']];
   const unread=DD.views.inbox.items().filter(n=>!S.read.has(n.key)).length;
   $('#navMain').innerHTML=nav.map(([h,l,i])=>`<a class="ni" href="#${h}" data-nav="${h}">${ic(i)}${l}<span class="c num">${h==='inbox'?unread||'':h==='list/active'?tickets.filter(t=>isOpen(t)&&t.status!=='BACKLOG').length:''}</span></a>`).join('');
   $('#navViews').innerHTML=Object.entries(VIEWS).map(([k,v])=>`<a class="ni" href="#list/${k}" data-nav="list/${k}">${v.icon()}${v.name}<span class="c num">${tickets.filter(v.fn).length||''}</span></a>`).join('');
@@ -329,8 +358,9 @@ function stopTimer(log){
   if(log){const h=Math.max(.25,Math.round(sec/900)/4);logTime(t,h);toast(`${ic('clock')} Logged ${h}h on ${t.id}`)}else tick();
 }
 function tick(){
-  const tm=S.timer,sec=tm.id?tm.acc+(tm.running?(Date.now()-tm.start)/1e3:0):0,p=n=>String(Math.floor(n)).padStart(2,'0');
-  $('#timerClock').textContent=`${p(sec/3600)}:${p(sec%3600/60)}:${p(sec%60)}`;
+  const tm=S.timer,sec=tm.id?tm.acc+(tm.running?(Date.now()-tm.start)/1e3:0):0,p=n=>[...String(Math.floor(n)).padStart(2,'0')].map(d=>`<span class="d">${d}</span>`).join('');
+  // Poppins has no tabular figures: fixed-width digit cells keep the clock from jittering
+  $('#timerClock').innerHTML=`${p(sec/3600)}:${p(sec%3600/60)}:${p(sec%60)}`;
   $('#timerWhat').textContent=tm.id?`${tm.id} · ${byId(tm.id).title}`:'No timer running';
   $('#timerRec').style.visibility=tm.running?'visible':'hidden';
   $('#timerToggle').innerHTML=ic(tm.running?'pause':'play','width:14px;height:14px');
@@ -342,8 +372,9 @@ $('#timerToggle').onclick=toggleTimer;$('#timerStop').onclick=()=>stopTimer(true
 $('#timerWhat').onclick=()=>S.timer.id&&(location.hash='#ticket/'+S.timer.id);
 
 /* ---------- Theme ---------- */
-function toggleTheme(){const r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'dark':'light';try{localStorage.setItem('devdesk-theme',r.dataset.theme)}catch(e){}Charts.disposeAll();renderAll(true)}
-$('#themeBtn').onclick=toggleTheme;
+function toggleTheme(){const r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'dark':'light';try{localStorage.setItem('devdesk-theme',r.dataset.theme)}catch(e){}Charts.disposeAll();renderAll(true);themeIcon()}
+const themeIcon=()=>{$('#themeBtn').innerHTML=ic(document.documentElement.dataset.theme==='light'?'moon':'sun')};
+$('#themeBtn').onclick=toggleTheme;themeIcon();
 
 /* ---------- Live updates ----------
    In the real app changes come from the backend (polling, later ABAP push channel).

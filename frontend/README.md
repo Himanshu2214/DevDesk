@@ -1,4 +1,4 @@
-# DevDesk frontend – phase 1 and 2
+# SLATE·SPACE frontend – phase 1 and 2
 
 React 18 + TypeScript + Vite, with the same look as the mockup (Inter font and ECharts bundled, no CDN). It talks to the OData V4 service **`ZUI_DD_O4`**: tickets, acceptance criteria, test cases, checklist, work log, comments and status events.
 
@@ -52,7 +52,7 @@ npm run dev
 1. Run `npm run build`. It creates `dist/` with `index.html` and one JS and one CSS file; fonts are inlined.
 2. In SE38, run `/UI5/UI5_REPOSITORY_LOAD`:
    - Name `ZDD_APP`, *Upload*, folder `frontend/dist`.
-   - Description "DevDesk".
+   - Description "SLATE SPACE".
    - Package **`$TMP`** (local object, no transport), or your package later.
 3. In SE38, run `/UI5/APP_INDEX_CALCULATE` for `ZDD_APP`.
 4. Open `https://<host>:<port>/sap/bc/ui5_ui5/sap/zdd_app/index.html?sap-client=<client>`. App and service are on the same host, so there's no CORS setup, and login is your normal SAP logon.

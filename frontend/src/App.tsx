@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
+import { AnimatePresence, LazyMotion, MotionConfig, domMax, m } from 'motion/react';
+import { toastMotion } from './lib/motion';
+import { Icon } from './components/Icons';
 import { StoreProvider, useStore } from './store';
-import { isTyping, MenuProvider, Page, useHash } from './components/ui';
+import { Empty, isTyping, MenuProvider, Page, useHash } from './components/ui';
 import { DialogsProvider, useDialogs } from './components/Dialogs';
 import { Sidebar } from './components/Sidebar';
 import { Home } from './views/Home';
@@ -59,31 +62,33 @@ function Shell() {
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <Sidebar route={route} />
       {s.error
-        ? <Page crumb={<b>DevDesk</b>}><div className="home"><div className="panel" style={{ padding: '22px 24px', maxWidth: 680 }}>
-            <h2 style={{ fontSize: 18 }}>Could not load data</h2>
-            <p className="t2" style={{ whiteSpace: 'pre-wrap' }}>{s.error}</p>
-            <p className="muted">{api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : 'The mock backend failed – try clearing site data.'}</p>
-            <button className="btn primary" onClick={() => s.reload()}>Try again</button></div></div></Page>
+        ? <Page crumb={<b>SLATE·SPACE</b>}><Empty error icon="alert" title="Could not load data" action={<button className="btn primary" onClick={() => s.reload()}><Icon name="refresh" size={14} />Try again</button>}>
+            <span className="t2" style={{ whiteSpace: 'pre-wrap', display: 'block', marginBottom: 6 }}>{s.error}</span>
+            {api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : 'The mock backend failed – try clearing site data.'}</Empty></Page>
         : <Router route={route} />}
       <div style={{ position: 'fixed', right: 18, bottom: 18, display: 'grid', gap: 8, zIndex: 95 }}>
-        {s.toasts.map(t => <div key={t.id} role="status" className="toast on" style={{ position: 'static', transform: 'none', pointerEvents: 'auto', ...(t.error ? { borderColor: 'var(--danger)', color: 'var(--text)', whiteSpace: 'pre-wrap', maxWidth: 420 } : {}) }}>
-          {t.error && <span style={{ color: 'var(--danger)' }}>●</span>}<span>{t.text}</span>
+        <AnimatePresence initial={false}>{s.toasts.map(t => <m.div key={t.id} layout="position" {...toastMotion} role={t.error ? 'alert' : 'status'} className="toast on" style={{ position: 'static', pointerEvents: 'auto', ...(t.error ? { borderColor: 'var(--danger)', color: 'var(--text)', whiteSpace: 'pre-wrap', maxWidth: 420 } : {}) }}>
+          {t.error ? <span style={{ color: 'var(--danger)', display: 'grid' }}><Icon name="alert" size={15} /></span> : <span className="ok-check"><Icon name="check" size={15} /></span>}<span>{t.text}</span>
           {t.action && <button className="toast-act" onClick={() => { s.dismissToast(t.id); t.action!.run() }}>{t.action.label}</button>}
-          <button className="toast-x" aria-label="Close" onClick={() => s.dismissToast(t.id)}>×</button></div>)}
+          <button className="toast-x" aria-label="Close" onClick={() => s.dismissToast(t.id)}>×</button></m.div>)}</AnimatePresence>
       </div>
-      {help && <ShortcutHelp close={() => setHelp(false)} />}
+      <AnimatePresence>{help && <ShortcutHelp key="help" close={() => setHelp(false)} />}</AnimatePresence>
     </div>
   );
 }
 
 export default function App() {
   return (
-    <StoreProvider>
-      <MenuProvider>
-        <DialogsProvider>
-          <Shell />
-        </DialogsProvider>
-      </MenuProvider>
-    </StoreProvider>
+    <LazyMotion features={domMax}>
+      <MotionConfig reducedMotion="user">
+        <StoreProvider>
+          <MenuProvider>
+            <DialogsProvider>
+              <Shell />
+            </DialogsProvider>
+          </MenuProvider>
+        </StoreProvider>
+      </MotionConfig>
+    </LazyMotion>
   );
 }
