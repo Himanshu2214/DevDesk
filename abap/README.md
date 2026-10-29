@@ -38,6 +38,8 @@ Every "New …" wizard asks for a package. Enter **`$TMP`**, and no transport re
 
 ## Step by step
 
+> New to this? The detailed walkthrough with ADT menu paths, wizard values, a check after every step and troubleshooting is in [docs/SETUP-GUIDE.md](../docs/SETUP-GUIDE.md).
+
 ### 1. Number range (once)
 
 1. **Domain** `ZDD_TKT_NO`: in SE11 or ADT, data type NUMC, length 8, description "DevDesk ticket number". Activate it as a local object.

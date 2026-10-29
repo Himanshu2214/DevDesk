@@ -8,7 +8,7 @@ A personal work tracker for SAP development. It covers tickets with acceptance c
 
 - **Target:** S/4HANA 2025 (SAP_BASIS 816, S4CORE 109). The backend design is in [docs/backend-design.md](docs/backend-design.md): managed RAP without draft, `strict ( 2 )`, OData V4, prefix `ZDD`.
 - **No SAP package yet:** the code is kept in GitHub. In SAP, objects can start as local objects (`$TMP`) and move to a package later.
-- **ABAP phase 1 written:** the Ticket BO (10 tables, CDS, access controls, BDEF and class, service `ZUI_DD`, setup report, smoke test) is in [abap/](abap/). See [abap/README.md](abap/README.md) for step-by-step activation in `$TMP`. It hasn't been activated in a system yet.
+- **ABAP phase 1 written:** the Ticket BO (10 tables, CDS, access controls, BDEF and class, service `ZUI_DD`, setup report, smoke test) is in [abap/](abap/). Follow [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md) to create and activate every object step by step in `$TMP` (short version: [abap/README.md](abap/README.md)). It hasn't been activated in a system yet.
 - **React frontend phase 1 written:** [frontend/](frontend/) is the real app for `ZUI_DD_O4`. It runs today with a mock backend (`npm run dev`), and `npm run build` produces the BSP `ZDD_APP`. See [frontend/README.md](frontend/README.md).
 - **Not included:** Mojo integration, company logos.
 
@@ -57,6 +57,7 @@ In the mockup, a simulated event every 15 s (status change, TR import, time logg
 - `mockup/views-work.js` – Home, ticket list/board, ticket page
 - `mockup/views-sap.js` – Transports, Objects and impact map
 - `mockup/views-more.js` – Inbox, Knowledge, Timesheet, Insights
+- `docs/SETUP-GUIDE.md` – step-by-step creation of all SAP objects, app connection and BSP deployment, with checklist and troubleshooting
 - `docs/backend-design.md` – data model and RAP design
 - `abaplint.json`, `.github/workflows/ci.yml` – automatic checks on every push: frontend build and abaplint (see [docs/abapgit.md](docs/abapgit.md))
 - `docs/abapgit.md` – abaplint rules explained, abapGit setup (SAP ↔ GitHub without copy-paste)
