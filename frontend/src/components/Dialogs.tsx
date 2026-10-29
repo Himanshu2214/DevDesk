@@ -1,9 +1,11 @@
 // New ticket, log time and the command palette – opened from anywhere via useDialogs().
 import { createContext, useContext, useEffect, useState } from 'react';
+import { Command } from 'cmdk';
 import { api } from '../api';
 import type { NewTicket, Status, Ticket } from '../api';
-import { useStore } from '../store';
-import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME } from '../lib/format';
+import { useStore, withStatus } from '../store';
+import { recentTickets } from '../lib/recent';
+import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
 import { go, useFieldMenus, useMenu } from './ui';
 
@@ -56,7 +58,7 @@ function NewTicketDialog({ pre, close }: { pre: Partial<NewTicket>; close(): voi
     let created: Ticket | undefined;
     const ok = await s.run(async () => { created = await api.createTicket({ ...d, acceptance: acc.split('\n').map(x => x.trim()).filter(Boolean) }) }, { ok: 'Ticket created' });
     setBusy(false);
-    if (ok && created) { close(); await s.loadTicket(created.TicketUUID); go('ticket/' + created.TicketId) }
+    if (ok && created) { close(); go('ticket/' + created.TicketId) }
   }
   const p = s.project(d.Project);
   return (
@@ -121,40 +123,51 @@ function LogTimeDialog({ ticketUUID, close }: { ticketUUID: string | null; close
   );
 }
 
-/* ---------- Command palette ---------- */
+/* ---------- Command palette (cmdk: fuzzy search, keyboard navigation) ---------- */
 function Palette({ close }: { close(): void }) {
   const s = useStore();
   const { openNew, openLog } = useDialogs();
-  const [q, setQ] = useState('');
-  const [sel, setSel] = useState(0);
-  const cmds: [string, () => void][] = [['New ticket', () => openNew()], ['Log time…', () => openLog()], ['Go to Home', () => go('home')], ['Go to Inbox', () => go('inbox')],
-    ['Go to My tickets', () => go('list/active')], ['Go to Timesheet', () => go('timesheet')], ['Reload data', () => s.reload()]];
-  const ql = q.trim().toLowerCase();
-  const items: { key: string; group: string; node: React.ReactNode; hint: string; run(): void }[] = [
-    ...(ql ? s.tickets.filter(t => `${t.TicketId} ${t.Title} ${t.Requester}`.toLowerCase().includes(ql)).slice(0, 8).map(t => ({
-      key: t.TicketUUID, group: 'Tickets', hint: s.text('STATUS', t.Status), run: () => go('ticket/' + t.TicketId),
-      node: <><StatusIcon status={t.Status as Status} /><span className="muted num">{t.TicketId}</span><span>{t.Title}</span></> })) : []),
-    ...cmds.filter(([l]) => !ql || l.toLowerCase().includes(ql)).map(([l, fn]) => ({ key: l, group: 'Commands', hint: '', run: fn,
-      node: <><Icon name="move" size={14} style={{ color: 'var(--muted)' }} /><span>{l}</span></> })),
-  ];
-  const pick = (i: number) => { const it = items[i]; if (it) { close(); it.run() } };
-  let lastGroup = '';
+  const [search, setSearch] = useState('');
+  const route = location.hash.slice(1);
+  const current = route.startsWith('ticket/') ? s.tickets.find(t => t.TicketId === decodeURIComponent(route.slice(7))) : undefined;
+  const recent = recentTickets().map(id => s.tickets.find(t => t.TicketId === id)).filter((t): t is Ticket => !!t);
+  const pick = (fn: () => void) => { close(); fn() };
+  const ticketItem = (t: Ticket, group: string) => (
+    <Command.Item key={group + t.TicketUUID} value={`${group} ${t.TicketId} ${t.Title} ${t.Requester} ${s.project(t.Project)?.Name ?? ''}`} onSelect={() => pick(() => go('ticket/' + t.TicketId))}>
+      <StatusIcon status={t.Status as Status} /><span className="muted num">{t.TicketId}</span><span className="pal-t">{t.Title}</span><span className="pal-k">{s.text('STATUS', t.Status)}</span>
+    </Command.Item>);
+  const action = (label: string, icon: string, fn: () => void, hint = '') => (
+    <Command.Item key={label} value={label} onSelect={() => pick(fn)}><Icon name={icon} size={14} style={{ color: 'var(--muted)' }} /><span>{label}</span><span className="pal-k">{hint}</span></Command.Item>);
   return (
     <Modal close={close} width={640}>
-      <div className="pal">
-        <input autoFocus placeholder="Search tickets or type a command" value={q} onChange={e => { setQ(e.target.value); setSel(0) }}
-          onKeyDown={e => {
-            if (e.key === 'ArrowDown') { setSel(x => Math.min(x + 1, items.length - 1)); e.preventDefault() }
-            if (e.key === 'ArrowUp') { setSel(x => Math.max(x - 1, 0)); e.preventDefault() }
-            if (e.key === 'Enter') pick(sel);
-          }} />
-        <div className="res">{items.map((it, i) => {
-          const head = it.group !== lastGroup ? <div className="g" key={'g' + it.group}>{(lastGroup = it.group)}</div> : null;
-          return <div key={it.key}>{head}<div className={'mi' + (i === sel ? ' sel' : '')} onMouseEnter={() => setSel(i)} onClick={() => pick(i)}
-            style={{ display: 'flex', alignItems: 'center', gap: 9, height: 36, padding: '0 10px', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-            {it.node}<span style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: 12 }}>{it.hint}</span></div></div>;
-        })}{!items.length && <div className="empty">No results</div>}</div>
-      </div>
+      <Command className="pal" label="Command palette" loop>
+        <Command.Input autoFocus value={search} onValueChange={setSearch} placeholder="Search tickets, or type a command…" />
+        <Command.List className="res">
+          <Command.Empty>No results</Command.Empty>
+          {current && <Command.Group heading={current.TicketId}>
+            {STATUS_ORDER.filter(k => k !== current.Status).map(k => (
+              <Command.Item key={k} value={`set status ${STATUS_NAME[k]}`} onSelect={() => pick(() => s.run(() => api.setStatus(current, k), { uuids: [current.TicketUUID], optimistic: withStatus(k), ok: `Moved to ${STATUS_NAME[k]}` }))}>
+                <StatusIcon status={k} /><span>Set status → {STATUS_NAME[k]}</span></Command.Item>))}
+            {action(current.TimerStartedAt ? 'Stop timer and log time' : 'Start timer', current.TimerStartedAt ? 'stop' : 'play',
+              () => s.run(() => current.TimerStartedAt ? api.stopTimer(current) : api.startTimer(current), { uuids: [current.TicketUUID] }))}
+            {action('Log time on this ticket', 'clock', () => openLog(current.TicketUUID))}
+          </Command.Group>}
+          {!search && recent.length > 0 && <Command.Group heading="Recent">{recent.map(t => ticketItem(t, 'recent'))}</Command.Group>}
+          {search && <Command.Group heading="Tickets">{s.tickets.map(t => ticketItem(t, 'ticket'))}</Command.Group>}
+          <Command.Group heading="Actions">
+            {action('New ticket', 'plus', () => openNew(), 'C')}
+            {action('Log time…', 'clock', () => openLog())}
+            {action('Reload data', 'refresh', () => s.reload())}
+          </Command.Group>
+          <Command.Group heading="Go to">
+            {action('Home', 'home', () => go('home'))}
+            {action('Inbox', 'inbox', () => go('inbox'))}
+            {action('My tickets', 'my', () => go('list/active'))}
+            {action('Overdue', 'alert', () => go('list/overdue'))}
+            {action('Timesheet', 'clock', () => go('timesheet'))}
+          </Command.Group>
+        </Command.List>
+      </Command>
     </Modal>
   );
 }

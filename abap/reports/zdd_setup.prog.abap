@@ -5,7 +5,7 @@
 *& and configuration (ZDD_CONFIG) with defaults.
 *& Existing entries are kept unless P_RESET is set, so it is safe to run
 *& again after you changed texts or colours.
-*& The projects are examples – adjust them to your own work afterwards.
+*& The projects are examples - adjust them to your own work afterwards.
 *&---------------------------------------------------------------------*
 REPORT zdd_setup.
 
@@ -72,15 +72,17 @@ START-OF-SELECTION.
 
   IF p_reset = abap_true.
     MODIFY zdd_value FROM TABLE @lt_values.
-    lv_values = sy-dbcnt.
-    MODIFY zdd_config FROM TABLE @lt_config.
-    lv_config = sy-dbcnt.
   ELSE.
     INSERT zdd_value FROM TABLE @lt_values ACCEPTING DUPLICATE KEYS.
-    lv_values = sy-dbcnt.
-    INSERT zdd_config FROM TABLE @lt_config ACCEPTING DUPLICATE KEYS.
-    lv_config = sy-dbcnt.
   ENDIF.
+  lv_values = sy-dbcnt.
+
+  IF p_reset = abap_true.
+    MODIFY zdd_config FROM TABLE @lt_config.
+  ELSE.
+    INSERT zdd_config FROM TABLE @lt_config ACCEPTING DUPLICATE KEYS.
+  ENDIF.
+  lv_config = sy-dbcnt.
 
   IF p_proj = abap_true.
     IF p_reset = abap_true.

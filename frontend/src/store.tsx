@@ -1,11 +1,33 @@
-// App-wide data: master data, ticket list, recent work log and events, plus the mutation helper `run`.
-// Every change goes through `run`, which refreshes the affected tickets and shows success or the SAP error.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+// App-wide data on top of TanStack Query: cached queries, background refresh every 30 s while the tab is visible,
+// and `run` for every change – optimistic update first, then the backend call, then refresh (rollback on error).
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { Project, Status, Ticket, TicketEvent, User, ValueItem, Worklog } from './api';
 import { DAY, isoDate, STATUS_NAME, today } from './lib/format';
 
+const POLL_MS = 30_000;
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: true } },
+});
+
+export const keys = {
+  tickets: ['tickets'] as const,
+  ticket: (uuid: string) => ['ticket', uuid] as const,
+  side: ['side'] as const,               // everything derived from work log / events
+  recent: ['side', 'recent'] as const,
+  events: ['side', 'events'] as const,
+  week: (from: string, to: string) => ['side', 'week', from, to] as const,
+};
+
 interface Toast { id: number; text: React.ReactNode; error?: boolean }
+interface RunOptions {
+  uuids?: string[];
+  ok?: React.ReactNode;
+  removed?: string;
+  /** applied to the cached tickets before the call, so the screen updates at once */
+  optimistic?: (t: Ticket) => Ticket;
+}
 interface Store {
   ready: boolean;
   error: string | null;
@@ -13,13 +35,11 @@ interface Store {
   projects: Project[];
   values: ValueItem[];
   tickets: Ticket[];
-  details: Record<string, Ticket>;
-  recentWork: Worklog[];          // last 21 days, for Home, Inbox and "missing time"
+  recentWork: Worklog[];
   events: TicketEvent[];
   lastSync: number;
   reload(): Promise<void>;
-  loadTicket(uuid: string): Promise<Ticket | undefined>;
-  run(fn: () => Promise<unknown>, opts?: { uuids?: string[]; ok?: React.ReactNode; removed?: string }): Promise<boolean>;
+  run(fn: () => Promise<unknown>, opts?: RunOptions): Promise<boolean>;
   toast(text: React.ReactNode, error?: boolean): void;
   toasts: Toast[];
   text(list: string, code: string): string;
@@ -30,21 +50,30 @@ interface Store {
 
 const Ctx = createContext<Store>(null as unknown as Store);
 export const useStore = () => useContext(Ctx);
-const POLL_MS = 30_000;
+
+/** Full ticket with all children, refreshed in the background like the list */
+export function useTicketDetail(uuid: string | undefined) {
+  return useQuery({ queryKey: keys.ticket(uuid ?? ''), queryFn: () => api.getTicket(uuid!), enabled: !!uuid, refetchInterval: POLL_MS });
+}
+/** Work log of one week (Timesheet) */
+export function useWeekWorklog(from: string, to: string) {
+  return useQuery({ queryKey: keys.week(from, to), queryFn: () => api.listWorklog(from, to), refetchInterval: POLL_MS });
+}
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User>({ id: '', fullName: '' });
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [values, setValues] = useState<ValueItem[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [details, setDetails] = useState<Record<string, Ticket>>({});
-  const [recentWork, setRecentWork] = useState<Worklog[]>([]);
-  const [events, setEvents] = useState<TicketEvent[]>([]);
-  const [lastSync, setLastSync] = useState(Date.now());
+  return <QueryClientProvider client={queryClient}><StoreInner>{children}</StoreInner></QueryClientProvider>;
+}
+
+function StoreInner({ children }: { children: React.ReactNode }) {
+  const qc = useQueryClient();
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const detailIds = useRef<Set<string>>(new Set());
+  const user = useQuery({ queryKey: ['user'], queryFn: () => api.user(), staleTime: Infinity });
+  const projects = useQuery({ queryKey: ['projects'], queryFn: () => api.listProjects(), staleTime: 5 * 60_000 });
+  const values = useQuery({ queryKey: ['values'], queryFn: () => api.listValues(), staleTime: 5 * 60_000 });
+  const tickets = useQuery({ queryKey: keys.tickets, queryFn: () => api.listTickets(), refetchInterval: POLL_MS });
+  const recent = useQuery({ queryKey: keys.recent, refetchInterval: POLL_MS,
+    queryFn: () => api.listWorklog(isoDate(new Date(today().getTime() - 21 * DAY)), isoDate(today())) });
+  const events = useQuery({ queryKey: keys.events, queryFn: () => api.listEvents(150), refetchInterval: POLL_MS });
 
   const toast = useCallback((text: React.ReactNode, isError = false) => {
     const id = Date.now() + Math.random();
@@ -52,84 +81,61 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), isError ? 6000 : 2400);
   }, []);
 
-  const loadSide = useCallback(async () => {
-    const [w, e] = await Promise.all([api.listWorklog(isoDate(new Date(today().getTime() - 21 * DAY)), isoDate(today())), api.listEvents(150)]);
-    setRecentWork(w); setEvents(e);
-  }, []);
-
-  const reload = useCallback(async () => {
-    try {
-      const [u, p, v, t] = await Promise.all([api.user(), api.listProjects(), api.listValues(), api.listTickets()]);
-      setUser(u); setProjects(p); setValues(v); setTickets(t);
-      await loadSide();
-      setError(null); setLastSync(Date.now());
-    } catch (e) {
-      setError((e as Error).message);
-    } finally { setReady(true) }
-  }, [loadSide]);
-
-  const loadTicket = useCallback(async (uuid: string) => {
-    try {
-      const t = await api.getTicket(uuid);
-      detailIds.current.add(uuid);
-      setDetails(d => ({ ...d, [uuid]: t }));
-      setTickets(list => list.some(x => x.TicketUUID === uuid) ? list.map(x => x.TicketUUID === uuid ? { ...x, ...t } : x) : [t, ...list]);
-      return t;
-    } catch (e) {
-      toast((e as Error).message, true);
-      return undefined;
-    }
-  }, [toast]);
-
   const run = useCallback<Store['run']>(async (fn, opts = {}) => {
+    const uuids = opts.uuids ?? [];
+    // optimistic: patch the cached list and details, remember the old state for rollback
+    const prevList = qc.getQueryData<Ticket[]>(keys.tickets);
+    const prevDetails = uuids.map(u => [u, qc.getQueryData<Ticket>(keys.ticket(u))] as const);
+    if (opts.optimistic) {
+      await qc.cancelQueries({ queryKey: keys.tickets });
+      qc.setQueryData<Ticket[]>(keys.tickets, l => l?.map(t => (uuids.includes(t.TicketUUID) ? opts.optimistic!(t) : t)));
+      uuids.forEach(u => qc.setQueryData<Ticket>(keys.ticket(u), t => (t ? opts.optimistic!(t) : t)));
+    }
     let ok = true;
     try {
       await fn();
       if (opts.ok) toast(opts.ok);
     } catch (e) {
       ok = false;
+      qc.setQueryData(keys.tickets, prevList);
+      prevDetails.forEach(([u, d]) => qc.setQueryData<Ticket>(keys.ticket(u), d));
       toast((e as Error).message, true);
     }
     if (opts.removed) {
-      setTickets(list => list.filter(x => x.TicketUUID !== opts.removed));
-      setDetails(d => { const n = { ...d }; delete n[opts.removed!]; return n });
+      qc.setQueryData<Ticket[]>(keys.tickets, l => l?.filter(t => t.TicketUUID !== opts.removed));
+      qc.removeQueries({ queryKey: keys.ticket(opts.removed) });
     }
-    await Promise.all([...(opts.uuids ?? []).map(loadTicket), loadSide()]);
-    setLastSync(Date.now());
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: keys.tickets }),
+      qc.invalidateQueries({ queryKey: keys.side }),
+      ...uuids.map(u => qc.invalidateQueries({ queryKey: keys.ticket(u) })),
+    ]);
     return ok;
-  }, [toast, loadTicket, loadSide]);
+  }, [qc, toast]);
 
-  useEffect(() => { reload() }, [reload]);
-
-  // Live updates: fetch tickets changed since the newest LastChangedAt (server time, so no clock skew)
-  useEffect(() => {
-    const id = setInterval(async () => {
-      if (document.hidden || !ready) return;
-      try {
-        const newest = tickets.reduce((m, t) => (t.LastChangedAt && t.LastChangedAt > m ? t.LastChangedAt : m), '1970-01-01T00:00:00Z');
-        const changed = await api.changedSince(newest);
-        if (changed.length) {
-          setTickets(list => {
-            const map = new Map(list.map(t => [t.TicketUUID, t]));
-            changed.forEach(c => map.set(c.TicketUUID, { ...map.get(c.TicketUUID), ...c }));
-            return [...map.values()];
-          });
-          changed.filter(c => detailIds.current.has(c.TicketUUID)).forEach(c => loadTicket(c.TicketUUID));
-        }
-        await loadSide();
-        setLastSync(Date.now());
-      } catch { /* offline – try again next time */ }
-    }, POLL_MS);
-    return () => clearInterval(id);
-  }, [ready, tickets, loadSide, loadTicket]);
-
+  const vals = values.data ?? [];
+  const projs = projects.data ?? [];
+  const firstError = [user, projects, values, tickets].find(q => q.isError)?.error as Error | undefined;
   const value = useMemo<Store>(() => ({
-    ready, error, user, projects, values, tickets, details, recentWork, events, lastSync, reload, loadTicket, run, toast, toasts,
-    text: (list, code) => values.find(v => v.ListType === list && v.Code === code)?.Text ?? (list === 'STATUS' ? STATUS_NAME[code as Status] : code),
-    color: (list, code) => values.find(v => v.ListType === list && v.Code === code)?.Color || 'var(--muted)',
-    project: code => projects.find(p => p.Project === code),
-    wip: status => values.find(v => v.ListType === 'STATUS' && v.Code === status)?.WipLimit ?? 0,
-  }), [ready, error, user, projects, values, tickets, details, recentWork, events, lastSync, reload, loadTicket, run, toast, toasts]);
+    ready: !tickets.isLoading && !values.isLoading && !projects.isLoading,
+    error: firstError && !tickets.data ? firstError.message : null,
+    user: user.data ?? { id: '', fullName: '' },
+    projects: projs, values: vals,
+    tickets: tickets.data ?? [],
+    recentWork: recent.data ?? [],
+    events: events.data ?? [],
+    lastSync: tickets.dataUpdatedAt || Date.now(),
+    reload: () => qc.invalidateQueries(),
+    run, toast, toasts,
+    text: (list, code) => vals.find(v => v.ListType === list && v.Code === code)?.Text ?? (list === 'STATUS' ? STATUS_NAME[code as Status] : code),
+    color: (list, code) => vals.find(v => v.ListType === list && v.Code === code)?.Color || 'var(--muted)',
+    project: code => projs.find(p => p.Project === code),
+    wip: status => vals.find(v => v.ListType === 'STATUS' && v.Code === status)?.WipLimit ?? 0,
+  }), [tickets.isLoading, tickets.data, tickets.dataUpdatedAt, values.isLoading, projects.isLoading, firstError, user.data, projs, vals, recent.data, events.data, qc, run, toast, toasts]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
+/** Ticket fields after a status change, as the BO would set them (used for optimistic updates) */
+export const withStatus = (status: Status) => (t: Ticket): Ticket =>
+  ({ ...t, Status: status, StatusChangedAt: new Date().toISOString(), ClosedAt: status === 'DONE' ? new Date().toISOString() : null });

@@ -281,7 +281,9 @@ CLASS lhc_ticket IMPLEMENTATION.
         AND is_active = @abap_true
       ORDER BY sort_order
       INTO TABLE @DATA(lt_categories).
-    CHECK lt_categories IS NOT INITIAL.
+    IF lt_categories IS INITIAL.
+      RETURN.
+    ENDIF.
 
     READ ENTITIES OF zr_dd_ticket IN LOCAL MODE
       ENTITY Ticket BY \_Checklist FIELDS ( TicketUUID ) WITH CORRESPONDING #( keys )
@@ -321,7 +323,9 @@ CLASS lhc_ticket IMPLEMENTATION.
       RESULT DATA(lt_tickets).
 
     DELETE lt_tickets WHERE TicketNo IS NOT INITIAL.
-    CHECK lt_tickets IS NOT INITIAL.
+    IF lt_tickets IS INITIAL.
+      RETURN.
+    ENDIF.
 
     LOOP AT lt_tickets INTO DATA(ls_ticket).
       TRY.
@@ -355,7 +359,7 @@ CLASS lhc_ticket IMPLEMENTATION.
       RESULT DATA(lt_tickets).
 
     SELECT project FROM zdd_project WHERE is_active = @abap_true INTO TABLE @DATA(lt_projects).
-    SELECT * FROM zdd_value WHERE is_active = @abap_true INTO TABLE @lt_values.
+    SELECT list_type, code FROM zdd_value WHERE is_active = @abap_true INTO CORRESPONDING FIELDS OF TABLE @lt_values.
 
     LOOP AT lt_tickets INTO DATA(ls_ticket).
 
@@ -496,7 +500,9 @@ CLASS lhc_worklog IMPLEMENTATION.
       RESULT DATA(lt_entries).
 
     DELETE lt_entries WHERE WorkDate IS NOT INITIAL AND Activity IS NOT INITIAL AND EntrySource IS NOT INITIAL.
-    CHECK lt_entries IS NOT INITIAL.
+    IF lt_entries IS INITIAL.
+      RETURN.
+    ENDIF.
 
     MODIFY ENTITIES OF zr_dd_ticket IN LOCAL MODE
       ENTITY Worklog

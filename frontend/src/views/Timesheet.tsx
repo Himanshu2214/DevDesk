@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api';
-import type { Worklog } from '../api';
-import { useStore } from '../store';
+import { useMemo, useState } from 'react';
+import { useStore, useWeekWorklog } from '../store';
 import { DAY, fmtDate, isOpen, isoDate, r1, today, weekStart } from '../lib/format';
 import { Donut } from '../components/Donut';
 import { Icon, StatusIcon } from '../components/Icons';
@@ -13,15 +11,11 @@ export function Timesheet() {
   const s = useStore();
   const { openLog } = useDialogs();
   const [week, setWeek] = useState(0);
-  const [rows, setRows] = useState<Worklog[]>([]);
   const days = useMemo(() => [...Array(7)].map((_, i) => new Date(weekStart(week).getTime() + i * DAY)), [week]);
   const from = isoDate(days[0]), to = isoDate(days[6]), todayIso = isoDate(today());
 
-  useEffect(() => {
-    let live = true;
-    api.listWorklog(from, to).then(r => { if (live) setRows(r) }).catch(e => s.toast((e as Error).message, true));
-    return () => { live = false };
-  }, [from, to, s.lastSync]); // eslint-disable-line react-hooks/exhaustive-deps
+  const week_ = useWeekWorklog(from, to);
+  const rows = useMemo(() => week_.data ?? [], [week_.data]);
 
   const byTicket = useMemo(() => {
     const m = new Map<string, { id: string; title: string; status: string; est: number; h: number[] }>();

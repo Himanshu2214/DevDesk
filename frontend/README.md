@@ -15,6 +15,19 @@ React 18 + TypeScript + Vite, with the same look as the mockup (Inter font and E
 
 Transports, Objects, Knowledge and Insights show a "phase 2" page.
 
+## Libraries
+
+| Library | Used for |
+|---|---|
+| [TanStack Query](https://github.com/TanStack/query) | Data cache and background refresh (30 s, only while the tab is visible). Optimistic updates: a status change shows at once and is rolled back if SAP rejects it |
+| [cmdk](https://github.com/dip/cmdk) | `Ctrl+K` palette: fuzzy search over all tickets, recently opened tickets, actions for the open ticket (set status, timer, log time), navigation |
+| [dnd-kit](https://github.com/clauderic/dnd-kit) | Board drag and drop with a floating preview; a drag starts after 6 px, so a click still opens the ticket; keyboard dragging (Space, arrows, Space) |
+| [Tiptap](https://github.com/ueberdosis/tiptap) | Rich text for descriptions and comments: bold/italic, headings, lists, task lists, inline code, code blocks for ABAP, links. Stored as HTML; older plain text is converted when shown |
+| [DOMPurify](https://github.com/cure53/DOMPurify) | Cleans all rich text before it's shown or saved |
+| [ECharts](https://github.com/apache/echarts) | Hours-by-activity ring |
+
+All are bundled into the build (no CDN). The JS bundle is about 1.1 MB (370 KB gzipped), mostly Tiptap; loading the editor lazily can come later if needed.
+
 ## Run it
 
 ```bash

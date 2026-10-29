@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { api } from '../api';
 import type { Status, Ticket } from '../api';
-import { useStore } from '../store';
+import { useStore, withStatus } from '../store';
 import { fmtDate, isOpen, STATUS_ORDER, urgency } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
@@ -20,7 +22,8 @@ export function TicketList({ route }: { route: string }) {
   const [layout, setLayout] = useState<Layout>(() => { try { return (localStorage.getItem('devdesk-layout') as Layout) || 'board' } catch { return 'board' } });
   const [sel, setSel] = useState(0);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [dropOn, setDropOn] = useState<Status | null>(null);
+  const justDragged = useRef(0);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor));
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const [kind, rest] = [route.split('/')[0], route.split('/').slice(1).join('/')];
@@ -42,7 +45,7 @@ export function TicketList({ route }: { route: string }) {
   useEffect(() => { setSel(0) }, [route]);
   useEffect(() => { try { localStorage.setItem('devdesk-layout', layout) } catch { /* ignore */ } }, [layout]);
 
-  const setStatus = (t: Ticket, st: Status) => s.run(() => api.setStatus(t, st), { uuids: [t.TicketUUID], ok: <><StatusIcon status={st} /> {t.TicketId} moved to {s.text('STATUS', st)}</> });
+  const setStatus = (t: Ticket, st: Status) => s.run(() => api.setStatus(t, st), { uuids: [t.TicketUUID], optimistic: withStatus(st), ok: <><StatusIcon status={st} /> {t.TicketId} moved to {s.text('STATUS', st)}</> });
   const statusMenu = (e: React.MouseEvent, t: Ticket) => { e.preventDefault(); e.stopPropagation(); menu(e.currentTarget, menus.status(t), v => setStatus(t, v as Status)) };
   const prioMenu = (e: React.MouseEvent, t: Ticket) => { e.preventDefault(); e.stopPropagation(); menu(e.currentTarget, menus.Priority(t), v => s.run(() => api.updateTicket(t, { Priority: v }), { uuids: [t.TicketUUID] })) };
 
@@ -105,30 +108,58 @@ export function TicketList({ route }: { route: string }) {
   }
 
   const cols = STATUS_ORDER.filter(k => (k !== 'DONE' || tab === 'all' || tab === 'done') && (k !== 'BACKLOG' || tab !== 'active'));
+  const dragged = s.tickets.find(t => t.TicketUUID === dragId);
   return (
     <Page crumb={crumb} bar2={bar2}>
-      <div className="board">{cols.map(k => {
-        const g = set.filter(t => t.Status === k).sort(urgency).slice(0, k === 'DONE' ? 20 : 999);
-        const wip = s.wip(k), over = wip > 0 && g.length > wip;
-        return (
-          <div key={k} className={'col' + (dropOn === k ? ' drop' : '')} style={{ ['--c' as string]: `var(--st-${({ BACKLOG: 'backlog', TODO: 'todo', PROG: 'prog', TEST: 'test', BLOCK: 'block', DONE: 'done' })[k]})` }}
-            onDragOver={e => { if (dragId) { e.preventDefault(); setDropOn(k) } }} onDragLeave={() => setDropOn(null)}
-            onDrop={e => { e.preventDefault(); setDropOn(null); const t = s.tickets.find(x => x.TicketUUID === dragId); setDragId(null); if (t && t.Status !== k) setStatus(t, k) }}>
-            <div className="col-h"><StatusIcon status={k} />{s.text('STATUS', k)}<span className="c">{g.length}</span><span className="sp" />
-              {wip > 0 && <span className={'wip' + (over ? ' over' : '')} title="Work-in-progress limit">{g.length}/{wip}</span>}
-              <button className="ib" onClick={() => openNew({ status: k, ...(project ? { Project: project } : {}) })}><Icon name="plus" /></button></div>
-            {g.map(t => (
-              <a key={t.TicketUUID} className={'card' + (dragId === t.TicketUUID ? ' dragging' : '')} href={'#ticket/' + t.TicketId} draggable
-                onDragStart={e => { setDragId(t.TicketUUID); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { setDragId(null); setDropOn(null) }}>
-                <div className="t" style={{ marginTop: 0 }}><span>{t.Title}</span></div>
-                <div className="tags"><TechTag code={t.Tech} /><span className="tag">{t.Area}</span>
-                  {t.TicketType === 'BUG' && <span className="tag" style={{ background: 'rgba(235,87,87,.16)', color: 'var(--danger)' }}>Bug</span>}</div>
-                <div className="r3"><span className="muted num" style={{ fontSize: 12 }}>{t.TicketId}</span>
-                  <span onClick={e => prioMenu(e, t)}><PriorityIcon priority={t.Priority} /></span><Due t={t} short /><span className="sp" />
-                  <span className="muted num" style={{ fontSize: 12 }}>{Math.round(t.LoggedHours * 10) / 10}/{t.EstimateHours}h</span><Avatar name={t.Assignee} size={18} /></div>
-              </a>))}
-          </div>);
-      })}</div>
+      <DndContext sensors={sensors} collisionDetection={pointerWithin}
+        onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))}
+        onDragCancel={() => setDragId(null)}
+        onDragEnd={(e: DragEndEvent) => {
+          setDragId(null);
+          justDragged.current = Date.now();
+          const t = s.tickets.find(x => x.TicketUUID === e.active.id), to = e.over?.id as Status | undefined;
+          if (t && to && t.Status !== to) setStatus(t, to);
+        }}>
+        <div className="board">{cols.map(k => {
+          const g = set.filter(t => t.Status === k).sort(urgency).slice(0, k === 'DONE' ? 20 : 999);
+          const wip = s.wip(k), over = wip > 0 && g.length > wip;
+          return (
+            <Column key={k} status={k}>
+              <div className="col-h"><StatusIcon status={k} />{s.text('STATUS', k)}<span className="c">{g.length}</span><span className="sp" />
+                {wip > 0 && <span className={'wip' + (over ? ' over' : '')} title="Work-in-progress limit">{g.length}/{wip}</span>}
+                <button className="ib" onClick={() => openNew({ status: k, ...(project ? { Project: project } : {}) })}><Icon name="plus" /></button></div>
+              {g.map(t => <DraggableCard key={t.TicketUUID} t={t} hidden={dragId === t.TicketUUID} justDragged={justDragged} onPrio={prioMenu} />)}
+            </Column>);
+        })}</div>
+        <DragOverlay dropAnimation={null}>{dragged && <div className="card overlay"><CardBody t={dragged} /></div>}</DragOverlay>
+      </DndContext>
     </Page>
   );
+}
+
+const STATUS_VAR: Record<Status, string> = { BACKLOG: 'backlog', TODO: 'todo', PROG: 'prog', TEST: 'test', BLOCK: 'block', DONE: 'done' };
+function Column({ status, children }: { status: Status; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return <div ref={setNodeRef} className={'col' + (isOver ? ' drop' : '')} style={{ ['--c' as string]: `var(--st-${STATUS_VAR[status]})` }}>{children}</div>;
+}
+
+function CardBody({ t, onPrio }: { t: Ticket; onPrio?: (e: React.MouseEvent, t: Ticket) => void }) {
+  return <>
+    <div className="t" style={{ marginTop: 0 }}><span>{t.Title}</span></div>
+    <div className="tags"><TechTag code={t.Tech} /><span className="tag">{t.Area}</span>
+      {t.TicketType === 'BUG' && <span className="tag" style={{ background: 'rgba(235,87,87,.16)', color: 'var(--danger)' }}>Bug</span>}</div>
+    <div className="r3"><span className="muted num" style={{ fontSize: 12 }}>{t.TicketId}</span>
+      <span onClick={e => onPrio?.(e, t)} onPointerDown={e => e.stopPropagation()}><PriorityIcon priority={t.Priority} /></span><Due t={t} short /><span className="sp" />
+      <span className="muted num" style={{ fontSize: 12 }}>{Math.round(t.LoggedHours * 10) / 10}/{t.EstimateHours}h</span><Avatar name={t.Assignee} size={18} /></div>
+  </>;
+}
+
+/** Card link; a drag starts after 6 px, so a normal click still opens the ticket */
+function DraggableCard({ t, hidden, justDragged, onPrio }: { t: Ticket; hidden: boolean; justDragged: React.MutableRefObject<number>; onPrio: (e: React.MouseEvent, t: Ticket) => void }) {
+  const { setNodeRef, attributes, listeners } = useDraggable({ id: t.TicketUUID });
+  return (
+    <a ref={setNodeRef} {...attributes} {...listeners} className={'card' + (hidden ? ' dragging' : '')} href={'#ticket/' + t.TicketId}
+      onClick={e => { if (Date.now() - justDragged.current < 300) e.preventDefault() }}>
+      <CardBody t={t} onPrio={onPrio} />
+    </a>);
 }

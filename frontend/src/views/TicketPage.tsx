@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import type { ChildNav, ChildSet, Status, TestCase, Ticket } from '../api';
-import { useStore } from '../store';
+import { useStore, useTicketDetail, withStatus } from '../store';
+import { rememberTicket } from '../lib/recent';
+import { RichEditor, RichView } from '../components/RichText';
 import { ago, fmtDate, PRIORITY_NAME, r1 } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
@@ -17,12 +19,11 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const menus = useFieldMenus();
   const { openLog } = useDialogs();
   const [tab, setTab] = useState<Tab>('overview');
-  const [comment, setComment] = useState('');
   const head = s.tickets.find(t => t.TicketId === ticketId);
-  const t: Ticket | undefined = head ? { ...head, ...s.details[head.TicketUUID] } : undefined;
+  const detail = useTicketDetail(head?.TicketUUID);
+  const t: Ticket | undefined = head ? { ...head, ...detail.data } : undefined;
 
-  useEffect(() => { if (head) s.loadTicket(head.TicketUUID) }, [head?.TicketUUID]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setTab('overview') }, [ticketId]);
+  useEffect(() => { setTab('overview'); rememberTicket(ticketId) }, [ticketId]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (!t || isTyping(e) || e.ctrlKey || e.metaKey) return;
@@ -38,8 +39,8 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   if (!t) return <Page crumb={<b>{ticketId}</b>}><div className="empty">Ticket {ticketId} not found. <a href="#list/all">All tickets</a></div></Page>;
 
   const uuids = [t.TicketUUID];
-  const patch = (p: Partial<Ticket>) => s.run(() => api.updateTicket(t, p), { uuids });
-  const setStatus = (st: Status) => s.run(() => api.setStatus(t, st), { uuids, ok: <><StatusIcon status={st} /> Moved to {s.text('STATUS', st)}</> });
+  const patch = (p: Partial<Ticket>) => s.run(() => api.updateTicket(t, p), { uuids, optimistic: x => ({ ...x, ...p }) });
+  const setStatus = (st: Status) => s.run(() => api.setStatus(t, st), { uuids, optimistic: withStatus(st), ok: <><StatusIcon status={st} /> Moved to {s.text('STATUS', st)}</> });
   const add = (nav: ChildNav, data: Record<string, unknown>) => s.run(() => api.createChild(t, nav, data), { uuids });
   const upd = (set: ChildSet, item: Record<string, unknown>, p: Record<string, unknown>) => s.run(() => api.updateChild(set, item, p), { uuids });
   const del = (set: ChildSet, item: Record<string, unknown>) => s.run(() => api.deleteChild(set, item), { uuids });
@@ -81,8 +82,9 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           <h1 className="tp-title" contentEditable suppressContentEditableWarning spellCheck={false} key={'t' + t.etag}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() } }}
             onBlur={e => { const v = e.currentTarget.innerText.trim(); if (v && v !== t.Title) patch({ Title: v }) }}>{t.Title}</h1>
-          <div className="tp-desc" contentEditable suppressContentEditableWarning data-ph="Add description…" key={'d' + t.etag}
-            onBlur={e => { const v = e.currentTarget.innerText.trim(); if (v !== (t.Description ?? '')) patch({ Description: v }) }}>{t.Description}</div>
+          <div className="tp-desc-rich">
+            <RichEditor key={t.TicketUUID} value={t.Description ?? ''} placeholder="Add description… (code blocks for ABAP, task lists, links)"
+              onSave={v => patch({ Description: v })} /></div>
 
           <div className="tp-tabs">
             {([['overview', 'Overview'], ['tests', <>Tests &amp; checklist <span className="muted num">{passed}/{tests.length} · {done}/{chk.length}</span></>],
@@ -118,11 +120,9 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           {tab === 'activity' && <>
             <ul className="acts" style={{ marginTop: 6 }}>{activity.map((a, i) => 'note' in a && a.note
               ? <li className="note" key={i}><div className="h"><Avatar name={a.note.CreatedBy} size={18} /><b style={{ color: 'var(--text-2)' }}>{a.note.CreatedBy}</b><span>{ago(a.note.CreatedAt)}</span><span className="sp" style={{ flex: 1 }} />
-                  <button className="ib" style={{ width: 22, height: 22 }} title="Delete comment" onClick={() => del('Note', a.note as never)}><Icon name="x" size={12} /></button></div>{a.note.Text}</li>
+                  <button className="ib" style={{ width: 22, height: 22 }} title="Delete comment" onClick={() => del('Note', a.note as never)}><Icon name="x" size={12} /></button></div><RichView value={a.note.Text} /></li>
               : <li key={i} style={{ display: 'flex', alignItems: 'center' }}>{'node' in a && a.node}</li>)}</ul>
-            <div className="comment"><textarea placeholder="Leave a comment…" value={comment} onChange={e => setComment(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey && comment.trim()) { add('_Note', { Text: comment.trim() }); setComment('') } }} />
-              <div className="f"><button className="btn" disabled={!comment.trim()} onClick={() => { add('_Note', { Text: comment.trim() }); setComment('') }}>Comment</button></div></div>
+            <div style={{ marginTop: 14 }}><RichEditor key={'c' + t.TicketUUID} value="" placeholder="Leave a comment… (Ctrl+Enter to send)" onSubmit={v => add('_Note', { Text: v })} /></div>
           </>}
 
           {tab === 'sap' && <div className="tp-sec" style={{ marginTop: 6 }}><div className="sub"><div className="add" style={{ height: 'auto', padding: '14px 12px', display: 'block', lineHeight: 1.6 }}>

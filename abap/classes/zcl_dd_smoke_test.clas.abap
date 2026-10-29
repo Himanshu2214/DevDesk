@@ -1,4 +1,4 @@
-"! DevDesk phase 1 smoke test – run in ADT with F9 (console application).
+"! DevDesk phase 1 smoke test - run in ADT with F9 (console application).
 "! Creates a ticket with acceptance criteria and a test case, changes the status,
 "! runs the timer, logs time, reads everything back and deletes the ticket again.
 CLASS zcl_dd_smoke_test DEFINITION PUBLIC FINAL CREATE PUBLIC.
@@ -52,7 +52,7 @@ CLASS zcl_dd_smoke_test IMPLEMENTATION.
     COMMIT ENTITIES RESPONSE OF zr_dd_ticket
       FAILED DATA(ls_commit_failed) REPORTED DATA(ls_commit_reported).
     IF ls_commit_failed IS NOT INITIAL.
-      out->write( '1. Save FAILED – validation messages:' ).
+      out->write( '1. Save FAILED - validation messages:' ).
       write_messages( is_reported = ls_commit_reported io_out = out ).
       RETURN.
     ENDIF.
@@ -92,6 +92,10 @@ CLASS zcl_dd_smoke_test IMPLEMENTATION.
       ENTITY Ticket BY \_Test ALL FIELDS WITH VALUE #( ( TicketUUID = lv_uuid ) ) RESULT DATA(lt_tests).
 
     READ TABLE lt_ticket INDEX 1 INTO DATA(ls_ticket).
+    IF sy-subrc <> 0.
+      out->write( '4. Ticket could not be read back' ).
+      RETURN.
+    ENDIF.
     DATA(lv_hours) = REDUCE decfloat34( INIT h = CONV decfloat34( 0 ) FOR w IN lt_worklog NEXT h = h + w-Hours ).
     out->write( |4. { ls_ticket-TicketId }: status { ls_ticket-Status }, priority { ls_ticket-Priority }, due { ls_ticket-DueDate DATE = USER }, assignee { ls_ticket-Assignee }| ).
     out->write( |   events { lines( lt_events ) } (expect 1), checklist items { lines( lt_checklist ) } (expect 6 after ZDD_SETUP), | &&

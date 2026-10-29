@@ -58,5 +58,7 @@ In the mockup, a simulated event every 15 s (status change, TR import, time logg
 - `mockup/views-sap.js` – Transports, Objects and impact map
 - `mockup/views-more.js` – Inbox, Knowledge, Timesheet, Insights
 - `docs/backend-design.md` – data model and RAP design
+- `abaplint.json`, `.github/workflows/ci.yml` – automatic checks on every push: frontend build and abaplint (see [docs/abapgit.md](docs/abapgit.md))
+- `docs/abapgit.md` – abaplint rules explained, abapGit setup (SAP ↔ GitHub without copy-paste)
 - `abap/` – ABAP sources, phase 1 (tables, cds, dcl, bdef, classes, srvd, reports) and activation guide
 - `frontend/` – React + TypeScript app (phase 1) for the OData V4 service, mock backend for local use
