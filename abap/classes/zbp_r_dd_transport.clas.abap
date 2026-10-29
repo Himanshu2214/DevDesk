@@ -1,0 +1,5 @@
+CLASS zbp_r_dd_transport DEFINITION PUBLIC ABSTRACT FINAL FOR BEHAVIOR OF zr_dd_transport.
+ENDCLASS.
+
+CLASS zbp_r_dd_transport IMPLEMENTATION.
+ENDCLASS.

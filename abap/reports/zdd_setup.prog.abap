@@ -1,7 +1,7 @@
 *&---------------------------------------------------------------------*
 *& Report ZDD_SETUP
 *&---------------------------------------------------------------------*
-*& DevDesk: fills the value lists (ZDD_VALUE), projects (ZDD_PROJECT)
+*& DevDesk: fills the value lists (ZDD_VALUE, phase 1 and 2), projects (ZDD_PROJECT)
 *& and configuration (ZDD_CONFIG) with defaults.
 *& Existing entries are kept unless P_RESET is set, so it is safe to run
 *& again after you changed texts or colours.
@@ -56,7 +56,28 @@ START-OF-SELECTION.
     ( list_type = 'CHECKCAT' code = 'AUTH'      text = 'Authorization checks verified'          sort_order = 3 )
     ( list_type = 'CHECKCAT' code = 'ERROR'     text = 'Errors logged and shown to the user'    sort_order = 4 )
     ( list_type = 'CHECKCAT' code = 'PERF'      text = 'Runtime checked with production volume' sort_order = 5 )
-    ( list_type = 'CHECKCAT' code = 'TRANSPORT' text = 'All objects in the TR, TR released'     sort_order = 6 ) ).
+    ( list_type = 'CHECKCAT' code = 'TRANSPORT' text = 'All objects in the TR, TR released'     sort_order = 6 )
+    ( list_type = 'OBJTYPE'  code = 'TABL'      text = 'Table'                                  sort_order = 1 color = '#4EA7FC' )
+    ( list_type = 'OBJTYPE'  code = 'DDLS'      text = 'CDS view'                               sort_order = 2 color = '#26B5CE' )
+    ( list_type = 'OBJTYPE'  code = 'BDEF'      text = 'Behavior definition'                    sort_order = 3 color = '#5E6AD2' )
+    ( list_type = 'OBJTYPE'  code = 'CLAS'      text = 'Class'                                  sort_order = 4 color = '#F0BF00' )
+    ( list_type = 'OBJTYPE'  code = 'PROG'      text = 'Report'                                 sort_order = 5 color = '#8A8F98' )
+    ( list_type = 'OBJTYPE'  code = 'FUGR'      text = 'Function group'                         sort_order = 6 color = '#8A8F98' )
+    ( list_type = 'OBJTYPE'  code = 'TRAN'      text = 'Transaction'                            sort_order = 7 color = '#8A8F98' )
+    ( list_type = 'OBJTYPE'  code = 'SRVD'      text = 'Service definition'                     sort_order = 8 color = '#4CB782' )
+    ( list_type = 'OBJTYPE'  code = 'SRVB'      text = 'Service binding'                        sort_order = 9 color = '#4CB782' )
+    ( list_type = 'OBJTYPE'  code = 'SSFO'      text = 'Smart Form / Adobe form'                sort_order = 10 color = '#E5A3C0' )
+    ( list_type = 'OBJTYPE'  code = 'FIORI'     text = 'Fiori app'                              sort_order = 11 color = '#BB87FC' )
+    ( list_type = 'OBJTYPE'  code = 'DEST'      text = 'Destination (SM59)'                     sort_order = 12 color = '#F2994A' )
+    ( list_type = 'OBJTYPE'  code = 'API'       text = 'External API'                           sort_order = 13 color = '#EB5757' )
+    ( list_type = 'KBTYPE'   code = 'SNIP'      text = 'Snippet'                                sort_order = 1 )
+    ( list_type = 'KBTYPE'   code = 'FIX'       text = 'Error & fix'                            sort_order = 2 )
+    ( list_type = 'KBTYPE'   code = 'API'       text = 'API example'                            sort_order = 3 )
+    ( list_type = 'KBTYPE'   code = 'CONF'      text = 'Config note'                            sort_order = 4 )
+    ( list_type = 'KBTYPE'   code = 'DECI'      text = 'Design decision'                        sort_order = 5 )
+    ( list_type = 'DEPKIND'  code = 'USES'      text = 'uses'                                   sort_order = 1 )
+    ( list_type = 'DEPKIND'  code = 'EXPOSES'   text = 'exposes'                                sort_order = 2 )
+    ( list_type = 'DEPKIND'  code = 'CALLS'     text = 'calls'                                  sort_order = 3 ) ).
 
   lt_projects = VALUE #( is_active = abap_true
     ( project = 'GST'  name = 'GST & e-invoicing'     color = '#4EA7FC' sort_order = 1 )

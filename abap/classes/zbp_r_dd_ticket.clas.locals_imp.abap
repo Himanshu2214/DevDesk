@@ -1,4 +1,4 @@
-*"* Behavior implementation of ZR_DD_Ticket (DevDesk, phase 1)
+*"* Behavior implementation of ZR_DD_Ticket (DevDesk, phase 1 + attachments and object links of phase 2)
 *"* Local Types of class ZBP_R_DD_TICKET
 
 CLASS lhc_ticket DEFINITION INHERITING FROM cl_abap_behavior_handler.
@@ -104,7 +104,9 @@ CLASS lhc_ticket IMPLEMENTATION.
                       %assoc-_Test       = lv_auth
                       %assoc-_Worklog    = lv_auth
                       %assoc-_Note       = lv_auth
-                      %assoc-_Event      = lv_auth ) TO result.
+                      %assoc-_Event      = lv_auth
+                      %assoc-_Attachment = lv_auth
+                      %assoc-_ObjectLink = lv_auth ) TO result.
     ENDLOOP.
   ENDMETHOD.
 
@@ -548,6 +550,147 @@ CLASS lhc_worklog IMPLEMENTATION.
                         %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
                                                       text     = |Activity "{ ls_entry-Activity }" is not in value list ACTIVITY| )
                         %element-Activity = if_abap_behv=>mk-on ) TO reported-worklog.
+      ENDIF.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+CLASS lhc_attachment DEFINITION INHERITING FROM cl_abap_behavior_handler.
+
+  PRIVATE SECTION.
+    CONSTANTS gc_max_bytes TYPE i VALUE 10485760.   " 10 MB
+
+    METHODS setAttachmentInfo FOR DETERMINE ON MODIFY
+      IMPORTING keys FOR Attachment~setAttachmentInfo.
+
+    METHODS validateAttachment FOR VALIDATE ON SAVE
+      IMPORTING keys FOR Attachment~validateAttachment.
+
+ENDCLASS.
+
+
+CLASS lhc_attachment IMPLEMENTATION.
+
+  METHOD setAttachmentInfo.
+    READ ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY Attachment FIELDS ( Content MimeType ) WITH CORRESPONDING #( keys )
+      RESULT DATA(lt_files).
+
+    MODIFY ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY Attachment
+        UPDATE FIELDS ( FileSize MimeType )
+        WITH VALUE #( FOR ls_file IN lt_files
+                      ( %tky     = ls_file-%tky
+                        FileSize = xstrlen( ls_file-Content )
+                        MimeType = COND #( WHEN ls_file-MimeType IS INITIAL THEN 'application/octet-stream' ELSE ls_file-MimeType ) ) ).
+  ENDMETHOD.
+
+
+  METHOD validateAttachment.
+    READ ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY Attachment FIELDS ( FileName FileSize ) WITH CORRESPONDING #( keys )
+      RESULT DATA(lt_files).
+
+    LOOP AT lt_files INTO DATA(ls_file).
+
+      IF ls_file-FileName IS INITIAL.
+        APPEND VALUE #( %tky = ls_file-%tky ) TO failed-attachment.
+        APPEND VALUE #( %tky = ls_file-%tky
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'Enter a file name' )
+                        %element-FileName = if_abap_behv=>mk-on ) TO reported-attachment.
+      ENDIF.
+
+      IF ls_file-FileSize <= 0 OR ls_file-FileSize > gc_max_bytes.
+        APPEND VALUE #( %tky = ls_file-%tky ) TO failed-attachment.
+        APPEND VALUE #( %tky = ls_file-%tky
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'The file must not be empty and at most 10 MB' ) )
+          TO reported-attachment.
+      ENDIF.
+
+    ENDLOOP.
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+CLASS lhc_objectlink DEFINITION INHERITING FROM cl_abap_behavior_handler.
+
+  PRIVATE SECTION.
+    METHODS setObjectLinkDefaults FOR DETERMINE ON MODIFY
+      IMPORTING keys FOR ObjectLink~setObjectLinkDefaults.
+
+    METHODS validateObjectLink FOR VALIDATE ON SAVE
+      IMPORTING keys FOR ObjectLink~validateObjectLink.
+
+ENDCLASS.
+
+
+CLASS lhc_objectlink IMPLEMENTATION.
+
+  METHOD setObjectLinkDefaults.
+    READ ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY ObjectLink FIELDS ( ChangeKind ) WITH CORRESPONDING #( keys )
+      RESULT DATA(lt_links).
+
+    MODIFY ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY ObjectLink
+        UPDATE FIELDS ( ChangeKind )
+        WITH VALUE #( FOR ls_link IN lt_links WHERE ( ChangeKind IS INITIAL )
+                      ( %tky = ls_link-%tky ChangeKind = 'CHANGE' ) ).
+  ENDMETHOD.
+
+
+  METHOD validateObjectLink.
+    READ ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY ObjectLink FIELDS ( TicketUUID ObjectUUID ChangeKind ) WITH CORRESPONDING #( keys )
+      RESULT DATA(lt_links)
+      ENTITY ObjectLink BY \_Ticket FIELDS ( TicketUUID ) WITH CORRESPONDING #( keys )
+      RESULT DATA(lt_tickets).
+
+    " all links of the affected tickets, to find duplicates
+    READ ENTITIES OF zr_dd_ticket IN LOCAL MODE
+      ENTITY Ticket BY \_ObjectLink FIELDS ( TicketUUID ObjectUUID ) WITH CORRESPONDING #( lt_tickets )
+      RESULT DATA(lt_all_links).
+
+    " the objects, read through the registry BO
+    READ ENTITIES OF zr_dd_object
+      ENTITY TechObject FIELDS ( ObjectUUID )
+      WITH VALUE #( FOR ls_o IN lt_links WHERE ( ObjectUUID IS NOT INITIAL ) ( ObjectUUID = ls_o-ObjectUUID ) )
+      RESULT DATA(lt_objects).
+
+    LOOP AT lt_links INTO DATA(ls_link).
+
+      IF ls_link-ObjectUUID IS INITIAL OR NOT line_exists( lt_objects[ ObjectUUID = ls_link-ObjectUUID ] ).
+        APPEND VALUE #( %tky = ls_link-%tky ) TO failed-objectlink.
+        APPEND VALUE #( %tky = ls_link-%tky
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'The object is not in the object registry' )
+                        %element-ObjectUUID = if_abap_behv=>mk-on ) TO reported-objectlink.
+      ELSE.
+        LOOP AT lt_all_links TRANSPORTING NO FIELDS
+             WHERE TicketUUID = ls_link-TicketUUID AND ObjectUUID = ls_link-ObjectUUID AND LinkUUID <> ls_link-LinkUUID.
+          EXIT.
+        ENDLOOP.
+        IF sy-subrc = 0.
+          APPEND VALUE #( %tky = ls_link-%tky ) TO failed-objectlink.
+          APPEND VALUE #( %tky = ls_link-%tky
+                          %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                        text     = 'The object is already linked to this ticket' )
+                          %element-ObjectUUID = if_abap_behv=>mk-on ) TO reported-objectlink.
+        ENDIF.
+      ENDIF.
+
+      IF ls_link-ChangeKind <> 'NEW' AND ls_link-ChangeKind <> 'CHANGE' AND ls_link-ChangeKind <> 'CHECK'.
+        APPEND VALUE #( %tky = ls_link-%tky ) TO failed-objectlink.
+        APPEND VALUE #( %tky = ls_link-%tky
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'Change kind must be NEW, CHANGE or CHECK' )
+                        %element-ChangeKind = if_abap_behv=>mk-on ) TO reported-objectlink.
       ENDIF.
 
     ENDLOOP.

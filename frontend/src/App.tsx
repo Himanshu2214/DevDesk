@@ -9,6 +9,9 @@ import { TicketList } from './views/TicketList';
 import { TicketPage } from './views/TicketPage';
 import { Timesheet } from './views/Timesheet';
 import { Placeholder } from './views/Placeholder';
+import { Transports } from './views/Transports';
+import { Objects } from './views/Objects';
+import { Knowledge } from './views/Knowledge';
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
 
@@ -20,6 +23,9 @@ function Router({ route }: { route: string }) {
     case 'list': case 'project': return <TicketList route={route} />;
     case 'ticket': return <TicketPage ticketId={decodeURIComponent(rest)} />;
     case 'timesheet': return <Timesheet />;
+    case 'transports': return <Transports route={route} />;
+    case 'objects': return <Objects route={route} />;
+    case 'kb': return <Knowledge route={route} />;
     default: return <Placeholder route={head} />;
   }
 }

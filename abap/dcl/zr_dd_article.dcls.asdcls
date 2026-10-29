@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - only your own articles'
+@MappingRole: true
+define role ZR_DD_Article {
+  grant select on ZR_DD_Article
+    where CreatedBy = aspect user;
+}

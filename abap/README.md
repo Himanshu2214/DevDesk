@@ -1,6 +1,8 @@
-# DevDesk ABAP – phase 1 (Ticket BO)
+# DevDesk ABAP – phase 1 and 2
 
-Source files for the SAP side of DevDesk, phase 1: tickets with acceptance criteria, test cases, release checklist, work log, comments and status events.
+Source files for the SAP side of DevDesk.
+- **Phase 1:** tickets with acceptance criteria, test cases, release checklist, work log, comments and status events.
+- **Phase 2:** transport tracker (manual), technical object registry with dependencies (impact map), knowledge base, ticket attachments and object links.
 
 The code is the source of truth in GitHub. In SAP it goes into **local objects (`$TMP`)** for now. Later you can move it to a real package with SE03 → *Change Object Directory Entries*, or via abapGit.
 
@@ -21,6 +23,20 @@ The code is the source of truth in GitHub. In SAP it goes into **local objects (
 | Behavior | `ZR_DD_Ticket` (managed, `strict ( 2 )`), class `ZBP_R_DD_TICKET`, projection `ZC_DD_Ticket` |
 | Service | definition `ZUI_DD`, binding `ZUI_DD_O4` (OData V4 – UI) |
 | Programs | `ZDD_SETUP` (value lists, projects, configuration), class `ZCL_DD_SMOKE_TEST` (console test, F9) |
+
+**Phase 2** (step by step: [SETUP-GUIDE part L](../docs/SETUP-GUIDE.md#l-phase-2--transports-objects-knowledge-attachments))
+
+| Type | Objects |
+|---|---|
+| Number range | `ZDD_KB`, interval `01` (domain `ZDD_TKT_NO`) |
+| Tables (8) | `ZDD_TR`, `ZDD_TR_DEP`, `ZDD_OBJ`, `ZDD_OBJ_DEP`, `ZDD_KB`, `ZDD_KB_LINK`, `ZDD_ATT`, `ZDD_TOBJ` |
+| BO Transport | `ZR_DD_Transport` + `ZR_DD_TransportDep`, calculated `Phase`; actions `markReleased`, `recordImport` (parameter `ZA_DD_ImportParam`); class `ZBP_R_DD_TRANSPORT` |
+| BO Object | `ZR_DD_Object` + `ZR_DD_ObjectDep`; class `ZBP_R_DD_OBJECT` (upper-case names, unique type + name, no self-dependency) |
+| BO Article | `ZR_DD_Article` + `ZR_DD_ArticleLink`, calculated `ArticleId` (KB-12); class `ZBP_R_DD_ARTICLE` |
+| Ticket (changed) | new children `ZR_DD_Attachment` (Edm.Binary content, max. 10 MB) and `ZR_DD_TicketObject`; handlers in `ZBP_R_DD_TICKET` |
+| Projections, roles | `ZC_DD_*` for all of the above, 16 access controls (only your own data) |
+| Service (changed) | `ZUI_DD` exposes `Transport`, `TransportDependency`, `TechObject`, `ObjectDependency`, `Article`, `ArticleLink`, `Attachment`, `ObjectLink` |
+| Programs | `ZDD_SETUP` (+ lists OBJTYPE, KBTYPE, DEPKIND), class `ZCL_DD_SMOKE_TEST_P2` |
 
 ## Folder → object type in ADT
 

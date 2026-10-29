@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - dependency of your own Object'
+@MappingRole: true
+define role ZR_DD_ObjectDep {
+  grant select on ZR_DD_ObjectDep
+    where _Object.CreatedBy = aspect user;
+}

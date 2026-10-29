@@ -1,0 +1,69 @@
+managed implementation in class zbp_r_dd_object unique;
+strict ( 2 );
+
+// Technical object registry. The dependencies are the edges of the impact map (the UI walks the graph).
+define behavior for ZR_DD_Object alias TechObject
+persistent table zdd_obj
+lock master
+authorization master ( global, instance )
+etag master LocalLastChanged
+{
+  create;
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) ObjectUUID;
+  field ( readonly ) CreatedBy, CreatedAt, LastChangedBy, LastChangedAt, LocalLastChanged;
+  field ( mandatory ) ObjectType, ObjectName;
+
+  association _Dependency { create; }
+
+  // SAP repository names and packages in upper case (not for FIORI, DEST, API)
+  determination normalizeObject on modify { create; field ObjectType, ObjectName, PackageName; }
+  validation validateObject on save { create; update; field ObjectType, ObjectName, Project; }
+
+  mapping for zdd_obj
+  {
+    ObjectUUID       = object_uuid;
+    ObjectType       = obj_type;
+    ObjectName       = obj_name;
+    Description      = description;
+    PackageName      = devclass;
+    Project          = project;
+    Notes            = notes;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LastChangedBy    = last_changed_by;
+    LastChangedAt    = last_changed_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_ObjectDep alias ObjectDependency
+persistent table zdd_obj_dep
+lock dependent by _Object
+authorization dependent by _Object
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) DepUUID;
+  field ( readonly ) ObjectUUID, LocalLastChanged;
+  field ( mandatory ) UsesObjectUUID;
+
+  association _Object;
+
+  determination setDependencyDefaults on modify { create; }
+  validation validateDependency on save { create; update; field UsesObjectUUID, DepKind; }
+
+  mapping for zdd_obj_dep
+  {
+    DepUUID          = dep_uuid;
+    ObjectUUID       = object_uuid;
+    UsesObjectUUID   = uses_object_uuid;
+    DepKind          = dep_kind;
+    NoteText         = note_text;
+    LocalLastChanged = local_last_changed;
+  }
+}

@@ -7,6 +7,15 @@ define service ZUI_DD {
   expose ZC_DD_Worklog       as Worklog;
   expose ZC_DD_Note          as Note;
   expose ZC_DD_Event         as TicketEvent;
+  expose ZC_DD_Attachment    as Attachment;
+  expose ZC_DD_TicketObject  as ObjectLink;
+  // phase 2
+  expose ZC_DD_Transport     as Transport;
+  expose ZC_DD_TransportDep  as TransportDependency;
+  expose ZC_DD_Object        as TechObject;
+  expose ZC_DD_ObjectDep     as ObjectDependency;
+  expose ZC_DD_Article       as Article;
+  expose ZC_DD_ArticleLink   as ArticleLink;
   expose ZI_DD_Project       as Project;
   expose ZI_DD_Value         as ValueList;
 }

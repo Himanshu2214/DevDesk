@@ -10,6 +10,7 @@ import { ago, fmtDate, PRIORITY_NAME, r1 } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
+import { TicketSap } from './TicketSap';
 
 type Tab = 'overview' | 'tests' | 'sap' | 'activity';
 const NEXT_RESULT: Record<string, TestCase['TestResult']> = { OPEN: 'PASS', PASS: 'FAIL', FAIL: 'OPEN' };
@@ -99,7 +100,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
 
           <div className="tp-tabs">
             {([['overview', 'Overview'], ['tests', <>Tests &amp; checklist <span className="muted num">{passed}/{tests.length} · {done}/{chk.length}</span></>],
-              ['activity', <>Activity <span className="muted num">{(t._Note ?? []).length}</span></>], ['sap', <>SAP objects &amp; transports <span className="muted">phase 2</span></>]] as [Tab, React.ReactNode][])
+              ['activity', <>Activity <span className="muted num">{(t._Note ?? []).length}</span></>], ['sap', <>SAP &amp; files <span className="muted num">{(t._ObjectLink ?? []).length + (t._Attachment ?? []).length}</span></>]] as [Tab, React.ReactNode][])
               .map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
           </div>
 
@@ -137,9 +138,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
             <div style={{ marginTop: 14 }}><RichEditor key={'c' + t.TicketUUID} value="" placeholder="Leave a comment… (Ctrl+Enter to send)" onSubmit={v => add('_Note', { Text: v })} /></div>
           </>}
 
-          {tab === 'sap' && <div className="tp-sec" style={{ marginTop: 6 }}><div className="sub"><div className="add" style={{ height: 'auto', padding: '14px 12px', display: 'block', lineHeight: 1.6 }}>
-            Linked technical objects, transports with DEV → QA → PRD status and the impact map come in phase 2 (see the mockup).
-            Until then, note transport numbers in a comment.</div></div></div>}
+          {!detail.isLoading && tab === 'sap' && <TicketSap t={t} />}
         </div>
 
         <aside className="props">

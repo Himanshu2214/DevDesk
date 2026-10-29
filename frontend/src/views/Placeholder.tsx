@@ -1,10 +1,7 @@
 import { Page } from '../components/ui';
 
 const TEXT: Record<string, [string, string]> = {
-  transports: ['Transports', 'Deployment tracker DEV → QA → PRD with import status, test evidence and rollback notes. Phase 2 (manual), live TMS status in phase 3.'],
-  objects: ['Objects', 'Technical object registry with dependencies and the impact map. Phase 2.'],
-  kb: ['Knowledge', 'Snippets, error & fix journal, API examples, config notes and design decisions, linked to tickets and objects. Phase 2.'],
-  insights: ['Insights', 'Progress chart, hours per week and completion by project, area and tech. Phase 2 – the data (status events, work log) is already collected.'],
+  insights: ['Insights', 'Progress chart, hours per week, cycle time and completion by project, area and tech. The data (status events, work log, transports) is already collected.'],
 };
 
 export function Placeholder({ route }: { route: string }) {

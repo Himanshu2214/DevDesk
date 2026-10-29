@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Command } from 'cmdk';
 import { api } from '../api';
 import type { NewTicket, Status, Ticket } from '../api';
-import { useStore } from '../store';
+import { useArticles, useObjects, useStore, useTransports } from '../store';
 import { recentTickets } from '../lib/recent';
 import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
@@ -178,6 +178,7 @@ function Palette({ close }: { close(): void }) {
   const s = useStore();
   const { openNew, openLog, openStop } = useDialogs();
   const [search, setSearch] = useState('');
+  const objects = useObjects(), articles = useArticles(), transports = useTransports();
   const route = location.hash.slice(1);
   const current = route.startsWith('ticket/') ? s.tickets.find(t => t.TicketId === decodeURIComponent(route.slice(7))) : undefined;
   const recent = recentTickets().map(id => s.tickets.find(t => t.TicketId === id)).filter((t): t is Ticket => !!t);
@@ -204,9 +205,20 @@ function Palette({ close }: { close(): void }) {
           </Command.Group>}
           {!search && recent.length > 0 && <Command.Group heading="Recent">{recent.map(t => ticketItem(t, 'recent'))}</Command.Group>}
           {search && <Command.Group heading="Tickets">{s.tickets.map(t => ticketItem(t, 'ticket'))}</Command.Group>}
+          {search && <Command.Group heading="Objects">{(objects.data ?? []).map(o =>
+            <Command.Item key={o.ObjectUUID} value={`object ${o.ObjectType} ${o.ObjectName} ${o.Description} ${o.PackageName}`} onSelect={() => pick(() => go('objects/' + o.ObjectUUID))}>
+              <Icon name="cube" size={14} style={{ color: 'var(--muted)' }} /><span className="pal-t mono">{o.ObjectName}</span><span className="pal-k">{o.ObjectType}</span></Command.Item>)}</Command.Group>}
+          {search && <Command.Group heading="Knowledge">{(articles.data ?? []).map(a =>
+            <Command.Item key={a.ArticleUUID} value={`article ${a.ArticleId} ${a.Title} ${a.Tags}`} onSelect={() => pick(() => go('kb/' + a.ArticleUUID))}>
+              <Icon name="book" size={14} style={{ color: 'var(--muted)' }} /><span className="muted num">{a.ArticleId}</span><span className="pal-t">{a.Title}</span></Command.Item>)}</Command.Group>}
+          {search && <Command.Group heading="Transports">{(transports.data ?? []).map(x =>
+            <Command.Item key={x.TransportUUID} value={`transport ${x.TrKorr} ${x.TrText}`} onSelect={() => pick(() => go('transports/' + x.TrKorr))}>
+              <Icon name="truck" size={14} style={{ color: 'var(--muted)' }} /><span className="mono">{x.TrKorr}</span><span className="pal-t">{x.TrText}</span><span className="pal-k">{x.Phase}</span></Command.Item>)}</Command.Group>}
           <Command.Group heading="Actions">
             {action('New ticket', 'plus', () => openNew(), 'C')}
             {action('Log time…', 'clock', () => openLog())}
+            {action('New transport', 'truck', () => go('transports/new'))}
+            {action('Register object', 'cube', () => go('objects/new'))}
             {action('Reload data', 'refresh', () => s.reload())}
           </Command.Group>
           <Command.Group heading="Go to">
@@ -215,6 +227,9 @@ function Palette({ close }: { close(): void }) {
             {action('My tickets', 'my', () => go('list/active'))}
             {action('Overdue', 'alert', () => go('list/overdue'))}
             {action('Timesheet', 'clock', () => go('timesheet'))}
+            {action('Transports', 'truck', () => go('transports'))}
+            {action('Objects', 'cube', () => go('objects'))}
+            {action('Knowledge', 'book', () => go('kb'))}
           </Command.Group>
         </Command.List>
       </Command>

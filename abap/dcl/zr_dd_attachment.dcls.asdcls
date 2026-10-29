@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - attachment of your own Ticket'
+@MappingRole: true
+define role ZR_DD_Attachment {
+  grant select on ZR_DD_Attachment
+    where _Ticket.CreatedBy = aspect user;
+}

@@ -17,6 +17,8 @@ use etag
   use association _Test { create; }
   use association _Worklog { create; }
   use association _Note { create; }
+  use association _Attachment { create; }
+  use association _ObjectLink { create; }
   use association _Event;      // read only from outside; events are created by setStatus
 }
 
@@ -57,6 +59,24 @@ use etag
 }
 
 define behavior for ZC_DD_Note alias Note
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_Attachment alias Attachment
+use etag
+{
+  use update;
+  use delete;
+
+  use association _Ticket;
+}
+
+define behavior for ZC_DD_TicketObject alias ObjectLink
 use etag
 {
   use update;

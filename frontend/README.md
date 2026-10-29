@@ -1,8 +1,8 @@
-# DevDesk frontend – phase 1
+# DevDesk frontend – phase 1 and 2
 
 React 18 + TypeScript + Vite, with the same look as the mockup (Inter font and ECharts bundled, no CDN). It talks to the OData V4 service **`ZUI_DD_O4`**: tickets, acceptance criteria, test cases, checklist, work log, comments and status events.
 
-## Screens in phase 1
+## Screens
 
 | Screen | What works |
 |---|---|
@@ -13,7 +13,12 @@ React 18 + TypeScript + Vite, with the same look as the mockup (Inter font and E
 | **Timesheet** | Week grid, estimate vs actual, by activity, missing time, over estimate, *Log time* |
 | **Global** | `C` new ticket (deep insert, then `setStatus` if the status isn't Backlog), `Ctrl+K` palette, sidebar timer (persisted in SAP, so it survives a reload), light/dark, polling every 30 s |
 
-Transports, Objects, Knowledge and Insights show a "phase 2" page.
+| **Transports** (phase 2) | Board DEV → QA → PRD with progress bar and project filter; side panel: link a ticket, *Mark released*, *Record* QA / PRD import with return code, dependencies with "import first" warning, test evidence, deployment and rollback notes. Failed imports are pinned in the Inbox |
+| **Objects** (phase 2) | Registry grouped by project with search and type filter; object page with impact map (what it uses, what a change affects), uses / used by, linked tickets, their transports and articles, notes |
+| **Knowledge** (phase 2) | Search over all fields (`/` to focus), filters by type, time and tags; article page with the fields of its type (error & fix, snippet, API example, config steps, design decision) and links to tickets and objects |
+| **Ticket → SAP & files** (phase 2) | Changed objects (new / changed / checked), transports of the ticket, attachments (drag and drop, up to 10 MB, download), linked articles; `Ctrl+K` also finds objects, articles and transports |
+
+Insights shows a "coming next" page.
 
 ## Libraries
 

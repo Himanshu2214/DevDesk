@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - only your own transports'
+@MappingRole: true
+define role ZR_DD_Transport {
+  grant select on ZR_DD_Transport
+    where CreatedBy = aspect user;
+}

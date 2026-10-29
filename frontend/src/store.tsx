@@ -18,6 +18,11 @@ export const keys = {
   recent: ['side', 'recent'] as const,
   events: ['side', 'events'] as const,
   week: (from: string, to: string) => ['side', 'week', from, to] as const,
+  p2: ['p2'] as const,                   // transports, objects, articles, object links
+  transports: ['p2', 'transports'] as const,
+  objects: ['p2', 'objects'] as const,
+  articles: ['p2', 'articles'] as const,
+  objectLinks: ['p2', 'objectLinks'] as const,
 };
 
 export interface ToastAction { label: string; run(): void }
@@ -61,6 +66,12 @@ export const useStore = () => useContext(Ctx);
 export function useTicketDetail(uuid: string | undefined) {
   return useQuery({ queryKey: keys.ticket(uuid ?? ''), queryFn: () => api.getTicket(uuid!), enabled: !!uuid, refetchInterval: POLL_MS });
 }
+/* phase 2 lists - small enough to load completely, refreshed like the tickets */
+export const useTransports = () => useQuery({ queryKey: keys.transports, queryFn: () => api.listTransports(), refetchInterval: POLL_MS });
+export const useObjects = () => useQuery({ queryKey: keys.objects, queryFn: () => api.listObjects(), refetchInterval: POLL_MS });
+export const useArticles = () => useQuery({ queryKey: keys.articles, queryFn: () => api.listArticles(), refetchInterval: POLL_MS });
+export const useObjectLinks = () => useQuery({ queryKey: keys.objectLinks, queryFn: () => api.listObjectLinks(), refetchInterval: POLL_MS });
+
 /** Work log of one week (Timesheet) */
 export function useWeekWorklog(from: string, to: string) {
   return useQuery({ queryKey: keys.week(from, to), queryFn: () => api.listWorklog(from, to), refetchInterval: POLL_MS });
@@ -115,6 +126,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     await Promise.all([
       qc.invalidateQueries({ queryKey: keys.tickets }),
       qc.invalidateQueries({ queryKey: keys.side }),
+      qc.invalidateQueries({ queryKey: keys.p2 }),
       ...uuids.map(u => qc.invalidateQueries({ queryKey: keys.ticket(u) })),
     ]);
     return ok;

@@ -1,8 +1,8 @@
 // In-browser stand-in for ZUI_DD_O4, used by `npm run dev` until the SAP service is active.
 // Behaves like the RAP BO: defaults on create, setStatus writes events, timer rounds to 0.25 h,
 // checklist from value list CHECKCAT, TK- numbers. Data is kept in localStorage.
-import type { Api, ChildNav, ChildSet, NewTicket, Project, Status, Ticket, TicketEvent, ValueItem, Worklog } from './types';
-import { CHILD_KEY } from './types';
+import type { Api, Article, ChildNav, ChildSet, NewTicket, Phase, Project, RootSet, Status, SubSet, TechObject, Ticket, TicketEvent, Transport, ValueItem, Worklog } from './types';
+import { CHILD_KEY, ROOT_KEY, SUB_KEY, SUB_NAV } from './types';
 
 const STORE = 'devdesk-mock-v1';
 const ME = 'HSUDRA';
@@ -30,9 +30,16 @@ export const VALUES: ValueItem[] = [
   v('CHECKCAT', 'UNIT', 'Unit tests written and green', 1), v('CHECKCAT', 'INTEG', 'Tested end-to-end in QA', 2),
   v('CHECKCAT', 'AUTH', 'Authorization checks verified', 3), v('CHECKCAT', 'ERROR', 'Errors logged and shown to the user', 4),
   v('CHECKCAT', 'PERF', 'Runtime checked with production volume', 5), v('CHECKCAT', 'TRANSPORT', 'All objects in the TR, TR released', 6),
+  v('OBJTYPE', 'TABL', 'Table', 1, '#4EA7FC'), v('OBJTYPE', 'DDLS', 'CDS view', 2, '#26B5CE'), v('OBJTYPE', 'BDEF', 'Behavior definition', 3, '#5E6AD2'),
+  v('OBJTYPE', 'CLAS', 'Class', 4, '#F0BF00'), v('OBJTYPE', 'PROG', 'Report', 5, '#8A8F98'), v('OBJTYPE', 'FUGR', 'Function group', 6, '#8A8F98'),
+  v('OBJTYPE', 'TRAN', 'Transaction', 7, '#8A8F98'), v('OBJTYPE', 'SRVD', 'Service definition', 8, '#4CB782'), v('OBJTYPE', 'SRVB', 'Service binding', 9, '#4CB782'),
+  v('OBJTYPE', 'SSFO', 'Smart Form / Adobe form', 10, '#E5A3C0'), v('OBJTYPE', 'FIORI', 'Fiori app', 11, '#BB87FC'), v('OBJTYPE', 'DEST', 'Destination (SM59)', 12, '#F2994A'),
+  v('OBJTYPE', 'API', 'External API', 13, '#EB5757'),
+  v('KBTYPE', 'SNIP', 'Snippet', 1), v('KBTYPE', 'FIX', 'Error & fix', 2), v('KBTYPE', 'API', 'API example', 3), v('KBTYPE', 'CONF', 'Config note', 4), v('KBTYPE', 'DECI', 'Design decision', 5),
+  v('DEPKIND', 'USES', 'uses', 1), v('DEPKIND', 'EXPOSES', 'exposes', 2), v('DEPKIND', 'CALLS', 'calls', 3),
 ];
 
-interface Db { seq: number; tickets: Ticket[] }
+interface Db { seq: number; tickets: Ticket[]; kbSeq: number; transports: Transport[]; objects: TechObject[]; articles: Article[] }
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
 const isoDate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
@@ -113,7 +120,78 @@ function seed(): Db {
     if (status === 'PROG' && i % 3 === 0) t._Note = [{ NoteUUID: uuid(), TicketUUID: t.TicketUUID, Text: 'Checked in DEV with test data; waiting for feedback on the layout.', CreatedBy: ME, CreatedAt: t.StatusChangedAt, etag: etag() }];
     tickets.push(t);
   }
-  return { seq: 1001 + N, tickets };
+  return { seq: 1001 + N, tickets, ...seedPhase2(tickets) };
+}
+
+/* ---------- phase 2 sample data: objects with dependencies, transports, articles ---------- */
+const OBJ: [string, string, string, string, string][] = [   // project, type, name, description, package
+  ['GST', 'PROG', 'ZSD_SALES_REGISTER', 'Sales register with GST split', 'ZSD_GST'], ['GST', 'TABL', 'ZEINV_LOG', 'E-invoice request log', 'ZSD_GST'],
+  ['GST', 'CLAS', 'ZCL_EINV_IRP_CLIENT', 'IRP API client with retry', 'ZSD_GST'], ['GST', 'DEST', 'IRP_GSP', 'HTTP destination to the GSP', ''],
+  ['GST', 'API', 'IRP e-invoice API', 'Government IRP (generate / cancel IRN)', ''], ['GST', 'SSFO', 'ZSD_TAX_INVOICE', 'Tax invoice form with QR code', 'ZSD_GST'],
+  ['GATE', 'TABL', 'ZMM_GATE_HDR', 'Gate entry header', 'ZMM_GATE'], ['GATE', 'TABL', 'ZMM_GATE_ITM', 'Gate entry items (PO lines)', 'ZMM_GATE'],
+  ['GATE', 'DDLS', 'ZR_MM_GATEENTRY', 'Gate entry BO root view', 'ZMM_GATE'], ['GATE', 'BDEF', 'ZR_MM_GATEENTRY', 'Gate entry behavior', 'ZMM_GATE'],
+  ['GATE', 'CLAS', 'ZBP_R_MM_GATEENTRY', 'Gate entry behavior pool', 'ZMM_GATE'], ['GATE', 'SRVB', 'ZUI_MM_GATE_O4', 'Gate entry OData V4 binding', 'ZMM_GATE'],
+  ['GATE', 'FIORI', 'zmm.gateentry', 'Gate entry app', ''], ['PPR', 'PROG', 'ZPP_MRP_LINK', 'MRP link report', 'ZPP_REP'],
+  ['PPR', 'DDLS', 'ZI_PP_PRODDASHBOARD', 'Scheduled vs actual per order', 'ZPP_REP'], ['FIN', 'PROG', 'ZFI_VENDOR_MAIL', 'Vendor auto-mail', 'ZFI_AUTO'],
+  ['CORE', 'CLAS', 'ZCL_CA_APPLOG', 'Application log helper', 'ZCA_TOOLS'],
+];
+// [dependent, used]
+const DEPS: [number, number][] = [[0, 1], [2, 1], [2, 3], [3, 4], [5, 1], [8, 6], [8, 7], [9, 8], [10, 9], [11, 9], [12, 11], [14, 13], [2, 16], [15, 16], [10, 16]];
+
+function seedPhase2(tickets: Ticket[]): Pick<Db, 'kbSeq' | 'transports' | 'objects' | 'articles'> {
+  const at = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY).toISOString();
+  const objects: TechObject[] = OBJ.map(([Project, ObjectType, ObjectName, Description, PackageName], i) => ({ ObjectUUID: uuid(), ObjectType, ObjectName, Description, PackageName,
+    Project, Notes: '', CreatedBy: ME, CreatedAt: at(80 - i), LastChangedAt: at(80 - i), etag: etag(), _Dependency: [] }));
+  for (const [from, to] of DEPS) objects[from]._Dependency.push({ DepUUID: uuid(), ObjectUUID: objects[from].ObjectUUID, UsesObjectUUID: objects[to].ObjectUUID, DepKind: 'USES', NoteText: '', etag: etag() });
+  // every ticket changes one or two objects of its project
+  for (const t of tickets) {
+    const mine = objects.filter(o => o.Project === t.Project);
+    const pick = mine.length ? [mine[Number(t.TicketNo) % mine.length], mine[(Number(t.TicketNo) + 2) % mine.length]] : [];
+    t._ObjectLink = [...new Set(pick)].map((o, k) => ({ LinkUUID: uuid(), TicketUUID: t.TicketUUID, ObjectUUID: o.ObjectUUID, ChangeKind: k ? 'CHECK' : 'CHANGE', NoteText: '', etag: etag() }));
+    t._Attachment = t._Attachment ?? [];
+  }
+  // one transport per ticket in progress, testing or done; some with warnings, one failed in QA
+  let nr = 900101;
+  const transports: Transport[] = tickets.filter(t => t.Status === 'TEST' || t.Status === 'DONE' || t.Status === 'PROG').map((t, i) => {
+    const days = Math.max(1, (Date.now() - Date.parse(t.StatusChangedAt ?? t.CreatedAt ?? '')) / DAY);
+    const tr: Transport = { TransportUUID: uuid(), TrKorr: 'S4DK' + nr++, TicketUUID: t.TicketUUID, TrText: `${t.TicketId} ${t.Title}`.slice(0, 60), TrKind: 'K', TrOwner: ME,
+      ReleasedOn: null, QaRc: 0, QaImportedAt: null, PrdRc: 0, PrdImportedAt: null, Phase: 'DEV', TestEvidence: '', DeployNotes: '', RollbackNotes: '',
+      CreatedBy: ME, CreatedAt: at(days + 3), LastChangedAt: at(days), etag: etag(), _Dependency: [] };
+    if (t.Status !== 'PROG') { tr.ReleasedOn = at(days + 1).slice(0, 10); tr.QaImportedAt = at(days + 1); tr.QaRc = i % 5 === 2 ? 4 : 0 }
+    if (t.Status === 'TEST' && i % 4 === 1) tr.QaRc = 8;
+    if (t.Status === 'DONE') { tr.PrdImportedAt = at(Math.max(0.5, days - 0.5)); tr.TestEvidence = 'Tested in QA with the requester; screenshots in the ticket.' }
+    tr.Phase = phaseOf(tr);
+    return tr;
+  });
+  if (transports.length > 3) transports[3]._Dependency.push({ DepUUID: uuid(), TransportUUID: transports[3].TransportUUID, DependsOn: transports[1].TrKorr, NoteText: 'same table', etag: etag() });
+  const objOf = (name: string) => objects.find(o => o.ObjectName === name)!.ObjectUUID;
+  const art = (no: number, p: Partial<Article>, objNames: string[], daysAgo: number): Article => {
+    const ArticleUUID = uuid();
+    return { ArticleUUID, ArticleNo: String(no).padStart(8, '0'), ArticleId: 'KB-' + no, ArticleType: 'SNIP', Title: '', Tags: '', ErrorText: '', RootCause: '', FixLocation: '', FixText: '', TestNote: '',
+      CodeText: '', CodeLang: '', NoteText: '', HttpMethod: '', Endpoint: '', RequestBody: '', ResponseBody: '', ResponseCodes: '', AuthReference: '', StepsText: '', ContextText: '',
+      DecisionText: '', Consequences: '', CreatedBy: ME, CreatedAt: at(daysAgo), LastChangedAt: at(daysAgo), etag: etag(), ...p,
+      _Link: objNames.map(n => ({ LinkUUID: uuid(), ArticleUUID, TicketUUID: null, ObjectUUID: objOf(n), etag: etag() })) };
+  };
+  const articles: Article[] = [
+    art(1, { ArticleType: 'FIX', Title: 'RAP dump CX_RAP_HANDLER_NOT_IMPLEMENTED on a child action', Tags: 'rap,dump',
+      ErrorText: 'Short dump CX_RAP_HANDLER_NOT_IMPLEMENTED when the UI calls an action on a child entity.', RootCause: 'The action was declared on the child, but the handler class only implemented the root.',
+      FixLocation: 'ZBP_R_MM_GATEENTRY, local handler for the item', FixText: 'Moved the action to the root entity and passed the item key as a parameter.', TestNote: 'Action works from the list and the object page.' }, ['ZBP_R_MM_GATEENTRY'], 40),
+    art(2, { ArticleType: 'SNIP', Title: 'Application log with context fields', Tags: 'abap,log', CodeLang: 'ABAP',
+      CodeText: "DATA(lo_log) = zcl_ca_applog=>create( object = 'ZDD' subobject = 'TICKET' ).\nlo_log->add_text( |Ticket { lv_ticket }: { lv_text }| ).\nlo_log->save( ).",
+      NoteText: 'Always pass the ticket number so the log can be found from DevDesk.' }, ['ZCL_CA_APPLOG'], 30),
+    art(3, { ArticleType: 'API', Title: 'IRP: generate IRN', Tags: 'gst,einvoice,api', HttpMethod: 'POST', Endpoint: '/eicore/v1.03/Invoice',
+      RequestBody: '{\n  "Version": "1.1",\n  "TranDtls": { "TaxSch": "GST", "SupTyp": "B2B" }\n}', ResponseBody: '{ "Irn": "...", "AckNo": 112010000001, "Status": "ACT" }',
+      ResponseCodes: '200 ok, 2150 duplicate IRN, 5002 timeout', AuthReference: 'Token from destination IRP_GSP (no credentials here)' }, ['IRP e-invoice API', 'ZCL_EINV_IRP_CLIENT'], 22),
+    art(4, { ArticleType: 'CONF', Title: 'Publish an OData V4 service group', Tags: 'odata,basis',
+      StepsText: '/IWFND/V4_ADMIN\nPublish Service Groups\nSystem alias LOCAL, Get Service Groups\nSelect the group and publish' }, ['ZUI_MM_GATE_O4'], 15),
+    art(5, { ArticleType: 'DECI', Title: 'Gate entry: no draft', Tags: 'rap,design', ContextText: 'Security staff create entries on a tablet in one step.',
+      DecisionText: 'Managed BO without draft; every change is saved at once.', Consequences: 'Validations must give clear messages because there is no draft to fix later.' }, ['ZR_MM_GATEENTRY'], 8),
+  ];
+  return { kbSeq: 6, transports, objects, articles };
+}
+/** Tracker column, as ZR_DD_Transport calculates it */
+function phaseOf(t: Pick<Transport, 'PrdImportedAt' | 'PrdRc' | 'QaImportedAt' | 'QaRc'>): Phase {
+  return t.PrdImportedAt ? (t.PrdRc > 4 ? 'FAILED' : 'PRD') : t.QaImportedAt ? (t.QaRc > 4 ? 'FAILED' : 'QA') : 'DEV';
 }
 
 function mkTicket(p: Partial<Ticket>, no: number, created = new Date()): Ticket {
@@ -136,7 +214,14 @@ const checklist = (TicketUUID: string) => VALUES.filter(x => x.ListType === 'CHE
 /* ---------- persistence ---------- */
 let db: Db = load();
 function load(): Db {
-  try { const s = localStorage.getItem(STORE); if (s) return JSON.parse(s) } catch { /* private mode */ }
+  try {
+    const s = localStorage.getItem(STORE);
+    if (s) {
+      const d = JSON.parse(s) as Db;
+      if (!d.objects) Object.assign(d, seedPhase2(d.tickets));   // data saved before phase 2
+      return d;
+    }
+  } catch { /* private mode */ }
   return seed();
 }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(db)) } catch { /* ignore */ } }
@@ -158,14 +243,45 @@ function checkEtag(item: { etag?: string }, sent?: string) {
   if (sent && sent !== '*' && item.etag !== sent) throw Object.assign(new Error('Someone (or another tab) changed this item in the meantime. It was reloaded – try again.'), { status: 412 });
 }
 function touch(t: Ticket) { t.LastChangedAt = nowIso(); t.etag = etag(); save() }
-const head = (t: Ticket): Ticket => { const d = derive(t); return { ...d, _Acceptance: undefined, _Test: undefined, _Checklist: undefined, _Worklog: undefined, _Note: undefined, _Event: undefined } };
+const head = (t: Ticket): Ticket => { const d = derive(t); return { ...d, _Acceptance: undefined, _Test: undefined, _Checklist: undefined, _Worklog: undefined, _Note: undefined, _Event: undefined, _Attachment: undefined, _ObjectLink: undefined } };
+/** like the SAP read: attachments without their content */
+const detail = (t: Ticket): Ticket => { const d = derive(t); return { ...d, _Attachment: (d._Attachment ?? []).map(a => ({ ...a, Content: undefined })) } };
 function validate(t: Partial<Ticket>) {
   if (!t.Title?.trim()) throw new Error('Enter a title');
   if (t.Priority && !['1', '2', '3', '4'].includes(t.Priority)) throw new Error('Priority must be 1 (Urgent) to 4 (Low)');
   if (t.Project && !PROJECTS.some(p => p.Project === t.Project)) throw new Error(`Project "${t.Project}" is not maintained in ZDD_PROJECT`);
   if (t.EstimateHours !== undefined && t.EstimateHours < 0) throw new Error('The estimate cannot be negative');
 }
-const setTarget: Record<ChildSet, keyof Ticket> = { Acceptance: '_Acceptance', TestCase: '_Test', ChecklistItem: '_Checklist', Worklog: '_Worklog', Note: '_Note', TicketEvent: '_Event' };
+const setTarget: Record<ChildSet, keyof Ticket> = { Acceptance: '_Acceptance', TestCase: '_Test', ChecklistItem: '_Checklist', Worklog: '_Worklog', Note: '_Note', TicketEvent: '_Event',
+  Attachment: '_Attachment', ObjectLink: '_ObjectLink' };
+const roots = (set: RootSet) => (set === 'Transport' ? db.transports : set === 'TechObject' ? db.objects : db.articles) as unknown as Record<string, unknown>[];
+function findRoot(set: RootSet, id: string): Record<string, unknown> & { etag?: string } {
+  const r = roots(set).find(x => x[ROOT_KEY[set]] === id);
+  if (!r) throw new Error('Not found - it may have been deleted');
+  return r;
+}
+const TRKORR = /^[A-Z0-9]{3}[KT][0-9]{6}$/;
+/** what the BO validations check on save */
+function validateRoot(set: RootSet, r: Record<string, unknown>) {
+  if (set === 'Transport') {
+    if (!TRKORR.test(String(r.TrKorr))) throw new Error(`"${r.TrKorr}" is not a transport request (e.g. S4DK900123)`);
+    if (db.transports.some(t => t.TrKorr === r.TrKorr && t.TransportUUID !== r.TransportUUID)) throw new Error(`${r.TrKorr} is already in the tracker`);
+  }
+  if (set === 'TechObject') {
+    if (!String(r.ObjectName ?? '').trim()) throw new Error('Enter the object name');
+    if (db.objects.some(o => o.ObjectType === r.ObjectType && o.ObjectName === r.ObjectName && o.ObjectUUID !== r.ObjectUUID)) throw new Error(`${r.ObjectType} ${r.ObjectName} is already registered`);
+  }
+  if (set === 'Article' && !String(r.Title ?? '').trim()) throw new Error('Enter a title');
+}
+/** what the BO determinations do */
+function normalize(set: RootSet, r: Record<string, unknown>) {
+  if (set === 'Transport') { r.TrKorr = String(r.TrKorr ?? '').trim().toUpperCase(); r.Phase = phaseOf(r as unknown as Transport) }
+  if (set === 'TechObject') {
+    const keepCase = ['FIORI', 'DEST', 'API'].includes(String(r.ObjectType));
+    r.ObjectName = keepCase ? String(r.ObjectName ?? '').trim() : String(r.ObjectName ?? '').trim().toUpperCase();
+    r.PackageName = String(r.PackageName ?? '').trim().toUpperCase();
+  }
+}
 function findChild(set: ChildSet, id: string): { t: Ticket; list: Record<string, unknown>[]; item: Record<string, unknown> } {
   const k = CHILD_KEY[set];
   for (const t of db.tickets) {
@@ -183,7 +299,7 @@ export const mockApi: Api = {
   listValues: () => delay(VALUES),
   listTickets: () => delay(db.tickets.map(head).sort((a, b) => b.TicketNo.localeCompare(a.TicketNo))),
   changedSince: iso => delay(db.tickets.filter(t => (t.LastChangedAt ?? '') > iso).map(head)),
-  getTicket: uuid => delay(derive(find(uuid))),
+  getTicket: uuid => delay(detail(find(uuid))),
   async createTicket(n: NewTicket) {
     validate(n);
     const t = mkTicket({ Title: n.Title, Description: n.Description, Priority: n.Priority, Project: n.Project, Area: n.Area, Tech: n.Tech,
@@ -194,7 +310,7 @@ export const mockApi: Api = {
     t._Checklist = checklist(t.TicketUUID);
     db.tickets.push(t); save();
     if (n.status !== 'BACKLOG') await this.setStatus(t, n.status);
-    return delay(derive(find(t.TicketUUID)));
+    return delay(detail(find(t.TicketUUID)));
   },
   async updateTicket(x, patch) {
     const t = find(x.TicketUUID); checkEtag(t, x.etag);
@@ -232,6 +348,15 @@ export const mockApi: Api = {
       if (!(h > 0 && h <= 24)) throw new Error('Hours must be more than 0 and at most 24');
       if (String(data.WorkDate) > isoDate(new Date())) throw new Error('Time cannot be logged for a future date');
       Object.assign(base, mkWorklog(t.TicketUUID, String(data.WorkDate || isoDate(new Date())), h, String(data.Activity || 'CODE'), String(data.CommentText || '')));
+    } else if (nav === '_Attachment') {
+      const size = Math.floor(String(data.Content ?? '').replace(/=+$/, '').length * 3 / 4);
+      if (!size) throw new Error('The file must not be empty and at most 10 MB');
+      if (size > 1.5e6) throw new Error('The browser mock keeps files up to 1.5 MB (SAP: 10 MB)');
+      Object.assign(base, { AttUUID: uuid(), FileName: data.FileName, MimeType: data.MimeType || 'application/octet-stream', FileSize: size, Content: data.Content, CreatedBy: ME, CreatedAt: nowIso() });
+    } else if (nav === '_ObjectLink') {
+      if (!db.objects.some(o => o.ObjectUUID === data.ObjectUUID)) throw new Error('The object is not in the object registry');
+      if ((t._ObjectLink ?? []).some(l => l.ObjectUUID === data.ObjectUUID)) throw new Error('The object is already linked to this ticket');
+      Object.assign(base, { LinkUUID: uuid(), ChangeKind: 'CHANGE', NoteText: '' }, data);
     } else {
       const k = { _Acceptance: 'AccUUID', _Test: 'TestUUID', _Checklist: 'ItemUUID', _Note: 'NoteUUID' }[nav as '_Note'];
       Object.assign(base, { [k]: uuid(), ...(nav === '_Note' ? { CreatedBy: ME, CreatedAt: nowIso() } : {}), ...(nav === '_Test' ? { TestResult: 'OPEN', TestSteps: '', Actual: '', TestedAt: null, TestedBy: '' } : {}), ...(nav === '_Checklist' ? { IsDone: false } : {}) }, data);
@@ -257,4 +382,77 @@ export const mockApi: Api = {
     .sort((a, b) => (b.EventAt ?? '').localeCompare(a.EventAt ?? '')).slice(0, top)),
   listWorklog: (from, to) => delay(db.tickets.flatMap(t => (t._Worklog ?? []).filter(w => w.WorkDate >= from && w.WorkDate <= to)
     .map(w => ({ ...w, _Ticket: { TicketUUID: t.TicketUUID, TicketId: t.TicketId, Title: t.Title, Status: t.Status, EstimateHours: t.EstimateHours } })))),
+  async downloadAttachment(a) {
+    const { item } = findChild('Attachment', a.AttUUID);
+    const bin = atob(String(item.Content ?? ''));
+    return new Blob([Uint8Array.from(bin, c => c.charCodeAt(0))], { type: String(item.MimeType) });
+  },
+  listObjectLinks: () => delay(db.tickets.flatMap(t => t._ObjectLink ?? [])),
+
+  listTransports: () => delay(db.transports.map(t => ({ ...t, Phase: phaseOf(t) }))),
+  listObjects: () => delay(db.objects),
+  listArticles: () => delay(db.articles),
+  async createRoot(set, data) {
+    const id = uuid(), now = nowIso();
+    const base: Record<string, unknown> = { [ROOT_KEY[set]]: id, CreatedBy: ME, CreatedAt: now, LastChangedAt: now, etag: etag(), [SUB_NAV[set]]: [] };
+    if (set === 'Transport') Object.assign(base, { TicketUUID: null, TrText: '', TrKind: 'K', TrOwner: ME, ReleasedOn: null, QaRc: 0, QaImportedAt: null, PrdRc: 0, PrdImportedAt: null,
+      TestEvidence: '', DeployNotes: '', RollbackNotes: '' });
+    if (set === 'TechObject') Object.assign(base, { Description: '', PackageName: '', Project: '', Notes: '' });
+    if (set === 'Article') {
+      const no = db.kbSeq++;
+      Object.assign(base, { ArticleNo: String(no).padStart(8, '0'), ArticleId: 'KB-' + no, Tags: '', ErrorText: '', RootCause: '', FixLocation: '', FixText: '', TestNote: '', CodeText: '', CodeLang: '',
+        NoteText: '', HttpMethod: '', Endpoint: '', RequestBody: '', ResponseBody: '', ResponseCodes: '', AuthReference: '', StepsText: '', ContextText: '', DecisionText: '', Consequences: '' });
+    }
+    Object.assign(base, data);
+    normalize(set, base); validateRoot(set, base);
+    roots(set).unshift(base); save();
+    return delay(id);
+  },
+  async updateRoot(set, x, patch) {
+    const r = findRoot(set, String(x[ROOT_KEY[set]])); checkEtag(r, x.etag);
+    const next = { ...r, ...patch }; normalize(set, next); validateRoot(set, next);
+    Object.assign(r, next, { LastChangedAt: nowIso(), etag: etag() }); save(); await delay(0);
+  },
+  async deleteRoot(set, x) {
+    const r = findRoot(set, String(x[ROOT_KEY[set]])); checkEtag(r, x.etag);
+    const list = roots(set); list.splice(list.indexOf(r), 1); save(); await delay(0);
+  },
+  async createSub(set, x, data) {
+    const r = findRoot(set, String(x[ROOT_KEY[set]]));
+    const list = r[SUB_NAV[set]] as Record<string, unknown>[];
+    if (set === 'Transport') {
+      const dep = String(data.DependsOn ?? '').trim().toUpperCase();
+      if (!TRKORR.test(dep)) throw new Error(`"${dep}" is not a transport request`);
+      if (dep === r.TrKorr) throw new Error('A transport cannot depend on itself');
+      list.push({ DepUUID: uuid(), TransportUUID: r.TransportUUID, NoteText: '', etag: etag(), ...data, DependsOn: dep });
+    } else if (set === 'TechObject') {
+      if (data.UsesObjectUUID === r.ObjectUUID) throw new Error('An object cannot depend on itself');
+      if (!db.objects.some(o => o.ObjectUUID === data.UsesObjectUUID)) throw new Error('The used object does not exist');
+      list.push({ DepUUID: uuid(), ObjectUUID: r.ObjectUUID, DepKind: 'USES', NoteText: '', etag: etag(), ...data });
+    } else {
+      if (!data.TicketUUID === !data.ObjectUUID) throw new Error('A link points to either a ticket or an object');
+      list.push({ LinkUUID: uuid(), ArticleUUID: r.ArticleUUID, TicketUUID: null, ObjectUUID: null, etag: etag(), ...data });
+    }
+    Object.assign(r, { LastChangedAt: nowIso(), etag: etag() }); save(); await delay(0);
+  },
+  async deleteSub(set: SubSet, x) {
+    const k = SUB_KEY[set], parentSet: RootSet = set === 'TransportDependency' ? 'Transport' : set === 'ObjectDependency' ? 'TechObject' : 'Article';
+    for (const r of roots(parentSet)) {
+      const list = r[SUB_NAV[parentSet]] as Record<string, unknown>[];
+      const i = list.findIndex(c => c[k] === x[k]);
+      if (i >= 0) { list.splice(i, 1); Object.assign(r, { LastChangedAt: nowIso(), etag: etag() }); save(); break }
+    }
+    await delay(0);
+  },
+  async markReleased(x) {
+    const r = findRoot('Transport', x.TransportUUID) as unknown as Transport; checkEtag(r, x.etag);
+    if (!r.ReleasedOn) r.ReleasedOn = isoDate(new Date());
+    Object.assign(r, { LastChangedAt: nowIso(), etag: etag() }); save(); await delay(0);
+  },
+  async recordImport(x, system, rc) {
+    const r = findRoot('Transport', x.TransportUUID) as unknown as Transport; checkEtag(r, x.etag);
+    if (!r.ReleasedOn) r.ReleasedOn = isoDate(new Date());
+    if (system === 'QA') { r.QaRc = rc; r.QaImportedAt = nowIso() } else { r.PrdRc = rc; r.PrdImportedAt = nowIso() }
+    Object.assign(r, { Phase: phaseOf(r), LastChangedAt: nowIso(), etag: etag() }); save(); await delay(0);
+  },
 };

@@ -1,0 +1,82 @@
+managed implementation in class zbp_r_dd_article unique;
+strict ( 2 );
+
+// Knowledge base: snippets, error & fix journal, API examples, config notes, design decisions.
+define behavior for ZR_DD_Article alias Article
+persistent table zdd_kb
+lock master
+authorization master ( global, instance )
+etag master LocalLastChanged
+{
+  create;
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) ArticleUUID;
+  field ( readonly ) ArticleNo, ArticleId, CreatedBy, CreatedAt, LastChangedBy, LastChangedAt, LocalLastChanged;
+  field ( mandatory ) Title, ArticleType;
+
+  association _Link { create; }
+
+  determination assignArticleNo on save { create; }
+  validation validateArticle on save { create; update; field Title, ArticleType, HttpMethod; }
+
+  mapping for zdd_kb
+  {
+    ArticleUUID      = article_uuid;
+    ArticleNo        = article_no;
+    ArticleType      = article_type;
+    Title            = title;
+    Tags             = tag_list;
+    ErrorText        = error_text;
+    RootCause        = root_cause;
+    FixLocation      = fix_location;
+    FixText          = fix_text;
+    TestNote         = test_note;
+    CodeText         = code_text;
+    CodeLang         = code_lang;
+    NoteText         = note_text;
+    HttpMethod       = http_method;
+    Endpoint         = endpoint;
+    RequestBody      = request_body;
+    ResponseBody     = response_body;
+    ResponseCodes    = response_codes;
+    AuthReference    = auth_reference;
+    StepsText        = steps_text;
+    ContextText      = context_text;
+    DecisionText     = decision_text;
+    Consequences     = consequences;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LastChangedBy    = last_changed_by;
+    LastChangedAt    = last_changed_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_ArticleLink alias ArticleLink
+persistent table zdd_kb_link
+lock dependent by _Article
+authorization dependent by _Article
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) LinkUUID;
+  field ( readonly ) ArticleUUID, LocalLastChanged;
+
+  association _Article;
+
+  // exactly one of TicketUUID / ObjectUUID, and it must exist
+  validation validateLink on save { create; update; field TicketUUID, ObjectUUID; }
+
+  mapping for zdd_kb_link
+  {
+    LinkUUID         = link_uuid;
+    ArticleUUID      = article_uuid;
+    TicketUUID       = ticket_uuid;
+    ObjectUUID       = object_uuid;
+    LocalLastChanged = local_last_changed;
+  }
+}

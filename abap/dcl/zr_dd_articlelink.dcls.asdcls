@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - link of your own Article'
+@MappingRole: true
+define role ZR_DD_ArticleLink {
+  grant select on ZR_DD_ArticleLink
+    where _Article.CreatedBy = aspect user;
+}

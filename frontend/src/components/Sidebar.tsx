@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useStore } from '../store';
+import { useStore, useTransports } from '../store';
 import { isOpen, isOverdue } from '../lib/format';
 import { Avatar, go } from './ui';
 import { Icon, StatusIcon } from './Icons';
@@ -42,13 +42,15 @@ function Timer() {
 export function Sidebar({ route }: { route: string }) {
   const s = useStore();
   const { openNew, openPalette } = useDialogs();
-  const unread = inboxItems(s).filter(n => !n.read).length;
+  const failedTr = (useTransports().data ?? []).filter(x => x.Phase === 'FAILED');
+  const unread = inboxItems(s, failedTr).filter(n => !n.read).length;
   const active = s.tickets.filter(t => isOpen(t) && t.Status !== 'BACKLOG').length;
   const nav: [string, string, string, number | string][] = [
     ['home', 'Home', 'home', ''], ['inbox', 'Inbox', 'inbox', unread || ''], ['list/active', 'My tickets', 'my', active], ['timesheet', 'Timesheet', 'clock', ''],
   ];
-  const later: [string, string, string][] = [['transports', 'Transports', 'truck'], ['objects', 'Objects', 'cube'], ['kb', 'Knowledge', 'book'], ['insights', 'Insights', 'chart']];
-  const isActive = (h: string) => route === h || (h === 'list/active' && (route === 'list/backlog' || route === 'list/all'));
+  const sap: [string, string, string][] = [['transports', 'Transports', 'truck'], ['objects', 'Objects', 'cube'], ['kb', 'Knowledge', 'book']];
+  const later: [string, string, string][] = [['insights', 'Insights', 'chart']];
+  const isActive = (h: string) => route === h || route.startsWith(h + '/') && h !== 'list/active' || (h === 'list/active' && (route === 'list/backlog' || route === 'list/all'));
   const toggleTheme = () => {
     const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
     try { localStorage.setItem('devdesk-theme', r.dataset.theme) } catch { /* ignore */ }
@@ -64,6 +66,10 @@ export function Sidebar({ route }: { route: string }) {
       <div className="scroll">
         <nav className="nav">{nav.map(([h, l, i, c]) =>
           <a key={h} className={'ni' + (isActive(h) ? ' active' : '')} href={'#' + h}><Icon name={i} />{l}<span className="c num">{c}</span></a>)}</nav>
+        <div className="sec">SAP work</div>
+        <nav className="nav">{sap.map(([h, l, i]) =>
+          <a key={h} className={'ni' + (isActive(h) ? ' active' : '')} href={'#' + h}><Icon name={i} />{l}
+            <span className="c num" style={{ color: 'var(--danger)' }} title={h === 'transports' && failedTr.length ? 'Failed imports' : undefined}>{(h === 'transports' && failedTr.length) || ''}</span></a>)}</nav>
         <div className="sec">Views</div>
         <nav className="nav">{(Object.keys(VIEWS) as ViewKey[]).map(k =>
           <a key={k} className={'ni' + (route === 'list/' + k ? ' active' : '')} href={'#list/' + k}>
@@ -73,7 +79,7 @@ export function Sidebar({ route }: { route: string }) {
         <nav className="nav">{s.projects.map(p =>
           <a key={p.Project} className={'ni' + (route.startsWith('project/' + p.Project) ? ' active' : '')} href={'#project/' + p.Project}>
             <span className="dot" style={{ background: p.Color }} />{p.Name}<span className="c num">{s.tickets.filter(t => t.Project === p.Project && isOpen(t)).length || ''}</span></a>)}</nav>
-        <div className="sec">Coming in phase 2</div>
+        <div className="sec">Coming next</div>
         <nav className="nav">{later.map(([h, l, i]) =>
           <a key={h} className={'ni' + (route === h ? ' active' : '')} href={'#' + h} style={{ opacity: .55 }}><Icon name={i} />{l}</a>)}</nav>
       </div>

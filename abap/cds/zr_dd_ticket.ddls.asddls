@@ -8,6 +8,8 @@ define root view entity ZR_DD_Ticket
   composition [0..*] of ZR_DD_Worklog       as _Worklog
   composition [0..*] of ZR_DD_Note          as _Note
   composition [0..*] of ZR_DD_Event         as _Event
+  composition [0..*] of ZR_DD_Attachment    as _Attachment
+  composition [0..*] of ZR_DD_TicketObject  as _ObjectLink
   association [0..1] to ZI_DD_TicketHours   as _Hours   on $projection.TicketUUID = _Hours.TicketUUID
   association [0..1] to ZI_DD_Project       as _Project on $projection.Project    = _Project.Project
 {
@@ -51,6 +53,8 @@ define root view entity ZR_DD_Ticket
       _Worklog,
       _Note,
       _Event,
+      _Attachment,
+      _ObjectLink,
       _Hours,
       _Project
 }

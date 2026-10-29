@@ -15,6 +15,7 @@ This guide creates every SAP object for DevDesk phase 1, connects the React app,
 | [I. Connect the app](#i-connect-the-react-app) | React app against SAP on your PC | 10 min |
 | [J. Deploy](#j-deploy-as-bsp-zdd_app) | App in SAP at `/sap/bc/ui5_ui5/sap/zdd_app/` | 15 min |
 | [K. Troubleshooting](#k-troubleshooting) | Typical errors and fixes | – |
+| [L. Phase 2](#l-phase-2--transports-objects-knowledge-attachments) | Transport tracker, object registry, knowledge base, attachments | 2 h |
 
 All objects are created as **local objects (package `$TMP`)**, so no transport request is needed. Moving them to a real package later is described in [docs/abapgit.md](abapgit.md).
 
@@ -298,6 +299,95 @@ On your PC, in the `frontend/` folder of the repository:
 | App: 403 *CSRF token validation failed* | Session expired | Reload the page; the app fetches a new token automatically |
 | App opens without fonts or icons | Old cached files | `Ctrl+F5`; check that `/UI5/APP_INDEX_CALCULATE` ran |
 | Data gone after a client copy | Tables are application data in the DEV client | Agree with Basis to exclude `ZDD_*` from client refreshes, or back them up |
+| Phase 2: `ZR_DD_Ticket` BDEF errors *"no behavior for _Attachment"* | Ticket views activated before the ticket BDEF was replaced | Normal between L3 and L5 – replace the BDEF and class (L5 step 2) |
+| Phase 2: smoke test *"1. Objects FAILED"* | Value list OBJTYPE missing | Run the new `ZDD_SETUP` (L7) first |
+| Phase 2: *"4. Article FAILED"* with a number range message | SNRO object `ZDD_KB` or interval `01` missing | L1 |
+| Phase 2: `matches( … pcre = … )` not accepted | Older kernel without PCRE | Replace `pcre =` with `regex =` in the transport class |
+| App: *"is not a transport request"* | Request number not in the form `SIDK123456` | Type it as shown in SE09, e.g. `S4DK900123` |
+| App: attachment upload fails with 413 / *request too large* | ICM / Gateway limit lower than 10 MB + base64 | Ask Basis for `icm/HTTP/max_request_size_KB`, or keep files small |
+| `$metadata` without the new entities | Cached model | `/IWFND/V4_ADMIN` → *Clean up cache* (L6) |
+
+---
+
+## L. Phase 2 – transports, objects, knowledge, attachments
+
+Do this after phase 1 is active and the smoke test passed (parts A–H). Phase 2 adds three new business objects, two new children of the ticket and 21 value-list entries. Same rules as before: package `$TMP`, paste the file, activate.
+
+| Step | What | Time |
+|---|---|---|
+| L1 | Number range `ZDD_KB` | 5 min |
+| L2 | 8 tables | 15 min |
+| L3 | 17 CDS views (incl. the changed `ZR_DD_Ticket` / `ZC_DD_Ticket`) | 30 min |
+| L4 | 16 access controls | 10 min |
+| L5 | 3 new behaviors + changed ticket behavior | 30 min |
+| L6 | Service (changed) and re-publish | 10 min |
+| L7 | `ZDD_SETUP` again, phase 2 smoke test | 10 min |
+
+### L1. Number range `ZDD_KB` (article numbers KB-1, KB-2, …)
+- [ ] **SNRO** → object `ZDD_KB` → **Create**: short text `DevDesk KB`, number length domain **`ZDD_TKT_NO`** (from B1), to-year flag off, warning % `90`.
+- [ ] *Edit → Set-up buffering → No buffering*, save as local object.
+- [ ] **Intervals** → insert No. `01`, From `00000001`, To `99999999`, save.
+
+### L2. Tables (8)
+| ✓ | Table | File | Description |
+|---|---|---|---|
+| [ ] | `ZDD_TR` | `tables/zdd_tr.tabl.ddl` | Transport (tracker entry) |
+| [ ] | `ZDD_TR_DEP` | `tables/zdd_tr_dep.tabl.ddl` | Transport dependency (import order) |
+| [ ] | `ZDD_OBJ` | `tables/zdd_obj.tabl.ddl` | Technical object |
+| [ ] | `ZDD_OBJ_DEP` | `tables/zdd_obj_dep.tabl.ddl` | Object dependency (impact map edge) |
+| [ ] | `ZDD_KB` | `tables/zdd_kb.tabl.ddl` | Knowledge article |
+| [ ] | `ZDD_KB_LINK` | `tables/zdd_kb_link.tabl.ddl` | Article ↔ ticket / object |
+| [ ] | `ZDD_ATT` | `tables/zdd_att.tabl.ddl` | Ticket attachment (RAWSTRING, max. 10 MB) |
+| [ ] | `ZDD_TOBJ` | `tables/zdd_tobj.tabl.ddl` | Object changed by a ticket |
+
+### L3. CDS views
+Create and save each group first, then **Activate all** (`Ctrl+Shift+F3`) for the group – parent and children point at each other.
+
+| ✓ | Group | Views (files in `cds/`, lower case) |
+|---|---|---|
+| [ ] | Parameter | `ZA_DD_ImportParam` (template *Define Abstract Entity*) – activate alone |
+| [ ] | Objects | `ZR_DD_Object`, `ZR_DD_ObjectDep` |
+| [ ] | Transports | `ZR_DD_Transport`, `ZR_DD_TransportDep` |
+| [ ] | Knowledge | `ZR_DD_Article`, `ZR_DD_ArticleLink` |
+| [ ] | Ticket children | `ZR_DD_Attachment`, `ZR_DD_TicketObject` **and the new version of `ZR_DD_Ticket`** (two new compositions) |
+| [ ] | Projections | `ZC_DD_Object` + `ZC_DD_ObjectDep`, `ZC_DD_Transport` + `ZC_DD_TransportDep`, `ZC_DD_Article` + `ZC_DD_ArticleLink` |
+| [ ] | Ticket projections | `ZC_DD_Attachment`, `ZC_DD_TicketObject` **and the new version of `ZC_DD_Ticket`** |
+
+> The ticket behavior definition will show errors between L3 and L5 (new compositions without behavior yet). That is expected – do not run the app in that window.
+
+### L4. Access controls (16)
+- [ ] One `ZR_` and one `ZC_` role for each of: `Transport`, `TransportDep`, `Object`, `ObjectDep`, `Article`, `ArticleLink`, `Attachment`, `TicketObject` (files `dcl/zr_dd_*.dcls.asdcls`, `dcl/zc_dd_*.dcls.asdcls`). `ZR_` first, then `ZC_`, activate all together.
+
+### L5. Behavior – in this order
+The ticket class reads the object registry, and the transport / article classes read tickets, so the object BO comes first.
+
+| ✓ | Step | How |
+|---|---|---|
+| [ ] | 1. Objects | Right-click `ZR_DD_Object` → New Behavior Definition, paste `bdef/zr_dd_object.bdef.asbdef`; `Ctrl+1` on the class name → create `ZBP_R_DD_OBJECT`; paste *Global Class* `classes/zbp_r_dd_object.clas.abap` and *Local Types* `classes/zbp_r_dd_object.clas.locals_imp.abap`; activate BDEF + class together. Then `ZC_DD_Object` → New Behavior Definition (projection), paste `bdef/zc_dd_object.bdef.asbdef`, activate. |
+| [ ] | 2. Ticket (changed) | Replace `ZR_DD_Ticket` BDEF with the new file, replace *Local Types* of `ZBP_R_DD_TICKET` with the new `classes/zbp_r_dd_ticket.clas.locals_imp.abap`, activate both together. Replace the `ZC_DD_Ticket` projection BDEF, activate. |
+| [ ] | 3. Transports | Same as objects with `zr_dd_transport` / `ZBP_R_DD_TRANSPORT` / `zc_dd_transport`. |
+| [ ] | 4. Knowledge | Same with `zr_dd_article` / `ZBP_R_DD_ARTICLE` / `zc_dd_article`. |
+
+✔ **Check:** no errors in the *Problems* view; all four behavior pools active.
+
+### L6. Service
+- [ ] Replace the source of service definition **`ZUI_DD`** with `srvd/zui_dd.srvd.srvdsrv` (now 17 entity sets), activate.
+- [ ] Open binding **`ZUI_DD_O4`**: the new entities are listed. If the app or `$metadata` still shows the old model: `/IWFND/V4_ADMIN` → select service group `ZUI_DD_O4` → **Clean up cache**, or *Unpublish* and *Publish* in the binding.
+
+✔ **Check:** `$metadata` contains `Transport`, `TransportDependency`, `TechObject`, `ObjectDependency`, `Article`, `ArticleLink`, `Attachment`, `ObjectLink` and the actions `markReleased` and `recordImport`.
+
+### L7. Value lists and smoke test
+- [ ] Paste the new `reports/zdd_setup.prog.abap` over `ZDD_SETUP`, activate, run (**without** P_RESET).
+  ✔ Output: `ZDD_VALUE: 21 of 56 entries written` (the 21 new entries of OBJTYPE, KBTYPE and DEPKIND; your phase 1 entries are kept).
+- [ ] Create class **`ZCL_DD_SMOKE_TEST_P2`** from `classes/zcl_dd_smoke_test_p2.clas.abap`, activate, **F9**:
+  ```
+  1. Objects OK: name ZDD_SMOKE_TAB (expect ZDD_SMOKE_TAB), dependencies 1 kind USES (expect 1 USES)
+  2. Ticket TK-10xx: attachment size 5 (expect 5), object links 1 kind CHANGE (expect 1 CHANGE)
+  3. Transport ZZZK<time> OK: phase QA, RC 4, released <today>, dependencies 1 (expect QA, 4, today, 1)
+  4. Article KB-1 OK, links 1 (expect 1)
+  5. Test data deleted
+  ```
+- [ ] App: `npm run build` and upload `ZDD_APP` again (part J). The sidebar now has **Transports**, **Objects** and **Knowledge**; the ticket page has the tab **SAP & files**.
 
 ---
 
@@ -305,4 +395,5 @@ On your PC, in the `frontend/` folder of the repository:
 
 - [ ] Tick the activation fixes, if any, in [abap/README.md](../abap/README.md) → *Fixes during activation*, and copy them back into the source files so GitHub stays in sync.
 - [ ] Optional: install **abapGit** and move the objects to a local package `$ZDD`. From then on, SAP pushes the code to GitHub directly ([docs/abapgit.md](abapgit.md)).
-- Phase 2 (transports, object registry, knowledge base, insights) is designed in [docs/backend-design.md](backend-design.md).
+- [ ] Phase 2: part [L](#l-phase-2--transports-objects-knowledge-attachments).
+- Phase 3 (E070/E071 reader, TMS import job, inbox events) and Insights are designed in [docs/backend-design.md](backend-design.md).

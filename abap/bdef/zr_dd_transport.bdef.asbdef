@@ -1,0 +1,79 @@
+managed implementation in class zbp_r_dd_transport unique;
+strict ( 2 );
+
+// Transport tracker, entered by hand in phase 2. Phase 3 fills release and import data from E070 / TMS.
+define behavior for ZR_DD_Transport alias Transport
+persistent table zdd_tr
+lock master
+authorization master ( global, instance )
+etag master LocalLastChanged
+{
+  create;
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) TransportUUID;
+  field ( readonly ) Phase, ReleasedOn, QaRc, QaImportedAt, PrdRc, PrdImportedAt,
+                     CreatedBy, CreatedAt, LastChangedBy, LastChangedAt, LocalLastChanged;
+  field ( mandatory ) TrKorr;
+
+  association _Dependency { create; }
+
+  // the request was released (SE09 / SE01): stores today as release date
+  action markReleased result [1] $self;
+  // an import into QA or PRD finished with the given return code; a new import overwrites the old one
+  action recordImport parameter ZA_DD_ImportParam result [1] $self;
+
+  determination setTransportDefaults on modify { create; }
+  validation validateTransport on save { create; update; field TrKorr, TicketUUID, TrKind; }
+
+  mapping for zdd_tr
+  {
+    TransportUUID    = tr_uuid;
+    TrKorr           = trkorr;
+    TicketUUID       = ticket_uuid;
+    TrText           = tr_text;
+    TrKind           = tr_kind;
+    TrOwner          = tr_owner;
+    ReleasedOn       = released_on;
+    QaRc             = qa_rc;
+    QaImportedAt     = qa_imported_at;
+    PrdRc            = prd_rc;
+    PrdImportedAt    = prd_imported_at;
+    TestEvidence     = test_evidence;
+    DeployNotes      = deploy_notes;
+    RollbackNotes    = rollback_notes;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LastChangedBy    = last_changed_by;
+    LastChangedAt    = last_changed_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_TransportDep alias TransportDependency
+persistent table zdd_tr_dep
+lock dependent by _Transport
+authorization dependent by _Transport
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) DepUUID;
+  field ( readonly ) TransportUUID, LocalLastChanged;
+  field ( mandatory ) DependsOn;
+
+  association _Transport;
+
+  validation validateDependency on save { create; update; field DependsOn; }
+
+  mapping for zdd_tr_dep
+  {
+    DepUUID          = dep_uuid;
+    TransportUUID    = tr_uuid;
+    DependsOn        = depends_on;
+    NoteText         = note_text;
+    LocalLastChanged = local_last_changed;
+  }
+}

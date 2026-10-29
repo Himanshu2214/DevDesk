@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
-import type { Status, Ticket, TicketEvent } from '../api';
-import { useStore } from '../store';
+import type { Status, Ticket, TicketEvent, Transport } from '../api';
+import { useStore, useTransports } from '../store';
 import { ago, DAY, isOverdue, PRIORITY_NAME, today } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Due, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
@@ -11,11 +11,13 @@ import { useDialogs } from '../components/Dialogs';
 export interface InboxItem { key: string; ticket: string; at: string; icon: React.ReactNode; title: string; text: React.ReactNode; pinned?: boolean; read: boolean; event?: TicketEvent }
 
 /** Overdue tickets and missing time are pinned on top; then status events (newest first) */
-export function inboxItems(s: ReturnType<typeof useStore>): InboxItem[] {
+export function inboxItems(s: ReturnType<typeof useStore>, failedTransports: Transport[] = []): InboxItem[] {
   const red = (n: string, c = 'var(--danger)') => <span style={{ color: c, display: 'grid' }}><Icon name={n} size={15} /></span>;
   const pinned: InboxItem[] = [
     ...s.tickets.filter(isOverdue).map(t => ({ key: 'od' + t.TicketUUID, ticket: t.TicketUUID, at: t.DueDate ?? '', icon: red('alert'), title: `${t.TicketId} ${t.Title}`, pinned: true, read: true,
       text: `Overdue by ${Math.ceil((today().getTime() - Date.parse(t.DueDate + 'T00:00:00')) / DAY)} days` })),
+    ...failedTransports.map(x => ({ key: 'tr' + x.TransportUUID, ticket: x.TicketUUID ?? '', at: x.PrdImportedAt ?? x.QaImportedAt ?? '', icon: red('truck'), pinned: true, read: true,
+      title: `${x.TrKorr} ${x.TrText}`, text: `Import into ${x.PrdImportedAt ? 'PRD' : 'QA'} ended with RC ${x.PrdImportedAt ? x.PrdRc : x.QaRc}` })),
     ...missingTime(s.tickets, s.recentWork).map(t => ({ key: 'mt' + t.TicketUUID, ticket: t.TicketUUID, at: '', icon: red('clock', 'var(--urgent)'), title: `${t.TicketId} ${t.Title}`, pinned: true, read: true,
       text: 'In progress, no time logged in 2 working days' })),
   ];
@@ -31,7 +33,8 @@ export function Inbox() {
   const { openLog } = useDialogs();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [selKey, setSelKey] = useState<string | null>(null);
-  let items = inboxItems(s);
+  const failed = (useTransports().data ?? []).filter(x => x.Phase === 'FAILED');
+  let items = inboxItems(s, failed);
   if (filter === 'unread') items = items.filter(i => !i.read || i.pinned);
   const sel = items.find(i => i.key === selKey) ?? items[0];
   const t: Ticket | undefined = sel && s.tickets.find(x => x.TicketUUID === sel.ticket);

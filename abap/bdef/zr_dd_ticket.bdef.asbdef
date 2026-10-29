@@ -24,6 +24,8 @@ etag master LocalLastChanged
   association _Note { create; }
   // events are written by the BO only (setStatus); the projection does not expose create
   association _Event { create; }
+  association _Attachment { create; }
+  association _ObjectLink { create; }
 
   // the only way to change Status: sets StatusChangedAt / ClosedAt and writes a STAT event
   action setStatus parameter ZA_DD_StatusParam result [1] $self;
@@ -207,6 +209,69 @@ etag master LocalLastChanged
     Text             = text;
     CreatedBy        = created_by;
     CreatedAt        = created_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_Attachment alias Attachment
+persistent table zdd_att
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) AttUUID;
+  field ( readonly ) TicketUUID, FileSize, CreatedBy, CreatedAt, LocalLastChanged;
+  field ( mandatory ) FileName;
+
+  association _Ticket;
+
+  // FileSize from the content, MIME type defaults to application/octet-stream
+  determination setAttachmentInfo on modify { create; field Content; }
+  validation validateAttachment on save { create; update; field FileName, Content; }
+
+  mapping for zdd_att
+  {
+    AttUUID          = att_uuid;
+    TicketUUID       = ticket_uuid;
+    FileName         = file_name;
+    MimeType         = mime_type;
+    FileSize         = file_size;
+    Content          = content;
+    CreatedBy        = created_by;
+    CreatedAt        = created_at;
+    LocalLastChanged = local_last_changed;
+  }
+}
+
+define behavior for ZR_DD_TicketObject alias ObjectLink
+persistent table zdd_tobj
+lock dependent by _Ticket
+authorization dependent by _Ticket
+etag master LocalLastChanged
+{
+  update;
+  delete;
+
+  field ( readonly, numbering : managed ) LinkUUID;
+  field ( readonly ) TicketUUID, LocalLastChanged;
+  field ( mandatory ) ObjectUUID;
+
+  association _Ticket;
+
+  determination setObjectLinkDefaults on modify { create; }
+  // the object must exist in the registry (ZR_DD_Object) and be linked only once per ticket
+  validation validateObjectLink on save { create; update; field ObjectUUID, ChangeKind; }
+
+  mapping for zdd_tobj
+  {
+    LinkUUID         = link_uuid;
+    TicketUUID       = ticket_uuid;
+    ObjectUUID       = object_uuid;
+    ChangeKind       = change_kind;
+    NoteText         = note_text;
     LocalLastChanged = local_last_changed;
   }
 }

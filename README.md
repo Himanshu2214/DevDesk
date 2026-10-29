@@ -9,7 +9,8 @@ A personal work tracker for SAP development. It covers tickets with acceptance c
 - **Target:** S/4HANA 2025 (SAP_BASIS 816, S4CORE 109). The backend design is in [docs/backend-design.md](docs/backend-design.md): managed RAP without draft, `strict ( 2 )`, OData V4, prefix `ZDD`.
 - **No SAP package yet:** the code is kept in GitHub. In SAP, objects can start as local objects (`$TMP`) and move to a package later.
 - **ABAP phase 1 written:** the Ticket BO (10 tables, CDS, access controls, BDEF and class, service `ZUI_DD`, setup report, smoke test) is in [abap/](abap/). Follow [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md) to create and activate every object step by step in `$TMP` (short version: [abap/README.md](abap/README.md)). It hasn't been activated in a system yet.
-- **React frontend phase 1 written:** [frontend/](frontend/) is the real app for `ZUI_DD_O4`. It runs today with a mock backend (`npm run dev`), and `npm run build` produces the BSP `ZDD_APP`. See [frontend/README.md](frontend/README.md).
+- **ABAP phase 2 written:** transport tracker, object registry with impact map, knowledge base, ticket attachments and object links (3 new BOs, 8 tables). Activation steps: [SETUP-GUIDE part L](docs/SETUP-GUIDE.md#l-phase-2--transports-objects-knowledge-attachments).
+- **React frontend phase 1 and 2 written:** [frontend/](frontend/) is the real app for `ZUI_DD_O4`. It runs today with a mock backend (`npm run dev`), and `npm run build` produces the BSP `ZDD_APP`. See [frontend/README.md](frontend/README.md).
 - **Not included:** Mojo integration, company logos.
 
 ## View the mockup
@@ -43,7 +44,7 @@ In the mockup, a simulated event every 15 s (status change, TR import, time logg
 ## Roadmap
 
 1. **Phase 1 – core:** ticket CRUD, statuses, priorities, filters, search, keyboard shortcuts, persistence (RAP Ticket BO).
-2. **Phase 2 – developer workflow:** object registry, work log and timer, knowledge base, transport tracker (manual).
+2. **Phase 2 – developer workflow:** object registry, work log and timer, knowledge base, transport tracker (manual), attachments. *Written, not yet activated.* Insights screen still to come.
 3. **Phase 3 – SAP integration:** E070/E071 reader, TMS import-status job, inbox events.
 4. **Phase 4 – intelligence:** reminders, impact analysis, AI-assisted descriptions, test cases and summaries (always reviewed before use).
 

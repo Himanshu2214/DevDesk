@@ -103,3 +103,16 @@ code{font-family:"Cascadia Mono",Consolas,monospace;font-size:12px;background:va
 .empty .btn{margin-top:10px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:1100px){.hide-narrow{display:none}}
+/* phase 2: inline inputs, object list, knowledge page, files */
+.line-in{width:100%;height:30px;border:1px solid transparent;border-radius:7px;background:transparent;padding:0 8px;outline:none;color:var(--text);font:inherit}
+.line-in:hover{border-color:var(--border)}
+.line-in:focus{border-color:var(--accent);background:var(--raised)}
+.line-in.mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px}
+.box.mono{white-space:pre}
+.ol-bar{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)}
+.dep{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.files .file a{color:inherit;text-decoration:none;cursor:pointer}
+.files .file button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+.dropz.on{border-color:var(--accent);color:var(--text);background:var(--accent-soft)}
+.art .mt .sp{flex:1}
+.artpage .f .line-in{padding:0;height:26px}

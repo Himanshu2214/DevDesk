@@ -54,5 +54,7 @@ define root view entity ZC_DD_Ticket
       _Worklog    : redirected to composition child ZC_DD_Worklog,
       _Note       : redirected to composition child ZC_DD_Note,
       _Event      : redirected to composition child ZC_DD_Event,
+      _Attachment : redirected to composition child ZC_DD_Attachment,
+      _ObjectLink : redirected to composition child ZC_DD_TicketObject,
       _Project
 }

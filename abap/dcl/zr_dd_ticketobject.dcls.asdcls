@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - object-link of your own Ticket'
+@MappingRole: true
+define role ZR_DD_TicketObject {
+  grant select on ZR_DD_TicketObject
+    where _Ticket.CreatedBy = aspect user;
+}

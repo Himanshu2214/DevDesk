@@ -1,0 +1,6 @@
+@EndUserText.label: 'DevDesk - read access for ZC_DD_TicketObject'
+@MappingRole: true
+define role ZC_DD_TicketObject {
+  grant select on ZC_DD_TicketObject
+    where inheriting conditions from entity ZR_DD_TicketObject;
+}
