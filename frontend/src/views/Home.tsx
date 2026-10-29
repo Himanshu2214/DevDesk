@@ -5,6 +5,7 @@ import { isOpen, isOverdue, lastWorkdays, PRIORITY_NAME, r1, today, urgency, wee
 import { Donut } from '../components/Donut';
 import { Icon, StatusIcon } from '../components/Icons';
 import { Due, Page } from '../components/ui';
+import { TIMER_WARN_H } from '../components/Dialogs';
 
 const BADGE: Record<string, [string, string]> = { '1': ['var(--danger)', '#fff'], '2': ['var(--urgent)', '#1b1c1f'], '3': ['var(--st-todo)', '#0f1011'], '4': ['var(--hover)', 'var(--text-2)'] };
 
@@ -23,12 +24,16 @@ export function Home() {
   const monday = isoDate(weekStart());
   const week = useMemo(() => s.recentWork.filter(w => w.WorkDate >= monday), [s.recentWork, monday]);
   const running = s.tickets.find(t => t.TimerStartedAt);
-  const live = running?.TimerStartedAt ? (Date.now() - Date.parse(running.TimerStartedAt)) / 36e5 : 0;
+  const elapsed = running?.TimerStartedAt ? (Date.now() - Date.parse(running.TimerStartedAt)) / 36e5 : 0;
+  // a timer that was forgotten (longer than 8 h) is not counted until it is stopped and corrected
+  const forgotten = elapsed > TIMER_WARN_H;
+  const live = forgotten ? 0 : elapsed;
   const hours = week.reduce((a, w) => a + w.Hours, 0) + live;
   const open = s.tickets.filter(isOpen), over = open.filter(isOverdue), testing = open.filter(t => t.Status === 'TEST');
   const focus = s.tickets.filter(t => t.Status === 'TODO' || t.Status === 'PROG' || t.Status === 'TEST').sort(urgency).slice(0, 7);
   const attention: { t: Ticket; icon: React.ReactNode; why: string }[] = [
     ...over.map(t => ({ t, icon: <span style={{ color: 'var(--danger)', display: 'grid' }}><Icon name="alert" size={14} /></span>, why: `${Math.ceil((today().getTime() - Date.parse(t.DueDate + 'T00:00:00')) / DAY)}d overdue` })),
+    ...(forgotten && running ? [{ t: running, icon: <span style={{ color: 'var(--urgent)', display: 'grid' }}><Icon name="clock" size={14} /></span>, why: `timer running ${Math.round(elapsed)} h` }] : []),
     ...open.filter(t => t.Status === 'BLOCK').map(t => ({ t, icon: <StatusIcon status="BLOCK" />, why: 'blocked' })),
     ...missingTime(s.tickets, s.recentWork).map(t => ({ t, icon: <span style={{ color: 'var(--urgent)', display: 'grid' }}><Icon name="clock" size={14} /></span>, why: 'no time logged' })),
   ];
@@ -36,6 +41,12 @@ export function Home() {
   const tot = data.reduce((a, d) => a + d.value, 0) || 1;
   const h = new Date().getHours();
   const first = (s.user.fullName || '').split(' ')[0];
+  if (!s.ready) return (
+    <Page crumb={<b>Home</b>}>
+      <div className="home" aria-busy="true"><div className="sk" style={{ height: 26, width: 280, marginBottom: 22 }} />
+        <div className="tiles">{[0, 1, 2, 3].map(i => <div key={i} className="tile"><div className="sk" style={{ height: 12, width: '50%' }} /><div className="sk" style={{ height: 28, width: '30%', margin: '12px 0' }} /></div>)}</div>
+        <div className="panel" style={{ padding: 16 }}>{[0, 1, 2, 3, 4].map(i => <div key={i} className="sk" style={{ height: 14, width: (60 + i * 7) + '%', margin: '12px 0' }} />)}</div></div>
+    </Page>);
   return (
     <Page crumb={<b>Home</b>}>
       <div className="home">

@@ -20,13 +20,16 @@ export const keys = {
   week: (from: string, to: string) => ['side', 'week', from, to] as const,
 };
 
-interface Toast { id: number; text: React.ReactNode; error?: boolean }
+export interface ToastAction { label: string; run(): void }
+interface Toast { id: number; text: React.ReactNode; error?: boolean; action?: ToastAction }
 interface RunOptions {
   uuids?: string[];
   ok?: React.ReactNode;
   removed?: string;
   /** applied to the cached tickets before the call, so the screen updates at once */
   optimistic?: (t: Ticket) => Ticket;
+  /** adds an Undo button to the success toast */
+  undo?: () => void;
 }
 interface Store {
   ready: boolean;
@@ -40,7 +43,10 @@ interface Store {
   lastSync: number;
   reload(): Promise<void>;
   run(fn: () => Promise<unknown>, opts?: RunOptions): Promise<boolean>;
-  toast(text: React.ReactNode, error?: boolean): void;
+  toast(text: React.ReactNode, error?: boolean, action?: ToastAction): void;
+  dismissToast(id: number): void;
+  /** status change with optimistic update and Undo */
+  changeStatus(t: Ticket, status: Status): Promise<boolean>;
   toasts: Toast[];
   text(list: string, code: string): string;
   color(list: string, code: string): string;
@@ -75,10 +81,11 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     queryFn: () => api.listWorklog(isoDate(new Date(today().getTime() - 21 * DAY)), isoDate(today())) });
   const events = useQuery({ queryKey: keys.events, queryFn: () => api.listEvents(150), refetchInterval: POLL_MS });
 
-  const toast = useCallback((text: React.ReactNode, isError = false) => {
+  const dismissToast = useCallback((id: number) => setToasts(t => t.filter(x => x.id !== id)), []);
+  const toast = useCallback((text: React.ReactNode, isError = false, action?: ToastAction) => {
     const id = Date.now() + Math.random();
-    setToasts(t => [...t, { id, text, error: isError }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), isError ? 6000 : 2400);
+    setToasts(t => [...t.slice(-3), { id, text, error: isError, action }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), isError ? 6000 : action ? 6000 : 2400);
   }, []);
 
   const run = useCallback<Store['run']>(async (fn, opts = {}) => {
@@ -94,7 +101,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     let ok = true;
     try {
       await fn();
-      if (opts.ok) toast(opts.ok);
+      if (opts.ok) toast(opts.ok, false, opts.undo ? { label: 'Undo', run: opts.undo } : undefined);
     } catch (e) {
       ok = false;
       qc.setQueryData(keys.tickets, prevList);
@@ -113,6 +120,14 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     return ok;
   }, [qc, toast]);
 
+  const changeStatus = useCallback((t: Ticket, status: Status) => {
+    const prev = t.Status;
+    const name = (code: Status) => (values.data ?? []).find(v => v.ListType === 'STATUS' && v.Code === code)?.Text ?? STATUS_NAME[code];
+    // undo sends If-Match "*": the ETag has changed with the first update
+    const undo = () => { run(() => api.setStatus({ ...t, etag: undefined }, prev), { uuids: [t.TicketUUID], optimistic: withStatus(prev), ok: `${t.TicketId} back to ${name(prev)}` }) };
+    return run(() => api.setStatus(t, status), { uuids: [t.TicketUUID], optimistic: withStatus(status), ok: `${t.TicketId} moved to ${name(status)}`, undo });
+  }, [run, values.data]);
+
   const vals = values.data ?? [];
   const projs = projects.data ?? [];
   const firstError = [user, projects, values, tickets].find(q => q.isError)?.error as Error | undefined;
@@ -126,12 +141,12 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     events: events.data ?? [],
     lastSync: tickets.dataUpdatedAt || Date.now(),
     reload: () => qc.invalidateQueries(),
-    run, toast, toasts,
+    run, toast, toasts, dismissToast, changeStatus,
     text: (list, code) => vals.find(v => v.ListType === list && v.Code === code)?.Text ?? (list === 'STATUS' ? STATUS_NAME[code as Status] : code),
     color: (list, code) => vals.find(v => v.ListType === list && v.Code === code)?.Color || 'var(--muted)',
     project: code => projs.find(p => p.Project === code),
     wip: status => vals.find(v => v.ListType === 'STATUS' && v.Code === status)?.WipLimit ?? 0,
-  }), [tickets.isLoading, tickets.data, tickets.dataUpdatedAt, values.isLoading, projects.isLoading, firstError, user.data, projs, vals, recent.data, events.data, qc, run, toast, toasts]);
+  }), [tickets.isLoading, tickets.data, tickets.dataUpdatedAt, values.isLoading, projects.isLoading, firstError, user.data, projs, vals, recent.data, events.data, qc, run, toast, toasts, dismissToast, changeStatus]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

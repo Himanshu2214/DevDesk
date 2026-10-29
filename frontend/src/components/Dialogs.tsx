@@ -3,27 +3,29 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Command } from 'cmdk';
 import { api } from '../api';
 import type { NewTicket, Status, Ticket } from '../api';
-import { useStore, withStatus } from '../store';
+import { useStore } from '../store';
 import { recentTickets } from '../lib/recent';
 import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
 import { go, useFieldMenus, useMenu } from './ui';
 
-interface Dialogs { openNew(pre?: Partial<NewTicket>): void; openLog(ticketUUID?: string): void; openPalette(): void }
-const Ctx = createContext<Dialogs>({ openNew() {}, openLog() {}, openPalette() {} });
+interface Dialogs { openNew(pre?: Partial<NewTicket>): void; openLog(ticketUUID?: string): void; openPalette(): void; openStop(t: Ticket): void }
+const Ctx = createContext<Dialogs>({ openNew() {}, openLog() {}, openPalette() {}, openStop() {} });
 export const useDialogs = () => useContext(Ctx);
 
 export function DialogsProvider({ children }: { children: React.ReactNode }) {
   const [newPre, setNewPre] = useState<Partial<NewTicket> | null>(null);
   const [log, setLog] = useState<string | null | undefined>(undefined);
   const [palette, setPalette] = useState(false);
-  const value: Dialogs = { openNew: (pre = {}) => setNewPre(pre), openLog: id => setLog(id ?? null), openPalette: () => setPalette(true) };
+  const [stop, setStop] = useState<Ticket | null>(null);
+  const value: Dialogs = { openNew: (pre = {}) => setNewPre(pre), openLog: id => setLog(id ?? null), openPalette: () => setPalette(true), openStop: t => setStop(t) };
   return (
     <Ctx.Provider value={value}>
       {children}
       {newPre && <NewTicketDialog pre={newPre} close={() => setNewPre(null)} />}
       {log !== undefined && <LogTimeDialog ticketUUID={log} close={() => setLog(undefined)} />}
       {palette && <Palette close={() => setPalette(false)} />}
+      {stop && <StopTimerDialog ticket={stop} close={() => setStop(null)} />}
     </Ctx.Provider>
   );
 }
@@ -123,10 +125,58 @@ function LogTimeDialog({ ticketUUID, close }: { ticketUUID: string | null; close
   );
 }
 
+/* ---------- Stop timer: check or correct the hours before they are logged ---------- */
+export const TIMER_WARN_H = 8;
+const quarter = (h: number) => Math.max(0.25, Math.min(24, Math.round(h * 4) / 4));
+function StopTimerDialog({ ticket, close }: { ticket: Ticket; close(): void }) {
+  const s = useStore();
+  const elapsed = ticket.TimerStartedAt ? (Date.now() - Date.parse(ticket.TimerStartedAt)) / 36e5 : 0;
+  const long = elapsed > TIMER_WARN_H;
+  const [hours, setHours] = useState(String(long ? 1 : quarter(elapsed)));
+  const [activity, setActivity] = useState(ticket.Status === 'TEST' ? 'TEST' : ticket.Status === 'TODO' ? 'ANA' : 'CODE');
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState(false);
+  const fmt = (h: number) => (h >= 48 ? `${Math.floor(h / 24)} days ${Math.round(h % 24)} h` : `${Math.floor(h)} h ${Math.round((h % 1) * 60)} min`);
+
+  /** stopTimer logs the measured time; the entry is then corrected (or deleted) to what the user confirmed */
+  async function finish(keep: boolean) {
+    const h = Number(hours);
+    if (keep && !(h > 0 && h <= 24)) return;
+    setBusy(true);
+    const ok = await s.run(async () => {
+      await api.stopTimer(ticket);
+      const fresh = await api.getTicket(ticket.TicketUUID);
+      const entry = [...(fresh._Worklog ?? [])].filter(w => w.EntrySource === 'TIMER').sort((a, b) => (b.CreatedAt ?? '').localeCompare(a.CreatedAt ?? ''))[0];
+      if (!entry) return;
+      if (!keep) await api.deleteChild('Worklog', entry as never);
+      else if (entry.Hours !== h || entry.Activity !== activity || comment) await api.updateChild('Worklog', entry as never, { Hours: h, Activity: activity, CommentText: comment || entry.CommentText });
+    }, { uuids: [ticket.TicketUUID], ok: keep ? `Logged ${h} h on ${ticket.TicketId}` : 'Timer stopped, time discarded' });
+    setBusy(false);
+    if (ok) close();
+  }
+  return (
+    <Modal close={close} width={500}>
+      <div className="top"><span>Stop timer · {ticket.TicketId}</span><span className="sp" /><button className="ib" aria-label="Close" onClick={close}><Icon name="x" /></button></div>
+      <div style={{ padding: '14px 16px 0' }}>
+        <div className="t2" style={{ fontWeight: 500 }}>{ticket.Title}</div>
+        <div className={long ? 'warnbox' : 'muted'} style={{ marginTop: 8 }}>
+          {long ? <>The timer has been running for <b>{fmt(elapsed)}</b> – it was probably not stopped. Enter the time you actually worked.</> : <>Running for {fmt(elapsed)}.</>}</div>
+      </div>
+      <div className="form" style={{ padding: '12px 16px' }}>
+        <div><label>Hours to log</label><input type="number" min={0.25} max={24} step={0.25} autoFocus value={hours} onChange={e => setHours(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') finish(true) }} /></div>
+        <div><label>Activity</label><select value={activity} onChange={e => setActivity(e.target.value)}>{s.values.filter(v => v.ListType === 'ACTIVITY').map(v => <option key={v.Code} value={v.Code}>{v.Text}</option>)}</select></div>
+        <div className="full"><label>Comment</label><input placeholder="Optional" value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') finish(true) }} /></div>
+      </div>
+      <div className="ft"><button className="btn" disabled={busy} onClick={() => finish(false)}>Discard time</button><span className="sp" />
+        <button className="btn" onClick={close}>Keep running</button><button className="btn primary" disabled={busy} onClick={() => finish(true)}>Log {Number(hours) || 0} h</button></div>
+    </Modal>
+  );
+}
+
 /* ---------- Command palette (cmdk: fuzzy search, keyboard navigation) ---------- */
 function Palette({ close }: { close(): void }) {
   const s = useStore();
-  const { openNew, openLog } = useDialogs();
+  const { openNew, openLog, openStop } = useDialogs();
   const [search, setSearch] = useState('');
   const route = location.hash.slice(1);
   const current = route.startsWith('ticket/') ? s.tickets.find(t => t.TicketId === decodeURIComponent(route.slice(7))) : undefined;
@@ -146,10 +196,10 @@ function Palette({ close }: { close(): void }) {
           <Command.Empty>No results</Command.Empty>
           {current && <Command.Group heading={current.TicketId}>
             {STATUS_ORDER.filter(k => k !== current.Status).map(k => (
-              <Command.Item key={k} value={`set status ${STATUS_NAME[k]}`} onSelect={() => pick(() => s.run(() => api.setStatus(current, k), { uuids: [current.TicketUUID], optimistic: withStatus(k), ok: `Moved to ${STATUS_NAME[k]}` }))}>
+              <Command.Item key={k} value={`set status ${STATUS_NAME[k]}`} onSelect={() => pick(() => s.changeStatus(current, k))}>
                 <StatusIcon status={k} /><span>Set status → {STATUS_NAME[k]}</span></Command.Item>))}
             {action(current.TimerStartedAt ? 'Stop timer and log time' : 'Start timer', current.TimerStartedAt ? 'stop' : 'play',
-              () => s.run(() => current.TimerStartedAt ? api.stopTimer(current) : api.startTimer(current), { uuids: [current.TicketUUID] }))}
+              () => current.TimerStartedAt ? openStop(current) : s.run(() => api.startTimer(current), { uuids: [current.TicketUUID], ok: `Timer started on ${current.TicketId}` }))}
             {action('Log time on this ticket', 'clock', () => openLog(current.TicketUUID))}
           </Command.Group>}
           {!search && recent.length > 0 && <Command.Group heading="Recent">{recent.map(t => ticketItem(t, 'recent'))}</Command.Group>}

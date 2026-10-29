@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import type { Status, Ticket, TicketEvent } from '../api';
-import { useStore, withStatus } from '../store';
+import { useStore } from '../store';
 import { ago, DAY, isOverdue, PRIORITY_NAME, today } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Due, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
@@ -66,7 +66,7 @@ export function Inbox() {
           <div className="kv" style={{ maxWidth: 420 }}><span>Requester</span><span>{t.Requester || '–'}</span><span>Estimate / logged</span><span className="num">{t.EstimateHours} h / {Math.round(t.LoggedHours * 10) / 10} h</span></div>
           <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
             <a className="btn primary" href={'#ticket/' + t.TicketId}>Open ticket</a>
-            <button className="btn" onClick={e => menu(e.currentTarget, menus.status(t), v => s.run(() => api.setStatus(t, v as Status), { uuids: [t.TicketUUID], optimistic: withStatus(v as Status), ok: 'Status changed' }))}><StatusIcon status={t.Status} /> Change status</button>
+            <button className="btn" onClick={e => menu(e.currentTarget, menus.status(t), v => s.changeStatus(t, v as Status))}><StatusIcon status={t.Status} /> Change status</button>
             <button className="btn" onClick={() => openLog(t.TicketUUID)}><Icon name="clock" size={14} />Log time</button></div>
         </> : <div className="empty">Select a notification</div>}</div>
       </div>

@@ -88,9 +88,11 @@ export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.R
   return (
     <section className="main">
       <header className="bar1">
+        <button className="ib nav-btn" aria-label="Open navigation" onClick={() => dispatchEvent(new Event('devdesk-nav'))}><Icon name="list" /></button>
         <div className="crumb">{crumb}</div><span className="sp" />
         <span className="live" title="Changes are fetched every 30 seconds"><i />{age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago`}</span>
         {right}
+        <button className="ib" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
       </header>
       {bar2 && <div className="bar2">{bar2}</div>}
       <div className="body" ref={bodyRef}>{children}</div>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import type { ChildNav, ChildSet, Status, TestCase, Ticket } from '../api';
-import { useStore, useTicketDetail, withStatus } from '../store';
+import { useStore, useTicketDetail } from '../store';
 import { rememberTicket } from '../lib/recent';
 import { RichEditor, RichView } from '../components/RichText';
+import { DuePicker } from '../components/DuePicker';
+import { lastOrder } from '../lib/listPrefs';
 import { ago, fmtDate, PRIORITY_NAME, r1 } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
@@ -17,9 +19,12 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const s = useStore();
   const menu = useMenu();
   const menus = useFieldMenus();
-  const { openLog } = useDialogs();
+  const { openLog, openStop } = useDialogs();
   const [tab, setTab] = useState<Tab>('overview');
   const head = s.tickets.find(t => t.TicketId === ticketId);
+  const order = lastOrder().filter(id => s.tickets.some(t => t.TicketId === id));
+  const pos = order.indexOf(ticketId);
+  const step = (d: number) => { const next = order[pos + d]; if (pos >= 0 && next) go('ticket/' + next) };
   const detail = useTicketDetail(head?.TicketUUID);
   const t: Ticket | undefined = head ? { ...head, ...detail.data } : undefined;
 
@@ -30,17 +35,19 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
       const key = e.key.toLowerCase();
       if (key === 's') { const el = document.querySelector('.props [data-f="status"]'); if (el) menu(el, menus.status(t), v => setStatus(v as Status)); e.preventDefault() }
       if (key === 'p') { const el = document.querySelector('.props [data-f="Priority"]'); if (el) menu(el, menus.Priority(t), v => patch({ Priority: v })); e.preventDefault() }
+      if (key === 'j') { step(1); e.preventDefault() }
+      if (key === 'k') { step(-1); e.preventDefault() }
       if (e.key === 'Escape') history.back();
     };
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   });
 
-  if (!s.ready) return <Page crumb={<b>{ticketId}</b>}><div className="empty">Loading…</div></Page>;
+  if (!s.ready) return <Page crumb={<b>{ticketId}</b>}><div className="tp"><div className="tp-main"><div className="sk" style={{ height: 26, width: '60%', marginBottom: 16 }} /><div className="tp-sec" style={{ marginTop: 6 }} aria-busy="true">{[70, 55, 80].map((w, i) => <div key={i} className="sk" style={{ height: 14, width: w + '%', margin: '10px 0' }} />)}</div></div></div></Page>;
   if (!t) return <Page crumb={<b>{ticketId}</b>}><div className="empty">Ticket {ticketId} not found. <a href="#list/all">All tickets</a></div></Page>;
 
   const uuids = [t.TicketUUID];
   const patch = (p: Partial<Ticket>) => s.run(() => api.updateTicket(t, p), { uuids, optimistic: x => ({ ...x, ...p }) });
-  const setStatus = (st: Status) => s.run(() => api.setStatus(t, st), { uuids, optimistic: withStatus(st), ok: <><StatusIcon status={st} /> Moved to {s.text('STATUS', st)}</> });
+  const setStatus = (st: Status) => s.changeStatus(t, st);
   const add = (nav: ChildNav, data: Record<string, unknown>) => s.run(() => api.createChild(t, nav, data), { uuids });
   const upd = (set: ChildSet, item: Record<string, unknown>, p: Record<string, unknown>) => s.run(() => api.updateChild(set, item, p), { uuids });
   const del = (set: ChildSet, item: Record<string, unknown>) => s.run(() => api.deleteChild(set, item), { uuids });
@@ -49,7 +56,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const running = s.tickets.find(x => x.TimerStartedAt);
   const timerOn = running?.TicketUUID === t.TicketUUID;
   async function toggleTimer() {
-    if (timerOn) return s.run(() => api.stopTimer(t!), { uuids, ok: 'Time logged' });
+    if (timerOn) return openStop(t!);
     await s.run(async () => { if (running) await api.stopTimer(running); await api.startTimer(t!) },
       { uuids: running ? [running.TicketUUID, t!.TicketUUID] : uuids, ok: `Timer started on ${t!.TicketId}` });
   }
@@ -75,7 +82,11 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const p = s.project(t.Project);
   return (
     <Page crumb={<><a href="#list/active">My tickets</a><span className="sepr">›</span><b>{t.TicketId}</b><span className="muted" style={{ fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.Title}</span></>}
-      right={<button className="ib" title="Delete ticket" onClick={remove}><Icon name="trash" /></button>}>
+      right={<>
+        {pos >= 0 && <span className="muted num hide-narrow" style={{ fontSize: 12, marginRight: 2 }}>{pos + 1} / {order.length}</span>}
+        <button className="ib" title="Previous ticket (K)" aria-label="Previous ticket" disabled={pos <= 0} onClick={() => step(-1)}><Icon name="up" /></button>
+        <button className="ib" title="Next ticket (J)" aria-label="Next ticket" disabled={pos < 0 || pos >= order.length - 1} onClick={() => step(1)}><Icon name="down" /></button>
+        <button className="ib" title="Delete ticket" aria-label="Delete ticket" onClick={remove}><Icon name="trash" /></button></>}>
       <div className="tp">
         <div className="tp-main">
           <div className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}><ProjectChip code={t.Project} /><TechTag code={t.Tech} /><span className="tag">{s.text('TYPE', t.TicketType)}</span></div>
@@ -92,7 +103,8 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
               .map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
           </div>
 
-          {tab === 'overview' && <>
+          {detail.isLoading && <div className="tp-sec" style={{ marginTop: 6 }} aria-busy="true">{[70, 55, 80].map((w, i) => <div key={i} className="sk" style={{ height: 14, width: w + '%', margin: '10px 0' }} />)}</div>}
+          {!detail.isLoading && tab === 'overview' && <>
             <div className="tp-sec" style={{ marginTop: 6 }}><h4>Acceptance criteria<span className="c">{acc.length}</span></h4>
               <div className="sub">{acc.map(a => <div className="it" key={a.AccUUID}><Icon name="check" size={14} style={{ color: 'var(--muted)' }} /><span className="lbl">{a.Text}</span><span className="sp" />
                 <button className="ib" style={{ width: 22, height: 22 }} title="Remove" onClick={() => del('Acceptance', a as never)}><Icon name="x" size={12} /></button></div>)}
@@ -134,7 +146,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           {prop('Status', <button className="pv" data-f="status" onClick={e => menu(e.currentTarget, menus.status(t), v => setStatus(v as Status))}><StatusIcon status={t.Status} />{s.text('STATUS', t.Status)}</button>)}
           {prop('Priority', <button className="pv" data-f="Priority" onClick={field('Priority')}><PriorityIcon priority={t.Priority} />{PRIORITY_NAME[t.Priority]}</button>)}
           {prop('Assignee', <label className="pv"><Avatar name={t.Assignee} size={18} /><input defaultValue={t.Assignee} key={'a' + t.etag} onBlur={e => { const v = e.target.value.trim().toUpperCase(); if (v !== t.Assignee) patch({ Assignee: v }) }} /></label>)}
-          {prop('Due date', <label className="pv"><Icon name="cal" size={14} style={{ color: 'var(--muted)' }} /><input type="date" defaultValue={t.DueDate ?? ''} key={'due' + t.etag} onChange={e => e.target.value && patch({ DueDate: e.target.value })} /></label>)}
+          {prop('Due date', <DuePicker value={t.DueDate} onChange={v => patch({ DueDate: v })} />)}
           {prop('', <span style={{ paddingLeft: 8 }}><Due t={t} /></span>)}
           <div className="h">Classification</div>
           {prop('Project', <button className="pv" onClick={field('Project')}><Dot color={p?.Color ?? 'var(--muted)'} />{p?.Name ?? t.Project}</button>)}

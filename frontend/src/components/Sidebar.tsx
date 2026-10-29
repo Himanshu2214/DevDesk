@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { isOpen, isOverdue } from '../lib/format';
 import { Avatar, go } from './ui';
 import { Icon, StatusIcon } from './Icons';
-import { useDialogs } from './Dialogs';
+import { TIMER_WARN_H, useDialogs } from './Dialogs';
 import { api } from '../api';
 import { inboxItems } from '../views/Inbox';
 
@@ -21,16 +21,20 @@ function Timer() {
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(id) }, []);
   const sec = running?.TimerStartedAt ? Math.max(0, (Date.now() - Date.parse(running.TimerStartedAt)) / 1000) : 0;
+  const { openStop } = useDialogs();
   const p = (n: number) => String(Math.floor(n)).padStart(2, '0');
+  const long = sec / 3600 > TIMER_WARN_H;
   return (
-    <div className="timer">
+    <div className={'timer' + (long ? ' warn' : '')}>
       <span className="rec" style={{ visibility: running ? 'visible' : 'hidden' }} />
       <div className="w">
         <div className="clk num">{p(sec / 3600)}:{p(sec % 3600 / 60)}:{p(sec % 60)}</div>
-        <div className="tk" onClick={() => running && go('ticket/' + running.TicketId)}>{running ? `${running.TicketId} · ${running.Title}` : 'No timer running'}</div>
+        {long && running
+          ? <div className="tk" style={{ color: 'var(--urgent)' }} onClick={() => openStop(running)}>Still working on {running.TicketId}? Stop and correct</div>
+          : <div className="tk" onClick={() => running && go('ticket/' + running.TicketId)}>{running ? `${running.TicketId} · ${running.Title}` : 'No timer running'}</div>}
       </div>
       <button className="ib" title="Stop and log time" disabled={!running}
-        onClick={() => running && s.run(() => api.stopTimer(running), { uuids: [running.TicketUUID], ok: 'Time logged' })}><Icon name="stop" size={14} /></button>
+        onClick={() => running && openStop(running)}><Icon name="stop" size={14} /></button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StoreProvider, useStore } from './store';
 import { isTyping, MenuProvider, Page, useHash } from './components/ui';
 import { DialogsProvider, useDialogs } from './components/Dialogs';
@@ -10,6 +10,7 @@ import { TicketPage } from './views/TicketPage';
 import { Timesheet } from './views/Timesheet';
 import { Placeholder } from './views/Placeholder';
 import { api } from './api';
+import { ShortcutHelp } from './components/ShortcutHelp';
 
 function Router({ route }: { route: string }) {
   const [head, rest] = [route.split('/')[0], route.split('/').slice(1).join('/')];
@@ -27,18 +28,29 @@ function Shell() {
   const s = useStore();
   const route = useHash();
   const { openNew, openPalette } = useDialogs();
+  const [navOpen, setNavOpen] = useState(false);
+  const [help, setHelp] = useState(false);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return }
       if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === '?') { e.preventDefault(); setHelp(h => !h); return }
       if (e.key.toLowerCase() === 'c') { e.preventDefault(); openNew() }
     };
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, [openNew, openPalette]);
+  // narrow screens: the menu button in the header opens the sidebar; navigating closes it again
+  useEffect(() => {
+    const toggle = () => setNavOpen(o => !o), help = () => setHelp(true);
+    addEventListener('devdesk-nav', toggle); addEventListener('devdesk-help', help);
+    return () => { removeEventListener('devdesk-nav', toggle); removeEventListener('devdesk-help', help) };
+  }, []);
+  useEffect(() => { setNavOpen(false) }, [route]);
 
   return (
-    <div className="app">
+    <div className={'app' + (navOpen ? ' nav-open' : '')}>
+      {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <Sidebar route={route} />
       {s.error
         ? <Page crumb={<b>DevDesk</b>}><div className="home"><div className="panel" style={{ padding: '22px 24px', maxWidth: 680 }}>
@@ -48,9 +60,12 @@ function Shell() {
             <button className="btn primary" onClick={() => s.reload()}>Try again</button></div></div></Page>
         : <Router route={route} />}
       <div style={{ position: 'fixed', right: 18, bottom: 18, display: 'grid', gap: 8, zIndex: 95 }}>
-        {s.toasts.map(t => <div key={t.id} className="toast on" style={{ position: 'static', transform: 'none', ...(t.error ? { borderColor: 'var(--danger)', color: 'var(--text)', whiteSpace: 'pre-wrap', maxWidth: 420 } : {}) }}>
-          {t.error && <span style={{ color: 'var(--danger)' }}>●</span>}{t.text}</div>)}
+        {s.toasts.map(t => <div key={t.id} role="status" className="toast on" style={{ position: 'static', transform: 'none', pointerEvents: 'auto', ...(t.error ? { borderColor: 'var(--danger)', color: 'var(--text)', whiteSpace: 'pre-wrap', maxWidth: 420 } : {}) }}>
+          {t.error && <span style={{ color: 'var(--danger)' }}>●</span>}<span>{t.text}</span>
+          {t.action && <button className="toast-act" onClick={() => { s.dismissToast(t.id); t.action!.run() }}>{t.action.label}</button>}
+          <button className="toast-x" aria-label="Close" onClick={() => s.dismissToast(t.id)}>×</button></div>)}
       </div>
+      {help && <ShortcutHelp close={() => setHelp(false)} />}
     </div>
   );
 }
