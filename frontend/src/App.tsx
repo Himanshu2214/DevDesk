@@ -19,6 +19,7 @@ import { Placeholder } from './views/Placeholder';
 import { Transports } from './views/Transports';
 import { Objects } from './views/Objects';
 import { Knowledge } from './views/Knowledge';
+import { Insights } from './views/Insights';
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
 
@@ -35,6 +36,7 @@ function Router({ route }: { route: string }) {
     case 'transports': return <Transports route={route} />;
     case 'objects': return <Objects route={route} />;
     case 'kb': return <Knowledge route={route} />;
+    case 'insights': return <Insights />;
     default: return <Placeholder route={head} />;
   }
 }

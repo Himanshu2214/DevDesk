@@ -14,6 +14,8 @@ import { activeFilterCount, applyFilters, EMPTY_PREFS, rememberOrder, sorter, us
 import type { DueFilter, FilterField, GroupBy, SortBy } from '../lib/listPrefs';
 import { PRIORITY_NAME } from '../lib/format';
 import AnimatedTags from '../components/smoothui/animated-tags';
+import { type ExportFormat, exportSheets } from '../lib/export';
+import { ShareButton } from '../components/ShareProject';
 
 const GROUP_ORDER: Status[] = ['PROG', 'TEST', 'BLOCK', 'TODO', 'BACKLOG', 'DONE'];
 type Layout = 'list' | 'board';
@@ -94,6 +96,17 @@ export function TicketList({ route }: { route: string }) {
       menus[f]({ [f]: '' } as never).map(i => ({ ...i, checked: prefs.filters[f].includes(i.value) })), v => toggleFilter(f, v), f === 'Project' || f === 'Tech')}
       label={<>{label}{n ? <span className="c num">{' · ' + n}</span> : null}<Icon name="down" size={12} /></>} />;
   };
+  // export: every ticket of this view with the filters applied (also the older done ones the list leaves out), in the chosen sort
+  const exportList = (format: ExportFormat) => {
+    const rows = [...set].sort(sorter(prefs.sort)).map(t => [t.TicketId, t.Title, s.text('STATUS', t.Status), PRIORITY_NAME[t.Priority] ?? t.Priority, s.project(t.Project)?.Name ?? t.Project,
+      t.Area, s.text('TECH', t.Tech), s.text('TYPE', t.TicketType), t.Requester, t.DueDate ?? '', t.EstimateHours, Math.round(t.LoggedHours * 100) / 100,
+      t.CreatedAt?.slice(0, 10) ?? '', t.ClosedAt?.slice(0, 10) ?? '']);
+    exportSheets([{ name: 'Tickets', rows, columns: [{ header: 'Ticket', width: 11 }, { header: 'Title', width: 48 }, { header: 'Status', width: 12 }, { header: 'Priority', width: 10 },
+      { header: 'Project', width: 22 }, { header: 'Area', width: 8 }, { header: 'Tech', width: 12 }, { header: 'Type', width: 16 }, { header: 'Requester', width: 18 },
+      { header: 'Due', width: 11 }, { header: 'Estimate (h)', width: 12 }, { header: 'Logged (h)', width: 11 }, { header: 'Created', width: 11 }, { header: 'Closed', width: 11 }] }],
+      'slate-space-tickets', format);
+    s.toast(`Exported ${rows.length} tickets`);
+  };
   const DUE: [DueFilter, string][] = [['any', 'Any due date'], ['overdue', 'Overdue'], ['week', 'Due within 7 days'], ['none', 'No due date']];
   const GROUP: [GroupBy, string][] = [['status', 'Group by status'], ['project', 'Group by project'], ['priority', 'Group by priority']];
   const SORT: [SortBy, string][] = [['urgency', 'Sort: priority, then due'], ['due', 'Sort: due date'], ['priority', 'Sort: priority'], ['created', 'Sort: newest first'], ['updated', 'Sort: recently changed']];
@@ -108,6 +121,8 @@ export function TicketList({ route }: { route: string }) {
       ...SORT.map(([v, l]) => ({ label: l, value: 's:' + v, checked: prefs.sort === v }))],
       v => setPrefs(v.startsWith('g:') ? { ...prefs, group: v.slice(2) as GroupBy } : { ...prefs, sort: v.slice(2) as SortBy }), false)}
       label="Display" />
+    <XBtn icon="download" title="Export the tickets shown" aria-label="Export" onClick={e => menu(e.currentTarget, [
+      { label: 'Excel (.xlsx)', value: 'xlsx' }, { label: 'CSV (.csv)', value: 'csv' }], v => exportList(v as ExportFormat), false)} label="Export" />
   </>;
   // active filters as SmoothUI animated tags; clicking a tag removes that filter
   const FIELD_LABEL: Record<FilterField, string> = { Priority: 'Priority', Project: 'Project', Tech: 'Tech', TicketType: 'Type' };
@@ -141,7 +156,7 @@ export function TicketList({ route }: { route: string }) {
   if (layout === 'list') {
     let n = -1;
     return (
-      <Page crumb={crumb} bar2={bar2} bodyRef={bodyRef}>
+      <Page crumb={crumb} bar2={bar2} bodyRef={bodyRef} right={p && <ShareButton project={p} />}>
         {groups.map(([k, g]) => {
           const wip = prefs.group === 'status' ? s.wip(k as Status) : 0, over = wip > 0 && g.length > wip;
           return <div key={k}>
@@ -171,7 +186,7 @@ export function TicketList({ route }: { route: string }) {
   const cols = STATUS_ORDER.filter(k => (k !== 'DONE' || tab === 'all' || tab === 'done') && (k !== 'BACKLOG' || tab !== 'active'));
   const dragged = s.tickets.find(t => t.TicketUUID === dragId);
   return (
-    <Page crumb={crumb} bar2={bar2}>
+    <Page crumb={crumb} bar2={bar2} right={p && <ShareButton project={p} />}>
       <DndContext sensors={sensors} collisionDetection={pointerWithin}
         onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))}
         onDragCancel={() => setDragId(null)}

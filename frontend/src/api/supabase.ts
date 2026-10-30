@@ -3,7 +3,7 @@
 // (ticket/article numbers, LastChangedAt, status events, timer rounding, transport phase) – see supabase/migrations.
 // Row level security returns only the signed-in user's rows, and only after the 2-step code.
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { Api, Article, ChildNav, ChildSet, NewTicket, Project, RootSet, SubSet, TechObject, Ticket, TicketEvent, Transport, ValueItem, Worklog } from './types';
+import type { Api, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketTemplate, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY } from './types';
 import { sb } from '../lib/supabase';
 
@@ -25,7 +25,8 @@ const isoDate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4)
 /** Database errors in words the user can act on */
 function friendly(e: PostgrestError | { message: string; code?: string }): Error {
   const m = e.message ?? '';
-  if (e.code === '42501' || /row-level security/i.test(m)) return new Error('Your session needs the sign-in code again. Reload the page.');
+  if (/row-level security|permission denied/i.test(m)) return new Error('You cannot change this – it is not yours, or your session needs the sign-in code again (reload the page).');
+  if (e.code === '42501') return new Error(m);                       // our own access messages (shared projects)
   if (e.code === '23505') {
     if (/TrKorr/.test(m)) return new Error('This transport is already in the tracker');
     if (/ObjectName/.test(m)) return new Error('This object is already registered');
@@ -98,14 +99,22 @@ export const supabaseApi: Api = {
     me = fullName;
     return { id: u.email ?? u.id, fullName };
   },
-  listProjects: async () => cleanAll<Project>(await run(sb().from('projects').select('*').order('SortOrder'))),
+  // own projects and projects shared with you (shared ones carry "<code>@<owner>" and SharedBy);
+  // before the teams migration has run there is no projects_v yet – then just your own projects
+  async listProjects() {
+    const v = await sb().from('projects_v').select('*').order('SortOrder').order('Name');
+    if (!v.error) return cleanAll<Project>(v.data as Row[]);
+    return cleanAll<Project>(await run(sb().from('projects').select('*').order('SortOrder')));
+  },
   listValues: async () => cleanAll<ValueItem>(await run(sb().from('value_items').select('*').order('ListType').order('SortOrder'))),
   listTickets: async () => cleanAll<Ticket>(await run(sb().from('tickets_v').select('*').order('TicketNo', { ascending: false }))),
   changedSince: async iso => cleanAll<Ticket>(await run(sb().from('tickets_v').select('*').gt('LastChangedAt', iso))),
   async getTicket(id) {
     const head = await run(sb().from('tickets_v').select('*').eq('TicketUUID', id).maybeSingle());
     if (!head) throw new Error('Ticket not found');
-    const kids = (table: string, order: string) => run(sb().from(table).select('*').eq('TicketUUID', id).order(order)).then(r => cleanAll<never>(r as Row[]));
+    // attachments keep their uploader: on a shared ticket the file lives in the uploader's storage folder
+    const kids = (table: string, order: string) => run(sb().from(table).select('*').eq('TicketUUID', id).order(order))
+      .then(r => cleanAll<never>((r as Row[]).map(x => (table === 'attachments' ? { ...x, Uploader: x.user_id } : x))));
     const [acc, test, chk, wl, note, ev, att, links] = await Promise.all([
       kids('acceptance', 'SortOrder'), kids('test_cases', 'SortOrder'), kids('checklist_items', 'SortOrder'), kids('worklogs', 'WorkDate'),
       kids('notes', 'CreatedAt'), kids('ticket_events', 'EventAt'), kids('attachments', 'CreatedAt'), kids('object_links', 'LinkUUID'),
@@ -136,9 +145,8 @@ export const supabaseApi: Api = {
     await updateOne('tickets', 'TicketUUID', t.TicketUUID, p, t.etag);
   },
   async deleteTicket(t) {
-    const files = await run(sb().from('attachments').select('AttUUID').eq('TicketUUID', t.TicketUUID)) as Row[];
-    const owner = await uid();
-    if (files.length) await sb().storage.from(BUCKET).remove(files.map(f => `${owner}/${f.AttUUID}`));
+    const files = await run(sb().from('attachments').select('AttUUID,user_id').eq('TicketUUID', t.TicketUUID)) as Row[];
+    if (files.length) await sb().storage.from(BUCKET).remove(files.map(f => `${f.user_id}/${f.AttUUID}`));
     let q = sb().from('tickets').delete().eq('TicketUUID', t.TicketUUID);
     if (t.etag) q = q.eq('LastChangedAt', t.etag);
     const rows = await run(q.select('TicketUUID'));
@@ -176,7 +184,7 @@ export const supabaseApi: Api = {
   },
   async deleteChild(set, item) {
     const key = CHILD_KEY[set];
-    if (set === 'Attachment') await sb().storage.from(BUCKET).remove([`${await uid()}/${item[key]}`]);
+    if (set === 'Attachment') await sb().storage.from(BUCKET).remove([`${(item as Partial<Attachment>).Uploader ?? await uid()}/${item[key]}`]);
     await run(sb().from(CHILD_TABLE[set]).delete().eq(key, item[key]));
   },
   async listEvents(top) {
@@ -184,15 +192,35 @@ export const supabaseApi: Api = {
     return cleanAll<TicketEvent>(rows as Row[]).map(e => ({ ...e, _Ticket: heads.get(e.TicketUUID) }));
   },
   async listWorklog(from, to) {
-    const [rows, heads] = await Promise.all([run(sb().from('worklogs').select('*').gte('WorkDate', from).lte('WorkDate', to)), ticketHeads()]);
+    // your own hours only – on shared tickets teammates log time too
+    const [rows, heads] = await Promise.all([run(sb().from('worklogs').select('*').eq('user_id', await uid()).gte('WorkDate', from).lte('WorkDate', to)), ticketHeads()]);
     return cleanAll<Worklog>(rows as Row[]).map(w => ({ ...w, _Ticket: heads.get(w.TicketUUID) }));
   },
   async downloadAttachment(a) {
-    const { data, error } = await sb().storage.from(BUCKET).download(`${await uid()}/${a.AttUUID}`);
+    const { data, error } = await sb().storage.from(BUCKET).download(`${a.Uploader ?? await uid()}/${a.AttUUID}`);
     if (error || !data) throw new Error('The file could not be downloaded');
     return data;
   },
   listObjectLinks: async () => cleanAll(await run(sb().from('object_links').select('*'))),
+  // Changes to children (work log, notes, tests, …) and to dependencies/links also touch their parent row
+  // (database triggers), so watching the four parent tables and the templates is enough. Row level security applies.
+  subscribe(onChange, onStatus) {
+    const AREA: Record<string, LiveArea> = { tickets: 'tickets', transports: 'p2', tech_objects: 'p2', articles: 'p2', ticket_templates: 'templates' };
+    let ch = sb().channel('slate-space-live');
+    for (const table of Object.keys(AREA)) ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(AREA[table]));
+    ch.subscribe(status => onStatus(status === 'SUBSCRIBED'));
+    return () => { onStatus(false); sb().removeChannel(ch) };
+  },
+  shareProject: async (project, email) => String(await run(sb().rpc('share_project', { p_project: project, p_email: email }))),
+  projectMembers: async project => (await run(sb().rpc('project_members', { p_project: project }))) as ProjectMember[],
+  async unshareProject(project, memberId) { await run(sb().from('project_shares').delete().eq('Project', project).eq('member_id', memberId)) },
+  async leaveProject(project) { await run(sb().rpc('leave_project', { p_key: project })) },
+  listTemplates: async () => cleanAll<TicketTemplate>(await run(sb().from('ticket_templates').select('"TemplateUUID","Name","Data"').order('Name'))),
+  async saveTemplate(Name, Data) {
+    const row = await run(sb().from('ticket_templates').upsert({ Name, Data }, { onConflict: 'user_id,name_key' }).select('"TemplateUUID","Name","Data"').single());
+    return clean<TicketTemplate>(row as Row);
+  },
+  async deleteTemplate(id) { await run(sb().from('ticket_templates').delete().eq('TemplateUUID', id)) },
 
   async listTransports() {
     const [rows, deps] = await Promise.all([run(sb().from('transports').select('*').order('CreatedAt', { ascending: false })), run(sb().from('transport_deps').select('*'))]);

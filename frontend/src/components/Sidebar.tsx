@@ -90,6 +90,7 @@ export function Sidebar({ route }: { route: string }) {
           {nav('list/active', 'My tickets', <Icon name="my" />, active)}
           {nav('timesheet', 'Timesheet', <Icon name="clock" />)}
           {nav('calendar', 'Calendar', <Icon name="cal" />)}
+          {nav('insights', 'Insights', <Icon name="chart" />)}
         </nav>
         {g('sap', 'SAP work', <>
           {nav('transports', 'Transports', <Icon name="truck" />, failedTr.length || '', true)}
@@ -98,9 +99,9 @@ export function Sidebar({ route }: { route: string }) {
         {g('views', 'Views', (Object.keys(VIEWS) as ViewKey[]).map(k => nav('list/' + k, VIEWS[k].name,
           k === 'overdue' ? <span style={{ color: 'var(--danger)', display: 'grid' }}><Icon name="alert" /></span> : k === 'week' ? <Icon name="cal" /> : <StatusIcon status={k === 'blocked' ? 'BLOCK' : 'DONE'} />,
           s.tickets.filter(t => VIEWS[k].fn(t as never)).length || '')))}
-        {g('projects', 'Projects', s.projects.map(p => nav('project/' + p.Project, p.Name, <span className="dot" style={{ background: p.Color }} />,
+        {g('projects', 'Projects', s.projects.map(p => nav('project/' + p.Project, p.SharedBy ? `${p.Name} · ${p.SharedBy.split(' ')[0]}` : p.Name,
+          p.SharedBy ? <span className="ni-shared" title={'Shared by ' + p.SharedBy}><Icon name="users" size={13} /></span> : <span className="dot" style={{ background: p.Color }} />,
           s.tickets.filter(t => t.Project === p.Project && isOpen(t)).length || '')))}
-        {g('later', 'Coming next', nav('insights', 'Insights', <Icon name="chart" />, undefined, false, { opacity: .55 }))}
       </m.div>
       <div className="side-foot">
         <Tip label={(s.user.fullName || s.user.id) + (api.kind === 'mock' ? ' · sample data' : api.kind === 'supabase' ? ' · cloud' : ' · SAP')} side="right" disabled={!collapsed}>

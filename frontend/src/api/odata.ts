@@ -2,6 +2,7 @@
 // Handles sap-client, CSRF token, ETags (If-Match), decimals as strings (IEEE754Compatible) and SAP error messages.
 import type { Api, Article, Attachment, ChildNav, ChildSet, NewTicket, ObjectLink, Project, RootSet, Status, SubSet, TechObject, Ticket, TicketEvent, Transport, User, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY, SUB_NAV } from './types';
+import { localTemplates } from '../lib/templates';
 
 const BASE: string = import.meta.env.VITE_SERVICE_URL || '/sap/opu/odata4/sap/zui_dd_o4/srvd/sap/zui_dd/0001/';
 const NS = 'com.sap.gateway.srvd.zui_dd.v0001';
@@ -130,6 +131,10 @@ function toWire(patch: Record<string, unknown>): Record<string, unknown> {
 
 export const odataApi: Api = {
   kind: 'sap',
+  // templates have no SAP table yet: kept in this browser
+  listTemplates: localTemplates.list,
+  saveTemplate: localTemplates.save,
+  deleteTemplate: localTemplates.remove,
   async user(): Promise<User> {
     try {
       const q = sapClient() ? `?sap-client=${sapClient()}` : '';

@@ -4,7 +4,10 @@ import { Command } from 'cmdk';
 import { AnimatePresence, m } from 'motion/react';
 import { api } from '../api';
 import type { NewTicket, Status, Ticket } from '../api';
-import { useArticles, useObjects, useStore, useTransports } from '../store';
+import { keys, useArticles, useObjects, useStore, useTemplates, useTransports } from '../store';
+import { useQueryClient } from '@tanstack/react-query';
+import { applyTemplate, STARTER_TEMPLATES, templateFrom } from '../lib/templates';
+import { attachFiles, fmtBytes, pastedImages } from './p2';
 import { recentTickets } from '../lib/recent';
 import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, Spinner, StatusIcon } from './Icons';
@@ -57,6 +60,47 @@ function NewTicketDialog({ pre, close }: { pre: Partial<NewTicket>; close(): voi
   const [acc, setAcc] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (p: Partial<NewTicket>) => setD(x => ({ ...x, ...p }));
+  const qc = useQueryClient();
+  const own = useTemplates().data ?? [];
+  const [tplName, setTplName] = useState<string | null>(null);     // "save as template" name while open
+  const [shots, setShots] = useState<File[]>([]);                 // pasted screenshots, attached after create
+
+  // paste a screenshot into the dialog: kept here and attached once the ticket exists
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = pastedImages(e.clipboardData);
+      if (!files.length) return;
+      e.preventDefault();
+      setShots(x => [...x, ...files]);
+    };
+    addEventListener('paste', onPaste); return () => removeEventListener('paste', onPaste);
+  }, []);
+
+  const pickTemplate = (id: string) => {
+    const tpl = [...own, ...STARTER_TEMPLATES].find(x => x.TemplateUUID === id);
+    if (!tpl) return;
+    // what the dialog was opened with (e.g. the project or status column) wins over the template
+    const { draft, acceptance } = applyTemplate(d, tpl.Data);
+    setD({ ...draft, ...pre }); setAcc(acceptance);
+    requestAnimationFrame(() => { const el = document.querySelector<HTMLInputElement>('.nt-title'); el?.focus(); el?.setSelectionRange(el.value.length, el.value.length) });
+  };
+  const templateMenu = (e: React.MouseEvent) => menu(e.currentTarget, [
+    ...own.map(x => ({ label: x.Name, value: 'use:' + x.TemplateUUID, icon: <Icon name="file" size={14} /> })),
+    ...STARTER_TEMPLATES.map(x => ({ label: x.Name + ' (starter)', value: 'use:' + x.TemplateUUID, icon: <Icon name="file" size={14} /> })),
+    { label: 'Save this form as a template…', value: 'save', icon: <Icon name="plus" size={14} /> },
+    ...(own.length ? [{ label: 'Delete a template…', value: 'delete', icon: <Icon name="trash" size={14} /> }] : []),
+  ], v => {
+    if (v.startsWith('use:')) pickTemplate(v.slice(4));
+    else if (v === 'save') setTplName('');
+    else if (v === 'delete') setTimeout(() => { const el = document.querySelector('[data-tpl-btn]'); if (el) menu(el, own.map(x => ({ label: 'Delete “' + x.Name + '”', value: x.TemplateUUID, icon: <Icon name="trash" size={14} /> })),
+      id => s.run(() => api.deleteTemplate(id), { ok: 'Template deleted' }).then(() => qc.invalidateQueries({ queryKey: keys.templates })), false) }, 0);
+  }, false);
+  async function saveTemplate() {
+    const name = (tplName ?? '').trim();
+    if (!name) return;
+    const ok = await s.run(() => api.saveTemplate(name, templateFrom(d, acc.split('\n').map(x => x.trim()).filter(Boolean))), { ok: `Template “${name}” saved` });
+    if (ok) { setTplName(null); qc.invalidateQueries({ queryKey: keys.templates }) }
+  }
   const pill = (field: 'status' | 'Priority' | 'Project' | 'Area' | 'Tech' | 'TicketType' | 'Environment', label: React.ReactNode) =>
     <button className="pill" onClick={e => menu(e.currentTarget, field === 'status' ? menus.status({ Status: d.status }) : menus[field](d as never), v => set({ [field]: v } as Partial<NewTicket>))}>{label}</button>;
   const requesters = [...new Set(s.tickets.map(t => t.Requester).filter(Boolean))];
@@ -67,12 +111,16 @@ function NewTicketDialog({ pre, close }: { pre: Partial<NewTicket>; close(): voi
     let created: Ticket | undefined;
     const ok = await s.run(async () => { created = await api.createTicket({ ...d, acceptance: acc.split('\n').map(x => x.trim()).filter(Boolean) }) }, { ok: 'Ticket created' });
     setBusy(false);
-    if (ok && created) { close(); go('ticket/' + created.TicketId) }
+    if (ok && created) {
+      if (shots.length) await attachFiles(s, created, shots);
+      close(); go('ticket/' + created.TicketId);
+    }
   }
   const p = s.project(d.Project);
   return (
     <Modal close={close} label="New ticket">
       <div className="top"><span className="chip">SLATE·SPACE</span><span>›</span><span>New ticket</span><span className="sp" />
+        <button className="pill" data-tpl-btn onClick={templateMenu} title="Start from a template, or save this form as one"><Icon name="file" size={13} />Template<Icon name="down" size={12} /></button>
         <button className="ib" onClick={close} title="Close (Esc)"><Icon name="x" /></button></div>
       <input className="nt-title" autoFocus placeholder="Ticket title" value={d.Title} onChange={e => set({ Title: e.target.value })}
         onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) create() }} />
@@ -94,9 +142,16 @@ function NewTicketDialog({ pre, close }: { pre: Partial<NewTicket>; close(): voi
         <input type="number" min={0} step={0.5} title="Estimate (h)" style={{ width: 70 }} value={d.EstimateHours} onChange={e => set({ EstimateHours: Number(e.target.value) })} />
         <input placeholder="Reference (optional)" style={{ flex: 1, minWidth: 160 }} value={d.Reference} onChange={e => set({ Reference: e.target.value })} />
       </div>
-      <div className="ft"><span className="muted" style={{ fontSize: 12 }}><kbd>Ctrl</kbd> <kbd>Enter</kbd> to create</span><span className="sp" />
+      {shots.length > 0 && <div className="nt-shots">{shots.map((f, i) => <span key={i} className="nt-shot"><Icon name="file" size={13} />{f.name}<small>{fmtBytes(f.size)}</small>
+        <button className="ib" aria-label={'Remove ' + f.name} onClick={() => setShots(x => x.filter((_, k) => k !== i))}><Icon name="x" size={12} /></button></span>)}</div>}
+      {tplName !== null
+        ? <div className="ft"><Icon name="file" size={14} /><input className="nt-tpl-name" autoFocus maxLength={60} placeholder="Template name, e.g. GST bug" value={tplName}
+            onChange={e => setTplName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTemplate(); if (e.key === 'Escape') { e.stopPropagation(); setTplName(null) } }} />
+            <span className="sp" /><button className="btn" onClick={() => setTplName(null)}>Cancel</button>
+            <button className="btn primary" disabled={!tplName.trim()} onClick={saveTemplate}>Save template</button></div>
+        : <div className="ft"><span className="muted" style={{ fontSize: 12 }}><kbd>Ctrl</kbd> <kbd>Enter</kbd> to create · paste a screenshot to attach it</span><span className="sp" />
         <button className="btn" onClick={close}>Cancel</button>
-        <button className="btn primary" disabled={!d.Title.trim() || busy} aria-busy={busy} onClick={create}>{busy && <Spinner />}{busy ? 'Creating…' : 'Create ticket'}</button></div>
+        <button className="btn primary" disabled={!d.Title.trim() || busy} aria-busy={busy} onClick={create}>{busy && <Spinner />}{busy ? 'Creating…' : 'Create ticket'}</button></div>}
     </Modal>
   );
 }

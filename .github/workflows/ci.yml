@@ -1,4 +1,4 @@
-# Runs on every push and pull request: builds the frontend and checks the ABAP sources with abaplint.
+# Runs on every push and pull request: tests and builds the frontend (SAP and standalone builds) and checks the ABAP sources with abaplint.
 name: CI
 
 on:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   frontend:
-    name: Frontend build
+    name: Frontend tests and build
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -20,7 +20,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # unit tests and the database rules (Supabase migrations run in PGlite)
+      - run: npm test
       - run: npm run build
+      - run: npm run build:cloud
 
   abaplint:
     name: ABAP lint

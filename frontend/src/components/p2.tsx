@@ -1,5 +1,6 @@
 // Shared pieces of the phase 2 screens: object type badge, side panel, auto-saving fields, pickers, impact map, files.
 import { useEffect, useRef, useState } from 'react';
+import { api } from '../api';
 import type { Status, TechObject, Ticket, Transport } from '../api';
 import { useStore } from '../store';
 import { fmtDate } from '../lib/format';
@@ -158,6 +159,22 @@ export function ImpactMap({ id, objects, onPick }: { id: string; objects: TechOb
 }
 
 /* ---------- files ---------- */
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+/** Images from a paste (screenshots): named "Screenshot <date> <time>.png" because the clipboard calls them all image.png */
+export function pastedImages(data: DataTransfer | null): File[] {
+  const files = Array.from(data?.items ?? []).filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter((f): f is File => !!f);
+  const d = new Date(), pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`;
+  return files.map((f, i) => new File([f], `Screenshot ${stamp}${files.length > 1 ? ` (${i + 1})` : ''}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type }));
+}
+/** Attaches files to a ticket one by one (each with its own toast) */
+export async function attachFiles(s: ReturnType<typeof useStore>, t: Ticket, files: File[]) {
+  for (const f of files) {
+    if (f.size > MAX_FILE_BYTES) { s.toast(`${f.name} is larger than 10 MB`, true); continue }
+    const Content = await readBase64(f);
+    await s.run(() => api.createChild(t, '_Attachment', { FileName: f.name, MimeType: f.type || 'application/octet-stream', Content }), { uuids: [t.TicketUUID], ok: `${f.name} attached` });
+  }
+}
 export const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 /** File content as plain base64 (without the data: prefix) */
 export const readBase64 = (f: File) => new Promise<string>((ok, fail) => {

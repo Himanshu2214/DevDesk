@@ -11,6 +11,7 @@ import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, Empty, go, HoldButton, isTyping, Page, ProjectChip, TabIndicator, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
 import { TicketSap } from './TicketSap';
+import { attachFiles, pastedImages } from '../components/p2';
 
 type Tab = 'overview' | 'tests' | 'sap' | 'activity';
 const NEXT_RESULT: Record<string, TestCase['TestResult']> = { OPEN: 'PASS', PASS: 'FAIL', FAIL: 'OPEN' };
@@ -30,6 +31,17 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const t: Ticket | undefined = head ? { ...head, ...detail.data } : undefined;
 
   useEffect(() => { setTab('overview'); rememberTicket(ticketId) }, [ticketId]);
+  // Ctrl+V with a screenshot (or copied image) anywhere on the ticket attaches it; text pastes are left alone
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!t || document.querySelector('.modal')) return;
+      const files = pastedImages(e.clipboardData);
+      if (!files.length) return;
+      e.preventDefault();
+      attachFiles(s, t, files);
+    };
+    addEventListener('paste', onPaste); return () => removeEventListener('paste', onPaste);
+  });
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (!t || isTyping(e) || e.ctrlKey || e.metaKey) return;

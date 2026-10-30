@@ -3,6 +3,7 @@
 // checklist from value list CHECKCAT, TK- numbers. Data is kept in localStorage.
 import type { Api, Article, ChildNav, ChildSet, NewTicket, Phase, Project, RootSet, Status, SubSet, TechObject, Ticket, TicketEvent, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY, SUB_NAV } from './types';
+import { localTemplates } from '../lib/templates';
 
 const STORE = 'devdesk-mock-v1';
 const ME = 'HSUDRA';
@@ -388,6 +389,9 @@ export const mockApi: Api = {
     return new Blob([Uint8Array.from(bin, c => c.charCodeAt(0))], { type: String(item.MimeType) });
   },
   listObjectLinks: () => delay(db.tickets.flatMap(t => t._ObjectLink ?? [])),
+  listTemplates: localTemplates.list,
+  saveTemplate: localTemplates.save,
+  deleteTemplate: localTemplates.remove,
 
   listTransports: () => delay(db.transports.map(t => ({ ...t, Phase: phaseOf(t) }))),
   listObjects: () => delay(db.objects),

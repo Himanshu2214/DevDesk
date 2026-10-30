@@ -6,9 +6,8 @@ import { useArticles, useObjects, useStore, useTransports } from '../store';
 import { ago } from '../lib/format';
 import { Icon } from '../components/Icons';
 import { go, HoldButton, useMenu } from '../components/ui';
-import { fmtBytes, Line, ObjType, readBase64, saveBlob, trEdge, trState, usePickers } from '../components/p2';
+import { attachFiles, fmtBytes, Line, ObjType, saveBlob, trEdge, trState, usePickers } from '../components/p2';
 
-const MAX_BYTES = 10 * 1024 * 1024;
 const KINDS: [ChangeKind, string][] = [['CHANGE', 'changed'], ['NEW', 'new'], ['CHECK', 'checked only']];
 
 export function TicketSap({ t }: { t: Ticket }) {
@@ -26,13 +25,7 @@ export function TicketSap({ t }: { t: Ticket }) {
   const trs = transports.filter(x => x.TicketUUID === t.TicketUUID);
   const kbs = articles.filter(a => a._Link.some(l => l.TicketUUID === t.TicketUUID));
 
-  async function upload(list: FileList | null) {
-    for (const f of Array.from(list ?? [])) {
-      if (f.size > MAX_BYTES) { s.toast(`${f.name} is larger than 10 MB`, true); continue }
-      const Content = await readBase64(f);
-      await s.run(() => api.createChild(t, '_Attachment', { FileName: f.name, MimeType: f.type || 'application/octet-stream', Content }), { uuids, ok: `${f.name} attached` });
-    }
-  }
+  const upload = (list: FileList | null) => attachFiles(s, t, Array.from(list ?? []));
   async function download(a: Attachment) {
     try { saveBlob(await api.downloadAttachment(a), a.FileName) } catch (e) { s.toast((e as Error).message, true) }
   }
@@ -77,7 +70,7 @@ export function TicketSap({ t }: { t: Ticket }) {
           onClick={() => fileInput.current?.click()} onKeyDown={e => { if (e.key === 'Enter') fileInput.current?.click() }}
           onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}
           onDrop={e => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files) }}>
-          <Icon name="upload" size={14} /> Drop files or click to attach (max. 10 MB)</div>
+          <Icon name="upload" size={14} /> Drop files, click, or paste a screenshot (Ctrl+V) – max. 10 MB</div>
         <input ref={fileInput} type="file" multiple hidden onChange={e => { upload(e.target.files); e.target.value = '' }} />
       </div></div>
 

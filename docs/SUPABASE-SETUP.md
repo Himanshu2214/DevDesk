@@ -11,6 +11,7 @@ values: the project URL and the anon key.
 |---|---|
 | Database tables, access rules, business rules | `supabase/migrations/20261030000000_init.sql` |
 | 2-step code functions | `supabase/functions/send-login-code`, `supabase/functions/verify-login-code` |
+| Daily email | `supabase/functions/daily-digest` |
 | App code | `frontend/src/api/supabase.ts`, `frontend/src/components/Auth.tsx`, `frontend/src/lib/supabase.ts` |
 
 ---
@@ -158,3 +159,59 @@ Order matters: put the site key into the app first, switch Supabase's check on l
    then **Deployments → Retry deployment** (or push to `main`). Locally: add the same line to `frontend/.env.supabase.local`.
 3. Supabase → **Authentication → Attack Protection** → **Enable CAPTCHA protection** → provider **Turnstile** →
    paste the **Secret key** → Save. Supabase now rejects sign-in, sign-up and reset requests without a valid token.
+
+## 11. Templates, live updates, daily email, teams (database)
+
+Run these four files in **SQL Editor → New query**, one after the other, each with **Run**
+(choose *Run without RLS* if the warning appears). They only add things; existing data is not changed.
+
+| File | Adds |
+|---|---|
+| `supabase/migrations/20261101000000_templates.sql` | your own ticket templates (synced across devices) |
+| `supabase/migrations/20261102000000_realtime.sql` | live updates: changes on one device show on the others within a second |
+| `supabase/migrations/20261103000000_digest.sql` | daily email settings |
+| `supabase/migrations/20261104000000_shared_projects.sql` | teams: share a project with other accounts |
+
+Until they have run, the app keeps working: templates offer only the starters, changes from other devices arrive with the
+normal 30-second refresh, Account → Daily email says it is not set up yet, and projects cannot be shared.
+
+## 12. Daily email (scheduled)
+
+1. A secret only the scheduled job knows (any random string of 40+ characters, e.g. from a password manager), plus the
+   link the email should open:
+
+   ```bash
+   npx supabase secrets set DIGEST_SECRET=<random string> APP_URL=https://slatespace-32m.pages.dev/
+   npx supabase functions deploy daily-digest --no-verify-jwt
+   ```
+
+   `--no-verify-jwt` is needed because the scheduled job has no user token; the function checks the secret (or, for
+   "Send a test email", the signed-in user and their 2-step session) itself.
+2. **Database → Extensions**: enable **pg_cron** and **pg_net**.
+3. **SQL Editor → New query** (replace both placeholders), **Run**:
+
+   ```sql
+   select cron.schedule('slate-space-daily-digest', '*/30 * * * *', $$
+     select net.http_post(
+       url     := 'https://<ref>.supabase.co/functions/v1/daily-digest',
+       headers := jsonb_build_object('Content-Type', 'application/json', 'x-digest-secret', '<DIGEST_SECRET>'),
+       body    := '{}'::jsonb)
+   $$);
+   ```
+
+   Every 30 minutes it sends the digest to everyone whose chosen hour has come in their time zone and who has not had one
+   that day. To stop it: `select cron.unschedule('slate-space-daily-digest');`
+4. In the app: **Account → Daily email** → switch on, pick the time → **Save**. **Send a test email now** sends one at once.
+
+## 13. Teams (shared projects)
+
+After step 11, open a project in the sidebar → **Share** (top right) → enter the other person's SLATE·SPACE email.
+They need an account first. Members see and edit that project's tickets with their time, notes, tests, files and
+transports, and can create tickets in it; only the owner deletes tickets and manages members. Members can leave from the
+same button ("Shared by …"). Each person's timesheet shows only their own hours; a ticket's total includes everyone's.
+
+## 14. Install as an app
+
+The hosted site is an installable app (Chrome / Edge: the install icon in the address bar, or menu → *Install
+SLATE·SPACE*; Android: *Add to home screen*; iPhone: Share → *Add to Home Screen*). It opens in its own window and
+starts instantly; data still needs the internet.

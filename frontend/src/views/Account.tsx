@@ -6,7 +6,7 @@ import { useStore } from '../store';
 import { sb } from '../lib/supabase';
 import { fmtDate } from '../lib/format';
 import { Icon, Spinner } from '../components/Icons';
-import { Empty, HoldButton, Page } from '../components/ui';
+import { Empty, HoldButton, MenuSelect, Page } from '../components/ui';
 import Input from '../components/smoothui/input';
 
 export function Account() {
@@ -28,6 +28,7 @@ function CloudAccount() {
         <Profile user={user} providers={providers} onSaved={() => s.reload()} />
         <Password hasPassword={providers.includes('email')} />
         <TwoStep />
+        <DailyEmail />
         <Sessions user={user} />
         <DangerZone email={user.email ?? ''} />
       </div>
@@ -143,6 +144,55 @@ function TwoStep() {
     </form> : <>
       <p className="acct-status"><span className="acct-pill">Using the emailed code</span></p>
       <button className="btn primary" onClick={start} disabled={busy} aria-busy={busy}>{busy ? <Spinner /> : <Icon name="plus" size={14} />}Set up authenticator app</button>
+    </>}
+  </Section>;
+}
+
+/** Daily email digest (edge function daily-digest, called by a scheduled job): on/off, hour and time zone */
+const ZONES = ['Asia/Kolkata', 'UTC', 'Europe/London', 'Europe/Berlin', 'Asia/Dubai', 'Asia/Singapore', 'America/New_York', 'America/Los_Angeles'];
+const hourLabel = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+function DailyEmail() {
+  const s = useStore();
+  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+  const [saved, setSaved] = useState<{ on: boolean; hour: number; zone: string } | null>(null);
+  const [on, setOn] = useState(false), [hour, setHour] = useState(8), [zone, setZone] = useState(browserZone);
+  const [busy, setBusy] = useState(false), [testing, setTesting] = useState(false);
+  useEffect(() => {
+    sb().from('user_settings').select('"DigestEnabled","DigestHour","TimeZone"').maybeSingle().then(({ data, error }) => {
+      if (error) return setSaved({ on: false, hour: 8, zone: browserZone });         // table not created yet: shows the defaults
+      const v = { on: !!data?.DigestEnabled, hour: data?.DigestHour ?? 8, zone: data?.TimeZone ?? browserZone };
+      setSaved(v); setOn(v.on); setHour(v.hour); setZone(v.zone);
+    });
+  }, [browserZone]);
+  const dirty = !!saved && (saved.on !== on || saved.hour !== hour || saved.zone !== zone);
+  const save = async () => {
+    setBusy(true);
+    const { error } = await sb().from('user_settings').upsert({ DigestEnabled: on, DigestHour: hour, TimeZone: zone }, { onConflict: 'user_id' });
+    setBusy(false);
+    if (error) return s.toast(/user_settings/.test(error.message) ? 'The daily email is not set up yet (setup guide, step 11).' : error.message, true);
+    setSaved({ on, hour, zone }); s.toast(on ? `Daily email on – every day at ${hourLabel(hour)}` : 'Daily email off');
+  };
+  const test = async () => {
+    setTesting(true);
+    const { error } = await sb().functions.invoke('daily-digest', { body: {} });
+    setTesting(false);
+    if (error) {
+      const ctx = (error as { context?: Response }).context;
+      return s.toast(ctx?.status === 404 ? 'The daily-digest function is not deployed yet (setup guide, step 11).' : (await ctx?.json().catch(() => null))?.error || 'The email could not be sent.', true);
+    }
+    s.toast('Test email sent – check your inbox');
+  };
+  return <Section title="Daily email" sub="A short email each morning: what is overdue, due today and tomorrow, what is in progress and the hours you logged yesterday.">
+    {!saved ? <div className="sk" style={{ height: 40 }} /> : <>
+      <label className="acct-switch"><input type="checkbox" role="switch" checked={on} onChange={e => setOn(e.target.checked)} /><span aria-hidden="true" />Send me the daily email</label>
+      <div className="acct-row">
+        <label>Time<MenuSelect label="Time" value={String(hour)} onChange={v => setHour(Number(v))} options={[...Array(24)].map((_, h) => ({ value: String(h), label: hourLabel(h) }))} /></label>
+        <label>Time zone<MenuSelect label="Time zone" value={zone} onChange={setZone} options={[...new Set([zone, browserZone, ...ZONES])].map(z => ({ value: z, label: z.replace(/_/g, ' ') }))} /></label>
+      </div>
+      <div className="acct-actions">
+        <button className="btn primary" disabled={busy || !dirty} aria-busy={busy} onClick={save}>{busy && <Spinner />}Save</button>
+        <button className="btn" disabled={testing} aria-busy={testing} onClick={test}>{testing ? <Spinner /> : <Icon name="chat" size={14} />}Send a test email now</button>
+      </div>
     </>}
   </Section>;
 }

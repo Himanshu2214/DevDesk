@@ -6,6 +6,8 @@ import { Icon, StatusIcon } from '../components/Icons';
 import { go, Page } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
 import { byActivity, missingTime } from './Home';
+import { useMenu } from '../components/ui';
+import { type ExportFormat, exportSheets } from '../lib/export';
 
 export function Timesheet() {
   const s = useStore();
@@ -34,13 +36,31 @@ export function Timesheet() {
   const miss = week === 0 ? missingTime(s.tickets, s.recentWork) : [];
   const over = s.tickets.filter(t => isOpen(t) && t.EstimateHours > 0 && t.LoggedHours > t.EstimateHours).sort((a, b) => b.LoggedHours / b.EstimateHours - a.LoggedHours / a.EstimateHours);
 
+  const menu = useMenu();
+  // export: every entry of the week, plus (Excel) the week grid per ticket
+  const exportWeek = (format: ExportFormat) => {
+    const entries = [...rows].sort((a, b) => a.WorkDate.localeCompare(b.WorkDate)).map(w => {
+      const t = s.tickets.find(x => x.TicketUUID === w.TicketUUID);
+      return [w.WorkDate, t?.TicketId ?? w._Ticket?.TicketId ?? '', t?.Title ?? w._Ticket?.Title ?? '', s.text('ACTIVITY', w.Activity), w.Hours, w.CommentText];
+    });
+    const dayHead = days.map(d => ({ header: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }), width: 11 }));
+    exportSheets([
+      { name: 'Entries', rows: entries, columns: [{ header: 'Date', width: 11 }, { header: 'Ticket', width: 11 }, { header: 'Title', width: 44 }, { header: 'Activity', width: 14 }, { header: 'Hours', width: 8 }, { header: 'Comment', width: 40 }] },
+      { name: 'Week', columns: [{ header: 'Ticket', width: 11 }, { header: 'Title', width: 44 }, ...dayHead, { header: 'Total', width: 9 }],
+        rows: [...byTicket.map(r => [r.id, r.title, ...r.h.map(v => v ? r1(v) : null), r1(r.sum)]), ['', 'Total', ...totals.map(v => v ? r1(v) : null), r1(all)]] },
+    ], `slate-space-timesheet-${from}`, format);
+    s.toast(`Exported ${entries.length} time entries`);
+  };
+
   return (
     <Page crumb={<b>Timesheet</b>} bar2={<>
       <button className="ib" onClick={() => setWeek(w => w - 1)}>‹</button><b className="num">{fmtDate(days[0])} – {fmtDate(days[6])}</b>
       <button className="ib" disabled={week >= 0} onClick={() => setWeek(w => Math.min(0, w + 1))}>›</button>
       <button className="pill" onClick={() => setWeek(0)}>This week</button><span className="sp" />
       <span className="muted">Total <b className="t2 num">{r1(all)} h</b> of 40 h</span>
-      <button className="btn primary" style={{ marginLeft: 10 }} onClick={() => openLog()}><Icon name="plus" size={14} />Log time</button></>}>
+      <button className="btn" style={{ marginLeft: 10 }} disabled={!rows.length} title="Export this week" onClick={e => menu(e.currentTarget,
+        [{ label: 'Excel (.xlsx)', value: 'xlsx' }, { label: 'CSV (.csv)', value: 'csv' }], v => exportWeek(v as ExportFormat), false)}><Icon name="download" size={14} />Export</button>
+      <button className="btn primary" style={{ marginLeft: 8 }} onClick={() => openLog()}><Icon name="plus" size={14} />Log time</button></>}>
       <div className="tsw">
         <div className="panel" style={{ overflow: 'auto' }}>
           <table className="ts"><thead><tr><th style={{ width: 84 }}>Ticket</th><th>Title</th>

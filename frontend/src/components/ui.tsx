@@ -223,7 +223,7 @@ export function CharCount({ value, max }: { value: string; max: number }) {
 
 /** Multi-state badge for the sync status: idle → processing → success / error, the width and content morph between states */
 export function SyncBadge() {
-  const { lastSync, reload } = useStore();
+  const { lastSync, reload, live } = useStore();
   const qc = useQueryClient();
   const fetching = useIsFetching() > 0;
   const [manual, setManual] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
@@ -240,7 +240,7 @@ export function SyncBadge() {
     setTimeout(() => setManual('idle'), failed ? 4000 : 1600);
   };
   const look = {
-    idle: { icon: <i className="dot" />, text: age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago` },
+    idle: { icon: <i className="dot" />, text: live ? 'Live' : age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago` },
     processing: { icon: <Icon name="refresh" size={12} className="spin" />, text: 'Syncing…' },
     success: { icon: <Icon name="check" size={12} />, text: 'Synced' },
     error: { icon: <Icon name="alert" size={12} />, text: 'Sync failed – retry' },

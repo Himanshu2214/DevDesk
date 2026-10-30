@@ -21,7 +21,8 @@ export interface TicketEvent {
   _Ticket?: Pick<Ticket, 'TicketUUID' | 'TicketId' | 'Title' | 'Status'>;
 }
 
-export interface Attachment { AttUUID: string; TicketUUID: string; FileName: string; MimeType: string; FileSize: number; CreatedBy: string; CreatedAt: string | null; etag?: string }
+/** Uploader: who stored the file (standalone: the file lives in their storage folder) */
+export interface Attachment { AttUUID: string; TicketUUID: string; FileName: string; MimeType: string; FileSize: number; CreatedBy: string; CreatedAt: string | null; Uploader?: string; etag?: string }
 export type ChangeKind = 'NEW' | 'CHANGE' | 'CHECK';
 export interface ObjectLink { LinkUUID: string; TicketUUID: string; ObjectUUID: string; ChangeKind: ChangeKind; NoteText: string; etag?: string }
 
@@ -95,7 +96,9 @@ export interface Ticket {
   _ObjectLink?: ObjectLink[];
 }
 
-export interface Project { Project: string; Name: string; Color: string; SortOrder: number; IsActive: boolean }
+/** SharedBy: set when someone else shared this project with you; Members: how many people you shared it with (standalone only) */
+export interface Project { Project: string; Name: string; Color: string; SortOrder: number; IsActive: boolean; SharedBy?: string | null; Members?: number }
+export interface ProjectMember { member_id: string; email: string; name: string; since: string }
 export interface ValueItem { ListType: string; Code: string; Text: string; SortOrder: number; Color: string; WipLimit: number; IsActive: boolean }
 export interface User { id: string; fullName: string }
 
@@ -104,6 +107,13 @@ export interface NewTicket {
   Environment: string; Requester: string; Reference: string; DueDate: string; EstimateHours: number;
   acceptance: string[]; status: Status;
 }
+
+/** What changed, for live updates: ticket data (incl. work log, notes, …), transports/objects/articles, or templates */
+export type LiveArea = 'tickets' | 'p2' | 'templates';
+
+/** Prefilled new-ticket form; DueDays = due date as days from the day the ticket is created */
+export type TemplateData = Partial<Omit<NewTicket, 'acceptance' | 'DueDate' | 'Reference'>> & { DueDays?: number | null; acceptance?: string[] };
+export interface TicketTemplate { TemplateUUID: string; Name: string; Data: TemplateData; Starter?: boolean }
 
 /** Children that can be created under a ticket, by navigation property */
 export type ChildNav = '_Acceptance' | '_Test' | '_Checklist' | '_Worklog' | '_Note' | '_Attachment' | '_ObjectLink';
@@ -152,4 +162,19 @@ export interface Api {
   deleteSub(set: SubSet, item: Entity): Promise<void>;
   markReleased(t: Transport): Promise<void>;
   recordImport(t: Transport, system: 'QA' | 'PRD', rc: number): Promise<void>;
+
+  /** Live updates (Supabase Realtime): calls onChange when data changed on another device or tab; returns unsubscribe.
+   *  Backends without push leave it out and rely on polling. */
+  subscribe?(onChange: (area: LiveArea) => void, onStatus: (live: boolean) => void): () => void;
+
+  /** Teams (standalone only): share one of your projects with another account, list / remove members, leave a shared project */
+  shareProject?(project: string, email: string): Promise<string>;
+  projectMembers?(project: string): Promise<ProjectMember[]>;
+  unshareProject?(project: string, memberId: string): Promise<void>;
+  leaveProject?(project: string): Promise<void>;
+
+  // ticket templates (your own; starters are built into the app). Same name = overwrite.
+  listTemplates(): Promise<TicketTemplate[]>;
+  saveTemplate(name: string, data: TemplateData): Promise<TicketTemplate>;
+  deleteTemplate(id: string): Promise<void>;
 }
