@@ -1,8 +1,8 @@
 // Sign-in for the standalone (Supabase) backend: email + password or Google, email confirmation,
 // password reset by link, and the emailed 2-step code that unlocks the data for this session.
-import { useEffect, useRef, useState } from 'react';
+import { type ComponentProps, useEffect, useId, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { appUrl, sb, supabaseConfigured } from '../lib/supabase';
+import { appUrl, getRemember, sb, setRemember, supabaseConfigured } from '../lib/supabase';
 import { Icon, LogoMark, Spinner } from './Icons';
 import Input from './smoothui/input';
 
@@ -38,12 +38,55 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return <SignedOut />;
 }
 
+/** Split shell: brand panel with slowly floating slate layers (desktop) and the form panel */
 function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNode; children: React.ReactNode }) {
-  return <div className="auth-page"><main className="auth-card" aria-labelledby="auth-title">
-    <div className="auth-brand"><span className="auth-mark"><LogoMark size={26} /></span><span className="auth-word">SLATE<span className="brand-dot">·</span>SPACE</span></div>
-    <h1 id="auth-title">{title}</h1>{sub && <p className="auth-sub">{sub}</p>}{children}
-  </main><p className="auth-tag">Work. Without friction.</p></div>;
+  const brand = <><span className="auth-mark"><LogoMark size={22} /></span><span className="auth-word">SLATE<span className="brand-dot">·</span>SPACE</span></>;
+  return <div className="auth-page">
+    <div className="auth-bg" aria-hidden="true"><span className="blob b1" /><span className="blob b2" /><span className="auth-grid" /></div>
+    <aside className="auth-hero">
+      <div className="auth-brand">{brand}</div>
+      <div className="hero-layers" aria-hidden="true"><span className="layer l1" /><span className="layer l2" /><span className="layer l3" /></div>
+      <div className="hero-copy">
+        <h2>Work.<br />Without friction.</h2>
+        <p>Tickets, time, transports and knowledge for SAP developers – in one calm workspace.</p>
+        <ul>
+          <li><Icon name="check" size={14} />Every change tracked from ticket to production</li>
+          <li><Icon name="check" size={14} />Private by default – your data is only yours</li>
+          <li><Icon name="check" size={14} />2-step sign-in on every new session</li>
+        </ul>
+      </div>
+    </aside>
+    <main className="auth-panel">
+      <div className="auth-card" aria-labelledby="auth-title">
+        <div className="auth-brand auth-brand-sm">{brand}</div>
+        <h1 id="auth-title">{title}</h1>{sub && <p className="auth-sub">{sub}</p>}{children}
+      </div>
+      <p className="auth-tag">Work. Without friction.</p>
+    </main>
+  </div>;
 }
+
+/** Input with a floating label: the label sits inside the field and glides up on focus or when filled */
+type FieldProps = { label: string; value: string; onChange(v: string): void; trailing?: React.ReactNode; className?: string; type?: string }
+  & Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'className' | 'placeholder' | 'type'>;
+function Field({ label, value, onChange, trailing, className = '', type = 'text', ...rest }: FieldProps) {
+  const id = useId();
+  return <div className={'fl' + (trailing ? ' has-trailing' : '')}>
+    <Input {...rest} id={id} type={type} placeholder=" " className={'fl-in ' + className} value={value} onChange={e => onChange(e.target.value)} />
+    <label htmlFor={id}>{label}</label>{trailing}
+  </div>;
+}
+
+/** Password field with a show / hide toggle */
+function PasswordField(p: Omit<FieldProps, 'type' | 'trailing'>) {
+  const [show, setShow] = useState(false);
+  return <Field {...p} type={show ? 'text' : 'password'} trailing={
+    <button type="button" className="fl-eye" onClick={() => setShow(s => !s)} aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show}>
+      <Icon name={show ? 'eye-off' : 'eye'} size={16} /></button>} />;
+}
+
+/** Error line; re-keyed per message so a new error shakes once */
+const AuthError = ({ text }: { text: string }) => text ? <p key={text} className="auth-err" role="alert">{text}</p> : null;
 
 /** Turns Supabase auth errors into instructions */
 function say(e: { message?: string } | null): string {
@@ -78,13 +121,14 @@ function GoogleButton() {
     <button type="button" className="btn auth-google" onClick={go} disabled={busy} aria-busy={busy}>
       {busy ? <Spinner /> : <svg viewBox="0 0 48 48" width="16" height="16" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>}
       Continue with Google</button>
-    {err && <p className="auth-err" role="alert">{err}</p>}
+    <AuthError text={err} />
   </>;
 }
 
 function SignedOut() {
   const [view, setView] = useState<View>('signin');
   const [name, setName] = useState(''), [email, setEmail] = useState(''), [pw, setPw] = useState(''), [pw2, setPw2] = useState('');
+  const [remember, setRem] = useState(getRemember);
   const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [sentText, setSentText] = useState<React.ReactNode>('');
   const to = (v: View) => { setView(v); setErr('') };
   const submit = async (e: React.FormEvent) => {
@@ -93,6 +137,7 @@ function SignedOut() {
     if (view === 'register' && pw.length < 8) return setErr('Use a password with at least 8 characters.');
     setBusy(true);
     if (view === 'signin') {
+      setRemember(remember);                           // decides where the session is kept (see lib/supabase.ts)
       const { error } = await sb().auth.signInWithPassword({ email, password: pw });
       if (error) setErr(say(error));                     // success: AuthGate moves on to the 2-step code
     } else if (view === 'register') {
@@ -108,20 +153,23 @@ function SignedOut() {
   };
   if (view === 'sent') return <AuthCard title="Check your email" sub={sentText}>
     <button type="button" className="btn auth-wide" onClick={() => to('signin')}><Icon name="move" size={14} />Back to sign in</button></AuthCard>;
-  const title = { signin: 'Sign in', register: 'Create your account', forgot: 'Reset your password' }[view];
-  const sub = { signin: 'Welcome back.', register: 'Free to use. Your data stays private to you.', forgot: 'We will email you a link to set a new password.' }[view];
+  const title = { signin: 'Welcome back', register: 'Create your account', forgot: 'Reset your password' }[view];
+  const sub = { signin: 'Sign in to your SLATE·SPACE workspace.', register: 'Free to use. Your data stays private to you.', forgot: 'We will email you a link to set a new password.' }[view];
+  const action = { signin: busy ? 'Signing in…' : 'Sign in', register: busy ? 'Creating account…' : 'Create account', forgot: busy ? 'Sending…' : 'Send reset link' }[view];
   return <AuthCard title={title} sub={sub}>
-    {view !== 'forgot' && <><GoogleButton /><div className="auth-or"><span>or</span></div></>}
     <form className="auth-form" onSubmit={submit} noValidate>
-      {view === 'register' && <label>Name<Input className="ss-input" autoComplete="name" value={name} onChange={e => setName(e.target.value)} /></label>}
-      <label>Email<Input className="ss-input" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
-      {view !== 'forgot' && <label><span className="auth-row">Password{view === 'signin' && <button type="button" className="auth-link" onClick={() => to('forgot')}>Forgot password?</button>}</span>
-        <Input className="ss-input" type="password" autoComplete={view === 'signin' ? 'current-password' : 'new-password'} required value={pw} onChange={e => setPw(e.target.value)} /></label>}
-      {view === 'register' && <label>Repeat password<Input className="ss-input" type="password" autoComplete="new-password" required value={pw2} onChange={e => setPw2(e.target.value)} /></label>}
-      {err && <p className="auth-err" role="alert">{err}</p>}
-      <button className="btn primary auth-wide" disabled={busy || !email || (view !== 'forgot' && !pw)} aria-busy={busy}>
-        {busy && <Spinner />}{{ signin: 'Sign in', register: 'Create account', forgot: 'Send reset link' }[view]}</button>
+      {view === 'register' && <Field label="Name" autoComplete="name" value={name} onChange={setName} />}
+      <Field label="Email" type="email" autoComplete="email" required value={email} onChange={setEmail} />
+      {view !== 'forgot' && <PasswordField label="Password" autoComplete={view === 'signin' ? 'current-password' : 'new-password'} required value={pw} onChange={setPw} />}
+      {view === 'register' && <PasswordField label="Repeat password" autoComplete="new-password" required value={pw2} onChange={setPw2} />}
+      {view === 'signin' && <div className="auth-row">
+        <label className="auth-check"><input type="checkbox" checked={remember} onChange={e => setRem(e.target.checked)} /><span className="auth-box" aria-hidden="true"><Icon name="check" size={12} /></span>Remember me</label>
+        <button type="button" className="auth-link" onClick={() => to('forgot')}>Forgot password?</button></div>}
+      <AuthError text={err} />
+      <button className="btn primary auth-wide auth-submit" disabled={busy || !email || (view !== 'forgot' && !pw)} aria-busy={busy}>
+        {busy && <Spinner />}{action}{!busy && <Icon name="move" size={15} />}</button>
     </form>
+    {view !== 'forgot' && <><div className="auth-or"><span>or</span></div><GoogleButton /></>}
     <p className="auth-switch">{view === 'signin'
       ? <>New here? <button type="button" className="auth-link" onClick={() => to('register')}>Create an account</button></>
       : <>Have an account? <button type="button" className="auth-link" onClick={() => to('signin')}>Sign in</button></>}</p>
@@ -142,10 +190,10 @@ function NewPassword({ onDone }: { onDone(): void }) {
   };
   return <AuthCard title="Set a new password" sub="Choose a password with at least 8 characters.">
     <form className="auth-form" onSubmit={submit} noValidate>
-      <label>New password<Input className="ss-input" type="password" autoComplete="new-password" autoFocus value={pw} onChange={e => setPw(e.target.value)} /></label>
-      <label>Repeat password<Input className="ss-input" type="password" autoComplete="new-password" value={pw2} onChange={e => setPw2(e.target.value)} /></label>
-      {err && <p className="auth-err" role="alert">{err}</p>}
-      <button className="btn primary auth-wide" disabled={busy || !pw} aria-busy={busy}>{busy && <Spinner />}Save password</button>
+      <PasswordField label="New password" autoComplete="new-password" autoFocus value={pw} onChange={setPw} />
+      <PasswordField label="Repeat password" autoComplete="new-password" value={pw2} onChange={setPw2} />
+      <AuthError text={err} />
+      <button className="btn primary auth-wide auth-submit" disabled={busy || !pw} aria-busy={busy}>{busy && <Spinner />}{busy ? 'Saving…' : 'Save password'}</button>
     </form>
   </AuthCard>;
 }
@@ -181,11 +229,11 @@ function CodeStep({ onVerified }: { onVerified(): void }) {
   };
   return <AuthCard title="Enter your sign-in code" sub={<>Second step for <b>{email || 'your account'}</b>. Check your inbox (and spam).</>}>
     <form className="auth-form" onSubmit={verify} noValidate>
-      <label>6-digit code<Input className="ss-input auth-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6}
-        value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} /></label>
+      <Field label="6-digit code" className="auth-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6}
+        value={code} onChange={v => setCode(v.replace(/\D/g, '').slice(0, 6))} />
       {info && !err && <p className="auth-info" role="status">{info}</p>}
-      {err && <p className="auth-err" role="alert">{err}</p>}
-      <button className="btn primary auth-wide" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}Verify</button>
+      <AuthError text={err} />
+      <button className="btn primary auth-wide auth-submit" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}{busy ? 'Verifying…' : 'Verify'}</button>
     </form>
     <p className="auth-switch"><button type="button" className="auth-link" disabled={wait > 0} onClick={send}>{wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}</button>
       <span aria-hidden="true"> · </span><button type="button" className="auth-link" onClick={() => sb().auth.signOut()}>Use another account</button></p>
