@@ -4,7 +4,7 @@ import type { Status, Ticket, TicketEvent, Transport } from '../api';
 import { useStore, useTransports } from '../store';
 import { ago, DAY, isOverdue, PRIORITY_NAME, today } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Due, Empty, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
+import { Due, Empty, Page, ProjectChip, TabIndicator, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { missingTime } from './Home';
 import { useDialogs } from '../components/Dialogs';
 
@@ -49,8 +49,8 @@ export function Inbox() {
 
   return (
     <Page crumb={<b>Inbox</b>} bar2={<>
-      <button className={'pill' + (filter === 'all' ? ' on' : '')} onClick={() => setFilter('all')}>All</button>
-      <button className={'pill' + (filter === 'unread' ? ' on' : '')} onClick={() => setFilter('unread')}>Unread</button>
+      <button className={'pill' + (filter === 'all' ? ' on' : '')} onClick={() => setFilter('all')}>{filter === 'all' && <TabIndicator id="inbox-filter" />}All</button>
+      <button className={'pill' + (filter === 'unread' ? ' on' : '')} onClick={() => setFilter('unread')}>{filter === 'unread' && <TabIndicator id="inbox-filter" />}Unread</button>
       <span className="sp" /><button className="pill" onClick={markAll}><Icon name="check" size={14} />Mark all read</button></>}>
       <div className="inbox">
         <div className="lst">{items.map(i =>

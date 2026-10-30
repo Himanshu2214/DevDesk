@@ -5,7 +5,7 @@ import type { Attachment, ChangeKind, Ticket } from '../api';
 import { useArticles, useObjects, useStore, useTransports } from '../store';
 import { ago } from '../lib/format';
 import { Icon } from '../components/Icons';
-import { go, useMenu } from '../components/ui';
+import { go, HoldButton, useMenu } from '../components/ui';
 import { fmtBytes, Line, ObjType, readBase64, saveBlob, trEdge, trState, usePickers } from '../components/p2';
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -72,7 +72,7 @@ export function TicketSap({ t }: { t: Ticket }) {
       <div className="files" style={{ marginTop: 6 }}>
         {files.map(f => <div className="file" key={f.AttUUID}><Icon name="file" size={14} style={{ color: 'var(--muted)' }} />
           <a onClick={() => download(f)} title={`Download · ${f.MimeType}`}>{f.FileName}</a><span className="muted num" style={{ fontSize: 12 }}>{fmtBytes(f.FileSize)} · {ago(f.CreatedAt)}</span>
-          <button title="Delete attachment" aria-label={'Delete ' + f.FileName} onClick={() => { if (confirm(`Delete ${f.FileName}?`)) s.run(() => api.deleteChild('Attachment', f as never), { uuids }) }}>×</button></div>)}
+          <HoldButton className="file-x" label={'Delete ' + f.FileName} onConfirm={() => s.run(() => api.deleteChild('Attachment', f as never), { uuids })}>×</HoldButton></div>)}
         <div className={'dropz' + (drag ? ' on' : '')} role="button" tabIndex={0} style={{ cursor: 'pointer' }}
           onClick={() => fileInput.current?.click()} onKeyDown={e => { if (e.key === 'Enter') fileInput.current?.click() }}
           onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}

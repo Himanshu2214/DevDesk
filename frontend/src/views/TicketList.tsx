@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { m } from 'motion/react';
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { api } from '../api';
@@ -6,7 +7,7 @@ import type { Status, Ticket } from '../api';
 import { useStore } from '../store';
 import { fmtDate, isOpen, STATUS_ORDER } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TechTag, Tip, useChangeFlash, useFieldMenus, useMenu, XBtn } from '../components/ui';
+import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TabIndicator, TechTag, Tip, useChangeFlash, useFieldMenus, useMenu, XBtn } from '../components/ui';
 import { VIEWS, type ViewKey } from '../components/Sidebar';
 import { useDialogs } from '../components/Dialogs';
 import { activeFilterCount, applyFilters, EMPTY_PREFS, rememberOrder, sorter, useListPrefs } from '../lib/listPrefs';
@@ -109,11 +110,11 @@ export function TicketList({ route }: { route: string }) {
   </>;
   const bar2 = <>
     {view ? <span className="muted">{set.length} tickets</span> : ([['active', 'Active', (t: Ticket) => isOpen(t) && t.Status !== 'BACKLOG'], ['backlog', 'Backlog', (t: Ticket) => t.Status === 'BACKLOG'], ['all', 'All', () => true]] as const)
-      .map(([k, l, f]) => <a key={k} className={'pill' + (tab === k ? ' on' : '')} href={base + k}>{l}<span className="c num">{count(f)}</span></a>)}
+      .map(([k, l, f]) => <a key={k} className={'pill' + (tab === k ? ' on' : '')} href={base + k}>{tab === k && <TabIndicator id="list-tab" />}{l}<span className="c num">{count(f)}</span></a>)}
     <span style={{ width: 8 }} />{filterBar}
     <span className="sp" />
-    <div className="xseg"><XBtn icon="list" label="List" title="List" aria-label="List" on={layout === 'list'} open={layout === 'list'} onClick={() => setLayout('list')} />
-      <XBtn icon="board" label="Board" title="Board" aria-label="Board" on={layout === 'board'} open={layout === 'board'} onClick={() => setLayout('board')} /></div>
+    <div className="xseg"><XBtn icon="list" label="List" title="List" aria-label="List" on={layout === 'list'} open={layout === 'list'} indicator="layout-seg" onClick={() => setLayout('list')} />
+      <XBtn icon="board" label="Board" title="Board" aria-label="Board" on={layout === 'board'} open={layout === 'board'} indicator="layout-seg" onClick={() => setLayout('board')} /></div>
   </>;
 
   if (!s.ready) return <Page crumb={crumb}>{[...Array(8)].map((_, i) => <div key={i} className="sk-row"><span className="sk" /><span className="sk" />
@@ -165,7 +166,7 @@ export function TicketList({ route }: { route: string }) {
           const t = s.tickets.find(x => x.TicketUUID === e.active.id), to = e.over?.id as Status | undefined;
           if (t && to && t.Status !== to) setStatus(t, to);
         }}>
-        <div className="board">{cols.map(k => {
+        <m.div className="board" layoutScroll>{cols.map(k => {
           const g = set.filter(t => t.Status === k).sort(sorter(prefs.sort)).slice(0, k === 'DONE' ? 20 : 999);
           const wip = s.wip(k), over = wip > 0 && g.length > wip;
           return (
@@ -176,7 +177,7 @@ export function TicketList({ route }: { route: string }) {
               {!g.length && <div className="col-empty">No tickets</div>}
               {g.map(t => <DraggableCard key={t.TicketUUID} t={t} hidden={dragId === t.TicketUUID} justDragged={justDragged} onPrio={prioMenu} />)}
             </Column>);
-        })}</div>
+        })}</m.div>
         <DragOverlay dropAnimation={null}>{dragged && <div className="card overlay"><CardBody t={dragged} /></div>}</DragOverlay>
       </DndContext>
     </Page>
@@ -206,8 +207,10 @@ function DraggableCard({ t, hidden, justDragged, onPrio }: { t: Ticket; hidden: 
   const flash = useChangeFlash<HTMLAnchorElement>(t.Status + t.Priority);
   const ref = (el: HTMLAnchorElement | null) => { setNodeRef(el); flash.current = el };
   return (
-    <a ref={ref} {...attributes} {...listeners} className={'card' + (hidden ? ' dragging' : '')} href={'#ticket/' + t.TicketId}
+    // layout: when the status changes the card glides to its new column instead of jumping
+    <m.a ref={ref} {...attributes} {...listeners} layout="position" layoutId={'card-' + t.TicketUUID} transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+      className={'card' + (hidden ? ' dragging' : '')} href={'#ticket/' + t.TicketId}
       onClick={e => { if (Date.now() - justDragged.current < 300) e.preventDefault() }}>
       <CardBody t={t} onPrio={onPrio} />
-    </a>);
+    </m.a>);
 }

@@ -33,6 +33,31 @@ function Router({ route }: { route: string }) {
   }
 }
 
+/** Notification stack (iOS style): toasts pile up behind the newest one and spread out on hover or keyboard focus */
+function ToastStack() {
+  const s = useStore();
+  const [open, setOpen] = useState(false);
+  const list = s.toasts, n = list.length, expanded = open && n > 1;
+  useEffect(() => { if (n < 2) setOpen(false) }, [n]);
+  return (
+    <div className={'toast-stack' + (expanded ? ' open' : '')} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false) }}>
+      {n > 1 && !expanded && <span className="toast-count" aria-hidden="true">{n}</span>}
+      <AnimatePresence initial={false}>{list.map((t, idx) => {
+        const i = n - 1 - idx; // 0 = newest
+        const behind = !expanded && i > 0;
+        return <m.div key={t.id} layout="position" role={t.error ? 'alert' : 'status'} className={'toast on' + (t.error ? ' is-error' : '') + (behind ? ' behind' : '')}
+          initial={toastMotion.initial} exit={toastMotion.exit}
+          animate={{ opacity: behind ? (i > 2 ? 0 : 1 - i * 0.18) : 1, y: behind ? -i * 9 : 0, scale: behind ? 1 - i * 0.05 : 1 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 36 }} style={{ zIndex: 10 - i }} aria-hidden={behind || undefined}>
+          {t.error ? <span style={{ color: 'var(--danger)', display: 'grid' }}><Icon name="alert" size={15} /></span> : <span className="ok-check"><Icon name="check" size={15} /></span>}<span>{t.text}</span>
+          {t.action && <button className="toast-act" tabIndex={behind ? -1 : 0} onClick={() => { s.dismissToast(t.id); t.action!.run() }}>{t.action.label}</button>}
+          <button className="toast-x" aria-label="Close" tabIndex={behind ? -1 : 0} onClick={() => s.dismissToast(t.id)}>×</button></m.div>;
+      })}</AnimatePresence>
+    </div>
+  );
+}
+
 function Shell() {
   const s = useStore();
   const route = useHash();
@@ -66,12 +91,7 @@ function Shell() {
             <span className="t2" style={{ whiteSpace: 'pre-wrap', display: 'block', marginBottom: 6 }}>{s.error}</span>
             {api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : 'The mock backend failed – try clearing site data.'}</Empty></Page>
         : <Router route={route} />}
-      <div style={{ position: 'fixed', right: 18, bottom: 18, display: 'grid', gap: 8, zIndex: 95 }}>
-        <AnimatePresence initial={false}>{s.toasts.map(t => <m.div key={t.id} layout="position" {...toastMotion} role={t.error ? 'alert' : 'status'} className="toast on" style={{ position: 'static', pointerEvents: 'auto', ...(t.error ? { borderColor: 'var(--danger)', color: 'var(--text)', whiteSpace: 'pre-wrap', maxWidth: 420 } : {}) }}>
-          {t.error ? <span style={{ color: 'var(--danger)', display: 'grid' }}><Icon name="alert" size={15} /></span> : <span className="ok-check"><Icon name="check" size={15} /></span>}<span>{t.text}</span>
-          {t.action && <button className="toast-act" onClick={() => { s.dismissToast(t.id); t.action!.run() }}>{t.action.label}</button>}
-          <button className="toast-x" aria-label="Close" onClick={() => s.dismissToast(t.id)}>×</button></m.div>)}</AnimatePresence>
-      </div>
+      <ToastStack />
       <AnimatePresence>{help && <ShortcutHelp key="help" close={() => setHelp(false)} />}</AnimatePresence>
     </div>
   );

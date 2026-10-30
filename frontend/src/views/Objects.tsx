@@ -5,7 +5,7 @@ import type { Status, TechObject } from '../api';
 import { useArticles, useObjectLinks, useObjects, useStore, useTransports } from '../store';
 import { fmtDate } from '../lib/format';
 import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
-import { Empty, go, MenuSelect, Page, ProjectChip, useMenu } from '../components/ui';
+import { Empty, go, HoldButton, MenuSelect, Page, ProjectChip, useMenu } from '../components/ui';
 import { Area, depEdges, ImpactMap, Line, ObjType, related, SidePanel, usePickers } from '../components/p2';
 import Input from '../components/smoothui/input';
 
@@ -73,7 +73,6 @@ function ObjectDetail({ o, objects }: { o: TechObject; objects: TechObject[] }) 
   const kbs = articles.filter(a => a._Link.some(l => l.ObjectUUID === o.ObjectUUID));
   const upd = (p: Partial<TechObject>) => s.run(() => api.updateRoot('TechObject', o as never, p), { ok: 'Saved' });
   async function remove() {
-    if (!confirm(`Remove ${o.ObjectType} ${o.ObjectName} from the registry? Its dependencies are removed too.`)) return;
     if (await s.run(() => api.deleteRoot('TechObject', o as never), { ok: `${o.ObjectName} removed` })) go('objects');
   }
   const candidates = objects.filter(x => x.ObjectUUID !== o.ObjectUUID && !o._Dependency.some(d => d.UsesObjectUUID === x.ObjectUUID));
@@ -83,7 +82,7 @@ function ObjectDetail({ o, objects }: { o: TechObject; objects: TechObject[] }) 
       <button className="pill" style={{ height: 24 }} onClick={e => menu(e.currentTarget, [{ label: 'No project', value: '' }, ...s.projects.map(p => ({ label: p.Name, value: p.Project, icon: <Dot color={p.Color} />, checked: p.Project === o.Project }))],
         v => upd({ Project: v }))}>{o.Project ? <ProjectChip code={o.Project} /> : 'No project'}</button>
       <span className="sp" style={{ flex: 1 }} />
-      <button className="ib" title="Remove from registry" aria-label="Remove object" onClick={remove}><Icon name="trash" /></button></div>
+      <HoldButton label="Remove from registry" onConfirm={remove}><Icon name="trash" /></HoldButton></div>
     <Line value={o.ObjectName} mono onSave={v => v && upd({ ObjectName: v })} style={{ fontSize: 20, height: 40, margin: '10px 0 2px', fontWeight: 600 }} />
     <Line value={o.Description} placeholder="What it does" onSave={v => upd({ Description: v })} style={{ fontSize: 14, color: 'var(--text-2)' }} />
     <div className="kv" style={{ marginTop: 14, alignItems: 'center' }}>

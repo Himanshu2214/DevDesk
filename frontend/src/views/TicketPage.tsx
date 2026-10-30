@@ -8,7 +8,7 @@ import { DuePicker } from '../components/DuePicker';
 import { lastOrder } from '../lib/listPrefs';
 import { ago, fmtDate, PRIORITY_NAME, r1 } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TechTag, useFieldMenus, useMenu } from '../components/ui';
+import { Avatar, Due, Empty, go, HoldButton, isTyping, Page, ProjectChip, TabIndicator, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
 import { TicketSap } from './TicketSap';
 
@@ -62,7 +62,6 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
       { uuids: running ? [running.TicketUUID, t!.TicketUUID] : uuids, ok: `Timer started on ${t!.TicketId}` });
   }
   async function remove() {
-    if (!confirm(`Delete ${t!.TicketId} with all its comments and time entries?`)) return;
     const ok = await s.run(() => api.deleteTicket(t!), { removed: t!.TicketUUID, ok: `${t!.TicketId} deleted` });
     if (ok) go('list/active');
   }
@@ -87,7 +86,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
         {pos >= 0 && <span className="muted num hide-narrow" style={{ fontSize: 12, marginRight: 2 }}>{pos + 1} / {order.length}</span>}
         <button className="ib" title="Previous ticket (K)" aria-label="Previous ticket" disabled={pos <= 0} onClick={() => step(-1)}><Icon name="up" /></button>
         <button className="ib" title="Next ticket (J)" aria-label="Next ticket" disabled={pos < 0 || pos >= order.length - 1} onClick={() => step(1)}><Icon name="down" /></button>
-        <button className="ib" title="Delete ticket" aria-label="Delete ticket" onClick={remove}><Icon name="trash" /></button></>}>
+        <HoldButton label="Delete ticket" onConfirm={remove}><Icon name="trash" /></HoldButton></>}>
       <div className="tp">
         <div className="tp-main">
           <div className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}><ProjectChip code={t.Project} /><TechTag code={t.Tech} /><span className="tag">{s.text('TYPE', t.TicketType)}</span></div>
@@ -101,7 +100,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           <div className="tp-tabs">
             {([['overview', 'Overview'], ['tests', <>Tests &amp; checklist <span className="muted num">{passed}/{tests.length} · {done}/{chk.length}</span></>],
               ['activity', <>Activity <span className="muted num">{(t._Note ?? []).length}</span></>], ['sap', <>SAP &amp; files <span className="muted num">{(t._ObjectLink ?? []).length + (t._Attachment ?? []).length}</span></>]] as [Tab, React.ReactNode][])
-              .map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
+              .map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{tab === k && <TabIndicator id="ticket-tab" line />}{l}</button>)}
           </div>
 
           {detail.isLoading && <div className="tp-sec" style={{ marginTop: 6 }} aria-busy="true">{[70, 55, 80].map((w, i) => <div key={i} className="sk" style={{ height: 14, width: w + '%', margin: '10px 0' }} />)}</div>}

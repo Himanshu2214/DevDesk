@@ -1,6 +1,7 @@
 // Shared UI pieces: hash router, popover menu, page frame, small labels.
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useIsFetching } from '@tanstack/react-query';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
+import { animate, AnimatePresence, m, useMotionValue, useTransform } from 'motion/react';
 import type { Status, Ticket } from '../api';
 import DropdownMenu from './smoothui/dropdown-menu';
 import Tooltip from './smoothui/tooltip';
@@ -81,23 +82,17 @@ export function useFieldMenus() {
 
 /* ---------- Page frame: header bars + scrolling body ---------- */
 export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.ReactNode; bar2?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; bodyRef?: React.Ref<HTMLDivElement> }) {
-  const { lastSync, reload } = useStore();
-  const fetching = useIsFetching() > 0;
-  const [, tick] = useState(0);
-  useEffect(() => { const id = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(id) }, []);
-  const age = (Date.now() - lastSync) / 1000;
   return (
     <section className="main">
       <header className="bar1">
         <button className="ib nav-btn" aria-label="Open navigation" onClick={() => dispatchEvent(new Event('devdesk-nav'))}><Icon name="list" /></button>
         <div className="crumb">{crumb}</div><span className="sp" />
-        <button className="live" title="Changes are fetched every 30 seconds – click to refresh now" aria-live="polite" onClick={() => reload()}>
-          {fetching ? <><Icon name="refresh" size={12} className="spin" />Syncing…</> : <><i />{age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago`}</>}</button>
+        <SyncBadge />
         {right}
         <button className="ib" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
       </header>
       {bar2 && <div className="bar2">{bar2}</div>}
-      <div className="body" ref={bodyRef}>{children}</div>
+      <m.div className="body" ref={bodyRef} layoutScroll>{children}</m.div>
     </section>
   );
 }
@@ -168,10 +163,10 @@ export const Avatar = ({ name, size = 20 }: { name: string; size?: number }) => 
 };
 
 /** Icon button whose label slides open on hover/focus; `open` keeps it expanded (active view, applied filter) */
-export function XBtn({ icon, label, open, on, className = '', ...rest }:
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: string; label: React.ReactNode; open?: boolean; on?: boolean }) {
+export function XBtn({ icon, label, open, on, indicator, className = '', ...rest }:
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: string; label: React.ReactNode; open?: boolean; on?: boolean; indicator?: string }) {
   return <button {...rest} className={`xb ${className}${open ? ' open' : ''}${on ? ' on' : ''}`}>
-    <Icon name={icon} size={14} /><span className="xl"><span>{label}</span></span></button>;
+    {on && indicator && <TabIndicator id={indicator} />}<Icon name={icon} size={14} /><span className="xl"><span>{label}</span></span></button>;
 }
 
 /** True while the user types in a field or a dialog/menu is open (keyboard shortcuts are ignored then) */
@@ -179,3 +174,82 @@ export const isTyping = (e: KeyboardEvent) => {
   const el = e.target instanceof Element ? e.target : null;
   return !!el?.closest('input,textarea,select,[contenteditable],.modal,[role=menu]') || !!document.querySelector('.modal.on') || menuOpen();
 };
+
+/* ---------- Motion patterns (motion.dev examples, rebuilt with Motion for React) ---------- */
+
+/** Hold to confirm: destructive actions run only after the button is held (pointer, Enter or Space) for `duration` ms.
+ *  One progress value drives the fill sweep and a slight squeeze; letting go early rewinds it. */
+export function HoldButton({ onConfirm, label, className = 'ib', duration = 1100, children }: {
+  onConfirm(): void; label: string; className?: string; duration?: number; children: React.ReactNode;
+}) {
+  const p = useMotionValue(0);
+  const scale = useTransform(p, [0, 1], [1, 0.94]);
+  const run = useRef<ReturnType<typeof animate> | null>(null);
+  const start = () => {
+    if (run.current) return;
+    run.current = animate(p, 1, { duration: (1 - p.get()) * duration / 1000, ease: 'linear' });
+    run.current.then(() => { if (p.get() >= 1) { run.current = null; p.set(0); onConfirm() } });
+  };
+  const cancel = () => {
+    if (!run.current) return;
+    run.current.stop(); run.current = null;
+    animate(p, 0, { type: 'spring', stiffness: 420, damping: 32 });
+  };
+  return <Tip label={`Hold to ${label.toLowerCase()}`}>
+    <m.button type="button" className={className + ' hold-btn'} aria-label={`${label} (press and hold)`} style={{ scale }}
+      onPointerDown={e => { if (e.button === 0) start() }} onPointerUp={cancel} onPointerLeave={cancel} onPointerCancel={cancel}
+      onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start() } }}
+      onKeyUp={e => { if (e.key === 'Enter' || e.key === ' ') cancel() }} onBlur={cancel} onContextMenu={e => e.preventDefault()}>
+      <m.span className="hold-fill" aria-hidden="true" style={{ scaleX: p }} />{children}
+    </m.button></Tip>;
+}
+
+/** Tab select: the selected background/underline is one shared element that slides between options */
+export const TabIndicator = ({ id, line }: { id: string; line?: boolean }) =>
+  <m.span layoutId={id} className={'tab-ind' + (line ? ' line' : '')} transition={{ type: 'spring', stiffness: 520, damping: 40 }} />;
+
+/** Characters remaining: counts down to a field's limit; turns amber, then red, and springs as the limit nears */
+export function CharCount({ value, max }: { value: string; max: number }) {
+  const left = max - value.length;
+  const ref = useRef<HTMLSpanElement>(null), prev = useRef(left);
+  useEffect(() => {
+    if (left < prev.current && left <= 10 && ref.current && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+      animate(ref.current, { scale: [left <= 3 ? 1.35 : 1.18, 1] }, { type: 'spring', stiffness: 600, damping: 14 });
+    prev.current = left;
+  }, [left]);
+  return <span ref={ref} className={'char-left num' + (left <= 3 ? ' crit' : left <= 10 ? ' warn' : '')} aria-live="polite"
+    aria-label={`${left} characters left`}>{left}</span>;
+}
+
+/** Multi-state badge for the sync status: idle → processing → success / error, the width and content morph between states */
+export function SyncBadge() {
+  const { lastSync, reload } = useStore();
+  const qc = useQueryClient();
+  const fetching = useIsFetching() > 0;
+  const [manual, setManual] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [, tick] = useState(0);
+  useEffect(() => { const id = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(id) }, []);
+  const age = (Date.now() - lastSync) / 1000;
+  const state = manual !== 'idle' ? manual : fetching ? 'processing' : 'idle';
+  const refresh = async () => {
+    if (manual === 'processing') return;
+    setManual('processing');
+    await reload();
+    const failed = qc.getQueryCache().getAll().some(q => q.state.status === 'error');
+    setManual(failed ? 'error' : 'success');
+    setTimeout(() => setManual('idle'), failed ? 4000 : 1600);
+  };
+  const look = {
+    idle: { icon: <i className="dot" />, text: age < 45 ? 'Up to date' : `Updated ${Math.round(age / 60)}m ago` },
+    processing: { icon: <Icon name="refresh" size={12} className="spin" />, text: 'Syncing…' },
+    success: { icon: <Icon name="check" size={12} />, text: 'Synced' },
+    error: { icon: <Icon name="alert" size={12} />, text: 'Sync failed – retry' },
+  }[state];
+  return <m.button layout className={'live sync-' + state} onClick={refresh} aria-live="polite"
+    title="Changes are fetched every 30 seconds – click to refresh now" transition={{ type: 'spring', stiffness: 500, damping: 38 }}>
+    <AnimatePresence mode="popLayout" initial={false}>
+      <m.span key={state + look.text} className="sync-in" initial={{ opacity: 0, y: 6, filter: 'blur(2px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }} transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}>{look.icon}{look.text}</m.span>
+    </AnimatePresence>
+  </m.button>;
+}

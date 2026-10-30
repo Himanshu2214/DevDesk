@@ -5,7 +5,7 @@ import type { Status, Ticket, Transport } from '../api';
 import { useStore, useTransports } from '../store';
 import { fmtDate } from '../lib/format';
 import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
-import { Empty, go, Page, useChangeFlash, useMenu } from '../components/ui';
+import { CharCount, Empty, go, HoldButton, Page, TabIndicator, useChangeFlash, useMenu } from '../components/ui';
 import { Area, Line, SidePanel, trEdge, trState, usePickers } from '../components/p2';
 import Input from '../components/smoothui/input';
 
@@ -42,7 +42,7 @@ export function Transports({ route }: { route: string }) {
 
   const bar2 = <>
     {[['all', 'All projects'], ...s.projects.map(p => [p.Project, p.Name])].map(([k, l]) =>
-      <button key={k} className={'pill' + (proj === k ? ' on' : '')} onClick={() => setProj(k)}>
+      <button key={k} className={'pill' + (proj === k ? ' on' : '')} onClick={() => setProj(k)}>{proj === k && <TabIndicator id="tr-proj" />}
         {k !== 'all' && <Dot color={s.project(k)?.Color ?? 'var(--muted)'} />}{l}<span className="c num">{list.filter(x => inProj(x, k)).length}</span></button>)}
     <span className="sp" />
     <button className="btn primary" style={{ whiteSpace: 'nowrap' }} onClick={() => go('transports/new')}><Icon name="plus" size={14} />New transport</button>
@@ -100,7 +100,6 @@ function TransportPanel({ x, all, close }: { x: Transport; all: Transport[]; clo
     v => s.run(() => api.recordImport(x, sys, Number(v)), { ok: `${x.TrKorr} imported into ${sys} with RC ${v}` }), false);
   const when = (at: string | null, rc: number) => at ? <>{fmtDate(at)} · RC {rc}{rc > 4 && <span className="fail" style={{ marginLeft: 6 }}>failed</span>}</> : <span className="muted">not yet</span>;
   async function remove() {
-    if (!confirm(`Remove ${x.TrKorr} from the tracker? (The request in SAP is not touched.)`)) return;
     if (await s.run(() => api.deleteRoot('Transport', x as never), { ok: `${x.TrKorr} removed` })) close();
   }
   // a dependency must be in the target system first
@@ -139,7 +138,7 @@ function TransportPanel({ x, all, close }: { x: Transport; all: Transport[]; clo
       <h5>Test evidence</h5><Area value={x.TestEvidence} placeholder="What was tested, by whom, link to screenshots" onSave={v => upd({ TestEvidence: v })} />
       <h5>Deployment notes</h5><Area value={x.DeployNotes} placeholder="Import window, manual steps, post-processing" onSave={v => upd({ DeployNotes: v })} />
       <h5>Rollback</h5><Area value={x.RollbackNotes} placeholder="How to undo this change" onSave={v => upd({ RollbackNotes: v })} />
-      <button className="btn" style={{ marginTop: 6, color: 'var(--danger)' }} onClick={remove}><Icon name="trash" size={14} />Remove from tracker</button>
+      <HoldButton className="btn danger-btn" label="Remove from tracker" onConfirm={remove}><Icon name="trash" size={14} />Remove from tracker</HoldButton>
     </SidePanel>
   );
 }
@@ -166,6 +165,7 @@ function NewTransport({ close, ticketUUID }: { close(): void; ticketUUID?: strin
           <Input id="trk" className="ss-input mono" autoFocus placeholder="S4DK900123" value={d.TrKorr} onChange={e => setD({ ...d, TrKorr: e.target.value.toUpperCase() })}
             onKeyDown={e => { if (e.key === 'Enter') create() }} /></div>
         <div className="full"><label htmlFor="trt">Description</label>
+          <CharCount value={d.TrText} max={60} />
           <Input id="trt" className="ss-input" placeholder={t ? `${t.TicketId} ${t.Title}` : 'As in SE09'} value={d.TrText} maxLength={60} onChange={e => setD({ ...d, TrText: e.target.value })} /></div>
         <div><label>Kind</label><div className="seg">{[['K', 'Workbench'], ['W', 'Customizing']].map(([k, l]) =>
           <button key={k} className={d.TrKind === k ? 'on' : ''} onClick={() => setD({ ...d, TrKind: k })}>{l}</button>)}</div></div>

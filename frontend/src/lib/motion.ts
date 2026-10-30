@@ -7,16 +7,17 @@ export const EASE_IN = [0.4, 0, 1, 1] as const;
 const enter = (duration: number): Transition => ({ duration, ease: EASE_OUT });
 const exit = (duration: number): Transition => ({ duration, ease: EASE_IN });
 
-/** Fade + small scale/rise for dialogs and the command palette */
+/** Modal dialog (motion.dev "Modal dialog"): tilts up out of a 3D perspective with a soft spring; quick ease-in exit */
 export const dialogMotion = {
-  initial: { opacity: 0, scale: 0.98, y: 6 },
-  animate: { opacity: 1, scale: 1, y: 0, transition: enter(0.22) },
-  exit: { opacity: 0, scale: 0.98, y: 4, transition: exit(0.14) },
+  initial: { opacity: 0, scale: 0.94, y: 14, rotateX: 10, transformPerspective: 900 },
+  animate: { opacity: 1, scale: 1, y: 0, rotateX: 0, transformPerspective: 900, transition: { type: 'spring', stiffness: 380, damping: 32 } as Transition },
+  exit: { opacity: 0, scale: 0.97, y: 6, rotateX: -4, transformPerspective: 900, transition: exit(0.14) },
 };
+/** Backdrop fades and softly blurs what is behind the dialog */
 export const scrimMotion = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1, transition: enter(0.18) },
-  exit: { opacity: 0, transition: exit(0.14) },
+  initial: { opacity: 0, backdropFilter: 'blur(0px)' },
+  animate: { opacity: 1, backdropFilter: 'blur(3px)', transition: enter(0.2) },
+  exit: { opacity: 0, backdropFilter: 'blur(0px)', transition: exit(0.14) },
 };
 export const toastMotion = {
   initial: { opacity: 0, y: 8, scale: 0.98 },
