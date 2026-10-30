@@ -1,0 +1,144 @@
+/* ---------- Colour themes ----------
+   Each theme re-colours the surfaces, text and accent tokens of motion.css, in a dark and a light version
+   (palettes after popular community shadcn themes). Status colours stay the same in every theme, so the board
+   reads the same. Chosen in the user menu (top right); stored per browser (lib/theme.ts). "slate" = motion.css itself. */
+
+/* Vercel – pure black and white, monochrome accent */
+:root[data-palette="vercel"]{
+  --app:#000000; --panel:#0a0a0a; --raised:#111111; --hover:#1a1a1a; --active:#232323; --menu:#111111;
+  --border:#1f1f1f; --border-2:#2e2e2e; --text:#ededed; --text-2:#c4c4c4; --muted:#8f8f8f; --faint:#555555;
+  --accent:#ededed; --accent-2:#ffffff; --accent-soft:rgba(237,237,237,.12); --accent-ink:#0a0a0a;
+  --grid:#1a1a1a; --axis:#2e2e2e; --lg-bot-b:#a1a1a1; --lg-tile:#111111;
+}
+:root[data-palette="vercel"][data-theme="light"]{
+  --app:#fafafa; --panel:#ffffff; --raised:#fafafa; --hover:#f2f2f2; --active:#e8e8e8; --menu:#ffffff;
+  --border:#ebebeb; --border-2:#dcdcdc; --text:#0a0a0a; --text-2:#333333; --muted:#666666; --faint:#a3a3a3;
+  --accent:#171717; --accent-2:#000000; --accent-soft:rgba(23,23,23,.07); --accent-ink:#ffffff;
+  --grid:#f0f0f0; --axis:#dcdcdc; --lg-bot-b:#171717; --lg-tile:#ffffff;
+}
+
+/* Claude – warm paper, terracotta accent */
+:root[data-palette="claude"]{
+  --app:#1f1e1d; --panel:#262624; --raised:#2c2b29; --hover:#33322f; --active:#3c3a37; --menu:#2c2b29;
+  --border:#363531; --border-2:#44423e; --text:#faf9f5; --text-2:#d9d6cc; --muted:#a39f94; --faint:#6b6860;
+  --accent:#d97757; --accent-2:#e3916f; --accent-soft:rgba(217,119,87,.16); --accent-ink:#ffffff;
+  --grid:#2f2e2b; --axis:#44423e; --lg-bot-b:#d97757; --lg-tile:#2c2b29;
+}
+:root[data-palette="claude"][data-theme="light"]{
+  --app:#f5f4ee; --panel:#faf9f5; --raised:#f0eee6; --hover:#ebe9e0; --active:#e3e0d5; --menu:#ffffff;
+  --border:#e5e2d7; --border-2:#d6d2c4; --text:#3d3929; --text-2:#55503f; --muted:#7a7564; --faint:#b0aa98;
+  --accent:#c96442; --accent-2:#b4552f; --accent-soft:rgba(201,100,66,.1); --accent-ink:#ffffff;
+  --grid:#ebe9e0; --axis:#d6d2c4; --lg-bot-b:#c96442; --lg-tile:#ffffff;
+}
+
+/* Supabase – near-black with the green accent */
+:root[data-palette="supabase"]{
+  --app:#121212; --panel:#171717; --raised:#1c1c1c; --hover:#232323; --active:#2b2b2b; --menu:#1c1c1c;
+  --border:#262626; --border-2:#333333; --text:#ededed; --text-2:#c8c8c8; --muted:#8f8f8f; --faint:#555555;
+  --accent:#3ecf8e; --accent-2:#5fdca3; --accent-soft:rgba(62,207,142,.14); --accent-ink:#06261a;
+  --grid:#202020; --axis:#333333; --lg-bot-b:#3ecf8e; --lg-tile:#1c1c1c;
+}
+:root[data-palette="supabase"][data-theme="light"]{
+  --app:#f8f8f8; --panel:#ffffff; --raised:#fcfcfc; --hover:#f3f3f3; --active:#e9e9e9; --menu:#ffffff;
+  --border:#e8e8e8; --border-2:#dadada; --text:#171717; --text-2:#3a3a3a; --muted:#6b6b6b; --faint:#a8a8a8;
+  --accent:#15a36a; --accent-2:#118a59; --accent-soft:rgba(21,163,106,.1); --accent-ink:#ffffff;
+  --grid:#efefef; --axis:#dadada; --lg-bot-b:#15a36a; --lg-tile:#ffffff;
+}
+
+/* Catppuccin – Mocha (dark) and Latte (light), mauve accent */
+:root[data-palette="catppuccin"]{
+  --app:#181825; --panel:#1e1e2e; --raised:#242436; --hover:#2a2b3c; --active:#313244; --menu:#242436;
+  --border:#2c2d3f; --border-2:#3b3d52; --text:#cdd6f4; --text-2:#bac2de; --muted:#9399b2; --faint:#6c7086;
+  --accent:#cba6f7; --accent-2:#d9bcfb; --accent-soft:rgba(203,166,247,.15); --accent-ink:#1e1e2e;
+  --grid:#2a2b3c; --axis:#3b3d52; --lg-bot-b:#cba6f7; --lg-tile:#242436;
+}
+:root[data-palette="catppuccin"][data-theme="light"]{
+  --app:#e6e9ef; --panel:#eff1f5; --raised:#e9ecf2; --hover:#dce0e8; --active:#ccd0da; --menu:#eff1f5;
+  --border:#d4d8e1; --border-2:#bcc0cc; --text:#4c4f69; --text-2:#5c5f77; --muted:#7c7f93; --faint:#9ca0b0;
+  --accent:#8839ef; --accent-2:#7528d8; --accent-soft:rgba(136,57,239,.1); --accent-ink:#ffffff;
+  --grid:#dce0e8; --axis:#bcc0cc; --lg-bot-b:#8839ef; --lg-tile:#eff1f5;
+}
+
+/* Ocean Breeze – deep navy, teal accent */
+:root[data-palette="ocean"]{
+  --app:#0b1220; --panel:#0f172a; --raised:#142036; --hover:#1a2741; --active:#22314f; --menu:#142036;
+  --border:#1d2a42; --border-2:#283a5a; --text:#e2e8f0; --text-2:#c3cddb; --muted:#8a98ae; --faint:#55637a;
+  --accent:#2dd4bf; --accent-2:#5eead4; --accent-soft:rgba(45,212,191,.14); --accent-ink:#042f2e;
+  --grid:#172238; --axis:#283a5a; --lg-bot-b:#2dd4bf; --lg-tile:#142036;
+}
+:root[data-palette="ocean"][data-theme="light"]{
+  --app:#f0f7fa; --panel:#ffffff; --raised:#f7fbfd; --hover:#e8f2f7; --active:#d9eaf2; --menu:#ffffff;
+  --border:#dbe8ef; --border-2:#c6d9e3; --text:#0f2a3a; --text-2:#28465a; --muted:#5b7486; --faint:#9db0bd;
+  --accent:#0d9488; --accent-2:#0f766e; --accent-soft:rgba(13,148,136,.1); --accent-ink:#ffffff;
+  --grid:#e6f0f5; --axis:#c6d9e3; --lg-bot-b:#0d9488; --lg-tile:#ffffff;
+}
+
+/* Cosmic Night – indigo night sky, violet accent */
+:root[data-palette="cosmic"]{
+  --app:#0c0b1a; --panel:#121126; --raised:#18172f; --hover:#1f1d3a; --active:#272447; --menu:#18172f;
+  --border:#23213d; --border-2:#2f2c4f; --text:#e6e3ff; --text-2:#c6c2ea; --muted:#8e89b8; --faint:#575381;
+  --accent:#a48fff; --accent-2:#bbaaff; --accent-soft:rgba(164,143,255,.16); --accent-ink:#120f2e;
+  --grid:#1c1a35; --axis:#2f2c4f; --lg-bot-b:#a48fff; --lg-tile:#18172f;
+}
+:root[data-palette="cosmic"][data-theme="light"]{
+  --app:#f3f2fc; --panel:#ffffff; --raised:#f9f8ff; --hover:#eeecfb; --active:#e2dff7; --menu:#ffffff;
+  --border:#e4e1f5; --border-2:#d3cfee; --text:#1c1838; --text-2:#3b3660; --muted:#6c6790; --faint:#a9a5c6;
+  --accent:#6e56cf; --accent-2:#5b43bd; --accent-soft:rgba(110,86,207,.1); --accent-ink:#ffffff;
+  --grid:#eceafa; --axis:#d3cfee; --lg-bot-b:#6e56cf; --lg-tile:#ffffff;
+}
+
+/* Nature – forest green and warm stone */
+:root[data-palette="nature"]{
+  --app:#121a14; --panel:#172019; --raised:#1c271f; --hover:#222f25; --active:#2a392d; --menu:#1c271f;
+  --border:#25322a; --border-2:#324236; --text:#e5eee6; --text-2:#c4d1c6; --muted:#8ea193; --faint:#56665a;
+  --accent:#6abf69; --accent-2:#8bd18a; --accent-soft:rgba(106,191,105,.15); --accent-ink:#0b2210;
+  --grid:#1f2b22; --axis:#324236; --lg-bot-b:#6abf69; --lg-tile:#1c271f;
+}
+:root[data-palette="nature"][data-theme="light"]{
+  --app:#f5f2ea; --panel:#fbfaf6; --raised:#f8f5ee; --hover:#efebe1; --active:#e5e0d2; --menu:#ffffff;
+  --border:#e5e0d3; --border-2:#d5cfbe; --text:#1f2e22; --text-2:#3a4a3d; --muted:#6a7a6c; --faint:#a7b0a4;
+  --accent:#2e7d32; --accent-2:#256a29; --accent-soft:rgba(46,125,50,.1); --accent-ink:#ffffff;
+  --grid:#eeeadf; --axis:#d5cfbe; --lg-bot-b:#2e7d32; --lg-tile:#ffffff;
+}
+
+/* Sunset Horizon – warm charcoal, coral accent */
+:root[data-palette="sunset"]{
+  --app:#18120f; --panel:#1f1814; --raised:#261e19; --hover:#2e241e; --active:#382c25; --menu:#261e19;
+  --border:#33281f; --border-2:#43362b; --text:#fbede4; --text-2:#e2cfc2; --muted:#ad978a; --faint:#6e5d52;
+  --accent:#ff7e5f; --accent-2:#ff9a80; --accent-soft:rgba(255,126,95,.15); --accent-ink:#2a0f06;
+  --grid:#2a211b; --axis:#43362b; --lg-bot-b:#ff7e5f; --lg-tile:#261e19;
+}
+:root[data-palette="sunset"][data-theme="light"]{
+  --app:#fff5ef; --panel:#fffaf7; --raised:#fff7f2; --hover:#fdeee5; --active:#f8e1d4; --menu:#ffffff;
+  --border:#f4e2d7; --border-2:#e9cfbf; --text:#3a2219; --text-2:#5a3a2e; --muted:#8a6a5c; --faint:#c3a99c;
+  --accent:#e8573a; --accent-2:#cf4428; --accent-soft:rgba(232,87,58,.1); --accent-ink:#ffffff;
+  --grid:#fbece2; --axis:#e9cfbf; --lg-bot-b:#e8573a; --lg-tile:#ffffff;
+}
+
+/* Twitter – black with the sky-blue accent */
+:root[data-palette="twitter"]{
+  --app:#000000; --panel:#0b0d10; --raised:#16181c; --hover:#1d1f23; --active:#25282d; --menu:#16181c;
+  --border:#22252a; --border-2:#2f3336; --text:#e7e9ea; --text-2:#c4c8cb; --muted:#71767b; --faint:#4d5257;
+  --accent:#1d9bf0; --accent-2:#4cb0f5; --accent-soft:rgba(29,155,240,.15); --accent-ink:#ffffff;
+  --grid:#16181c; --axis:#2f3336; --lg-bot-b:#1d9bf0; --lg-tile:#16181c;
+}
+:root[data-palette="twitter"][data-theme="light"]{
+  --app:#f7f9f9; --panel:#ffffff; --raised:#f7f9f9; --hover:#eff3f4; --active:#e1e8ed; --menu:#ffffff;
+  --border:#eff3f4; --border-2:#cfd9de; --text:#0f1419; --text-2:#2c3640; --muted:#536471; --faint:#a3b0bb;
+  --accent:#1d9bf0; --accent-2:#1a8cd8; --accent-soft:rgba(29,155,240,.1); --accent-ink:#ffffff;
+  --grid:#eff3f4; --axis:#cfd9de; --lg-bot-b:#1d9bf0; --lg-tile:#ffffff;
+}
+
+/* Amber Minimal – graphite with a golden accent */
+:root[data-palette="amber"]{
+  --app:#111111; --panel:#171717; --raised:#1d1d1d; --hover:#242424; --active:#2d2d2d; --menu:#1d1d1d;
+  --border:#272727; --border-2:#353535; --text:#f2f0eb; --text-2:#d2cec4; --muted:#9a958a; --faint:#5c5850;
+  --accent:#f59e0b; --accent-2:#fbbf24; --accent-soft:rgba(245,158,11,.15); --accent-ink:#2a1a00;
+  --grid:#202020; --axis:#353535; --lg-bot-b:#f59e0b; --lg-tile:#1d1d1d;
+}
+:root[data-palette="amber"][data-theme="light"]{
+  --app:#faf8f3; --panel:#ffffff; --raised:#fcfaf6; --hover:#f4f1e9; --active:#ebe6da; --menu:#ffffff;
+  --border:#ece8de; --border-2:#ddd7c8; --text:#1c1917; --text-2:#3d3833; --muted:#78716c; --faint:#b0a99f;
+  --accent:#d97706; --accent-2:#b45309; --accent-soft:rgba(217,119,6,.1); --accent-ink:#ffffff;
+  --grid:#f3f0e8; --axis:#ddd7c8; --lg-bot-b:#d97706; --lg-tile:#ffffff;
+}

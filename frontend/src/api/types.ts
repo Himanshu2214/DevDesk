@@ -100,7 +100,8 @@ export interface Ticket {
 export interface Project { Project: string; Name: string; Color: string; SortOrder: number; IsActive: boolean; SharedBy?: string | null; Members?: number }
 export interface ProjectMember { member_id: string; email: string; name: string; since: string }
 export interface ValueItem { ListType: string; Code: string; Text: string; SortOrder: number; Color: string; WipLimit: number; IsActive: boolean }
-export interface User { id: string; fullName: string }
+/** email / photo (Google picture) / avatar (chosen look) are filled in standalone mode */
+export interface User { id: string; fullName: string; email?: string; photo?: string; avatar?: string }
 
 export interface NewTicket {
   Title: string; Description: string; Priority: string; Project: string; Area: string; Tech: string; TicketType: string;

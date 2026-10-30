@@ -8,6 +8,8 @@ import Tooltip from './smoothui/tooltip';
 import { useStore } from '../store';
 import { daysUntil, fmtDate, PRIORITY_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
+import { lookBg } from '../lib/avatar';
+import { UserMenu } from './UserMenu';
 
 /* ---------- Router (hash based, works inside the BSP without server config) ---------- */
 export function useHash(): string {
@@ -89,6 +91,7 @@ export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.R
         <div className="crumb">{crumb}</div><span className="sp" />
         <SyncBadge />
         {right}
+        <UserMenu />
         <button className="ib" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
       </header>
       {bar2 && <div className="bar2">{bar2}</div>}
@@ -157,10 +160,17 @@ export function ProjectChip({ code }: { code: string }) {
   const p = useStore().project(code);
   return p ? <span className="chip"><i style={{ background: p.Color }} />{p.Name}</span> : null;
 }
-export const Avatar = ({ name, size = 20 }: { name: string; size?: number }) => {
-  const initials = name.split(/\s+/).map(x => x[0]).join('').slice(0, 2).toUpperCase() || '?';
-  return <span className="av" style={{ width: size, height: size, fontSize: size * .45 }}>{initials}</span>;
+export const Avatar = ({ name, size = 20, photo, look }: { name: string; size?: number; photo?: string; look?: string }) => {
+  const initials = name.split(/[\s@.]+/).filter(Boolean).map(x => x[0]).join('').slice(0, 2).toUpperCase() || '?';
+  if (photo && (look === 'photo' || !look)) return <img className="av av-img" src={photo} alt="" width={size} height={size} referrerPolicy="no-referrer" />;
+  const bg = lookBg(look);
+  return <span className="av" style={{ width: size, height: size, fontSize: size * .42, ...(bg ? { background: bg } : {}) }}>{initials}</span>;
 };
+/** The signed-in user's avatar with their chosen look */
+export function MeAvatar({ size = 20 }: { size?: number }) {
+  const { user } = useStore();
+  return <Avatar name={user.fullName || user.id} size={size} photo={user.photo} look={user.avatar} />;
+}
 
 /** Icon button whose label slides open on hover/focus; `open` keeps it expanded (active view, applied filter) */
 export function XBtn({ icon, label, open, on, indicator, className = '', ...rest }:

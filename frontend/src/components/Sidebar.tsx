@@ -3,13 +3,13 @@ import { m } from 'motion/react';
 import { indicatorTransition } from '../lib/motion';
 import { useStore, useTransports } from '../store';
 import { isOpen, isOverdue } from '../lib/format';
-import { Avatar, Tip } from './ui';
+import { MeAvatar, Tip } from './ui';
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from './smoothui/collapsible';
 import { Icon, LogoMark, StatusIcon } from './Icons';
 import { useDialogs } from './Dialogs';
 import { api } from '../api';
-import { signOut } from './Auth';
 import { inboxItems } from '../views/Inbox';
+import { setMode, shownMode } from '../lib/theme';
 
 export const VIEWS = {
   overdue: { name: 'Overdue', fn: isOverdue },
@@ -55,7 +55,8 @@ export function Sidebar({ route }: { route: string }) {
   const failedTr = (useTransports().data ?? []).filter(x => x.Phase === 'FAILED');
   const unread = inboxItems(s, failedTr).filter(n => !n.read).length;
   const ring = useRing(unread);
-  const [light, setLight] = useState(() => document.documentElement.dataset.theme === 'light');
+  const [light, setLight] = useState(() => shownMode() === 'light');
+  useEffect(() => { const sync = () => setLight(shownMode() === 'light'); addEventListener('devdesk-theme', sync); return () => removeEventListener('devdesk-theme', sync) }, []);
   const [collapsed, setCollapsed] = useState(() => readJson('devdesk-sidebar-collapsed', false));
   const [groups, setGroups] = useState<Record<string, boolean>>(() => readJson('devdesk-nav-groups', {}));
   const toggleGroup = (id: string, open: boolean) => setGroups(g => { const n = { ...g, [id]: open }; writeJson('devdesk-nav-groups', n); return n });
@@ -66,11 +67,7 @@ export function Sidebar({ route }: { route: string }) {
   }, []);
   const active = s.tickets.filter(t => isOpen(t) && t.Status !== 'BACKLOG').length;
   const isActive = (h: string) => route === h || route.startsWith(h + '/') && h !== 'list/active' || (h === 'list/active' && (route === 'list/backlog' || route === 'list/all'));
-  const toggleTheme = () => {
-    const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light'; setLight(r.dataset.theme === 'light');
-    try { localStorage.setItem('devdesk-theme', r.dataset.theme) } catch { /* ignore */ }
-    window.dispatchEvent(new Event('devdesk-theme'));
-  };
+  const toggleTheme = () => setMode(shownMode() === 'light' ? 'dark' : 'light');
   const nav = (h: string, label: string, icon: React.ReactNode, count?: number | string, alert?: boolean, style?: React.CSSProperties) =>
     <NavItem key={h} href={'#' + h} active={isActive(h)} collapsed={collapsed} label={label} icon={icon} count={count} alert={alert} style={style} />;
   const g = (id: string, title: string, children: React.ReactNode) =>
@@ -105,11 +102,10 @@ export function Sidebar({ route }: { route: string }) {
       </m.div>
       <div className="side-foot">
         <Tip label={(s.user.fullName || s.user.id) + (api.kind === 'mock' ? ' · sample data' : api.kind === 'supabase' ? ' · cloud' : ' · SAP')} side="right" disabled={!collapsed}>
-          <a className="who" href="#account" aria-label="Account"><Avatar name={s.user.fullName || s.user.id} /><span className="lbl">{s.user.fullName || s.user.id}</span></a></Tip>
+          <a className="who" href="#account" aria-label="Account"><MeAvatar /><span className="lbl">{s.user.fullName || s.user.id}</span></a></Tip>
         <span className="muted env-tag" title={api.kind === 'mock' ? 'Sample data in this browser' : api.kind === 'supabase' ? 'Your private cloud workspace' : 'Connected to SAP'}>{api.kind === 'mock' ? 'MOCK' : api.kind === 'supabase' ? 'CLOUD' : 'SAP'}</span>
         <Tip label={light ? 'Dark theme' : 'Light theme'} side={collapsed ? 'right' : 'top'}>
           <button className="ib" aria-label="Toggle theme" onClick={toggleTheme}><span key={light ? 'm' : 's'} className="swap-in"><Icon name={light ? 'moon' : 'sun'} /></span></button></Tip>
-        {api.kind === 'supabase' && <Tip label="Sign out" side={collapsed ? 'right' : 'top'}><button className="ib" aria-label="Sign out" onClick={signOut}><Icon name="logout" /></button></Tip>}
         <Tip label={(collapsed ? 'Expand' : 'Collapse') + ' sidebar · Ctrl \\'} side={collapsed ? 'right' : 'top'}>
           <button className="ib collapse-btn" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} onClick={toggleCollapsed}>
             <Icon name={collapsed ? 'panel-open' : 'panel-close'} /></button></Tip>

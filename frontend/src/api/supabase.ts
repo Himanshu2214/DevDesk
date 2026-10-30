@@ -97,7 +97,7 @@ export const supabaseApi: Api = {
     const meta = u.user_metadata ?? {};
     const fullName = String(meta.full_name || meta.name || u.email || 'You');
     me = fullName;
-    return { id: u.email ?? u.id, fullName };
+    return { id: u.email ?? u.id, fullName, email: u.email ?? '', photo: String(meta.avatar_url || meta.picture || ''), avatar: String(meta.avatar || '') };
   },
   // own projects and projects shared with you (shared ones carry "<code>@<owner>" and SharedBy);
   // before the teams migration has run there is no projects_v yet – then just your own projects

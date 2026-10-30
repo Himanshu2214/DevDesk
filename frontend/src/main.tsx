@@ -6,6 +6,8 @@ import './styles/app.css';
 import './styles/app2.css';
 import './styles/react.css';
 import './styles/motion.css';
+import './styles/themes.css';
+import './lib/theme';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
 

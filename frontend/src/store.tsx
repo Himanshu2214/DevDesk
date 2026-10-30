@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tan
 import { api } from './api';
 import type { LiveArea, Project, Status, Ticket, TicketEvent, User, ValueItem, Worklog } from './api';
 import { DAY, isoDate, STATUS_NAME, today } from './lib/format';
+import { localAvatar } from './lib/avatar';
 
 const POLL_MS = 30_000;
 const queryClient = new QueryClient({
@@ -166,7 +167,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   const value = useMemo<Store>(() => ({
     ready: !tickets.isLoading && !values.isLoading && !projects.isLoading,
     error: firstError && !tickets.data ? firstError.message : null,
-    user: user.data ?? { id: '', fullName: '' },
+    user: user.data ? { ...user.data, avatar: user.data.avatar || localAvatar() } : { id: '', fullName: '' },
     projects: projs, values: vals,
     tickets: tickets.data ?? [],
     recentWork: recent.data ?? [],
