@@ -14,6 +14,7 @@ import { TicketList } from './views/TicketList';
 import { TicketPage } from './views/TicketPage';
 import { Timesheet } from './views/Timesheet';
 import { CalendarPage } from './views/Calendar';
+import { Account } from './views/Account';
 import { Placeholder } from './views/Placeholder';
 import { Transports } from './views/Transports';
 import { Objects } from './views/Objects';
@@ -30,6 +31,7 @@ function Router({ route }: { route: string }) {
     case 'ticket': return <TicketPage ticketId={decodeURIComponent(rest)} />;
     case 'timesheet': return <Timesheet />;
     case 'calendar': return <CalendarPage />;
+    case 'account': return <Account />;
     case 'transports': return <Transports route={route} />;
     case 'objects': return <Objects route={route} />;
     case 'kb': return <Knowledge route={route} />;

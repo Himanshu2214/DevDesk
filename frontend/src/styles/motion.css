@@ -617,3 +617,29 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 }
 @media (max-width:420px){.auth-card{padding:26px 20px 20px;border-radius:16px}.hero-copy h2{font-size:32px}}
 @media (prefers-reduced-motion:reduce){.auth-bg .blob,.layer{animation:none}}
+
+/* =====================================================================
+   Account page (standalone / Supabase mode)
+   ===================================================================== */
+.acct{max-width:860px;margin:0 auto;padding:28px 28px 48px;display:grid;gap:16px}
+.acct-head h2{margin:0;font-size:22px}
+.acct-head p{margin:4px 0 6px}
+.acct-sec{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;padding:22px 24px;border-radius:14px}
+.acct-sec-h h3{margin:0 0 6px;font-size:15px;font-weight:600}
+.acct-sec-h p{margin:0;color:var(--muted);font-size:var(--fs-sm);line-height:1.5}
+.acct-sec-b{display:grid;gap:14px;align-content:start}
+.acct-form{display:grid;gap:12px;max-width:380px}
+.acct-form label,.acct-confirm{display:grid;gap:5px;font-size:var(--fs-sm);font-weight:500;color:var(--text-2)}
+.acct-form .btn{justify-self:start}
+.acct-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px;margin:4px 0 0;padding-top:14px;border-top:1px solid var(--border)}
+.acct-facts dt{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.acct-facts dd{margin:3px 0 0;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+.acct-actions{display:flex;flex-wrap:wrap;gap:8px}
+.acct-note{margin:0;font-size:var(--fs-sm)}
+.acct-sec.danger{border-color:color-mix(in srgb,var(--danger) 35%,var(--border))}
+.acct-sec.danger h3{color:var(--danger)}
+.acct-confirm{max-width:380px}
+.acct-sec.danger .btn{justify-self:start}
+.side-foot a.who{color:inherit;text-decoration:none;padding:2px 4px;margin:-2px -4px}
+.side-foot a.who:hover{background:var(--hover)}
+@media (max-width:760px){.acct{padding:18px 14px 32px}.acct-sec{grid-template-columns:1fr;gap:14px;padding:18px}.acct-facts{grid-template-columns:1fr}}

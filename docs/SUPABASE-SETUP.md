@@ -87,7 +87,12 @@ npx supabase link --project-ref <ref>
 npx supabase secrets set RESEND_API_KEY=<your Resend key> "MAIL_FROM=SLATE·SPACE <login@yourdomain.com>" CODE_PEPPER=<a random string of 40+ characters> APP_ORIGIN=http://localhost:5181
 npx supabase functions deploy send-login-code
 npx supabase functions deploy verify-login-code
+npx supabase functions deploy delete-account
 ```
+
+`delete-account` powers **Account → Delete account**: it removes the user's attachment files and then the account;
+the database deletes all of their rows with it (every table cascades from `auth.users`). It only works for a session
+that has passed the 2-step code.
 
 - `CODE_PEPPER` is mixed into the stored code hash; generate it once (e.g. a password manager's generator) and never share it.
 - When you host the app, run `secrets set APP_ORIGIN=https://<your app address>` again.

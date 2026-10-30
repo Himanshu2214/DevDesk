@@ -104,7 +104,7 @@ export function Sidebar({ route }: { route: string }) {
       </m.div>
       <div className="side-foot">
         <Tip label={(s.user.fullName || s.user.id) + (api.kind === 'mock' ? ' · sample data' : api.kind === 'supabase' ? ' · cloud' : ' · SAP')} side="right" disabled={!collapsed}>
-          <span className="who" tabIndex={collapsed ? 0 : undefined}><Avatar name={s.user.fullName || s.user.id} /><span className="lbl">{s.user.fullName || s.user.id}</span></span></Tip>
+          <a className="who" href="#account" aria-label="Account"><Avatar name={s.user.fullName || s.user.id} /><span className="lbl">{s.user.fullName || s.user.id}</span></a></Tip>
         <span className="muted env-tag" title={api.kind === 'mock' ? 'Sample data in this browser' : api.kind === 'supabase' ? 'Your private cloud workspace' : 'Connected to SAP'}>{api.kind === 'mock' ? 'MOCK' : api.kind === 'supabase' ? 'CLOUD' : 'SAP'}</span>
         <Tip label={light ? 'Dark theme' : 'Light theme'} side={collapsed ? 'right' : 'top'}>
           <button className="ib" aria-label="Toggle theme" onClick={toggleTheme}><span key={light ? 'm' : 's'} className="swap-in"><Icon name={light ? 'moon' : 'sun'} /></span></button></Tip>
