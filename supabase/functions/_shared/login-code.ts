@@ -17,15 +17,15 @@ export const json = (status: number, body: Record<string, unknown>) =>
 export const admin = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
 /** Checks the caller's access token with the auth server and returns the user and the session the token belongs to */
-export async function caller(req: Request): Promise<{ user: User; sessionId: string } | Response> {
+export async function caller(req: Request): Promise<{ user: User; sessionId: string; aal: string } | Response> {
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return json(401, { error: 'Not signed in' });
   const { data, error } = await admin().auth.getUser(token);
   if (error || !data.user) return json(401, { error: 'Your sign-in has expired. Sign in again.' });
-  let sessionId = '';
-  try { sessionId = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).session_id ?? '' } catch { /* malformed */ }
+  let sessionId = '', aal = '';
+  try { const claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); sessionId = claims.session_id ?? ''; aal = claims.aal ?? '' } catch { /* malformed */ }
   if (!sessionId) return json(401, { error: 'No session in the token. Sign in again.' });
-  return { user: data.user, sessionId };
+  return { user: data.user, sessionId, aal };
 }
 
 /** SHA-256 of code + session + server secret, so a leaked table row does not reveal the code */

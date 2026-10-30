@@ -134,3 +134,27 @@ address to: Supabase Redirect URLs (step 3), Google JavaScript origins (step 4) 
 - Free Supabase projects pause after about 7 days without use; resume them from the dashboard. Daily use keeps them awake.
 - About 500 MB database and 1 GB file storage – plenty for tickets; attachments count against the file storage.
 - Check current limits on <https://supabase.com/pricing> and <https://resend.com/pricing>.
+
+## 9. Authenticator app (second step)
+
+1. **SQL Editor → New query**: paste `supabase/migrations/20261031000000_authenticator.sql` → **Run**
+   (choose *Run without RLS* if the warning appears). From now on a session also counts as verified after an
+   authenticator code (AAL2), not only after the emailed code.
+2. **Authentication → Multi-Factor** (or *Sign In / Providers → Multi-Factor*): **TOTP (App Authenticator)** enabled
+   (it is on by default).
+3. Redeploy the account function so it accepts authenticator sessions:
+   `npx supabase functions deploy delete-account`
+4. In the app: **Account → Two-step verification → Set up authenticator app**, scan the QR code with Google Authenticator,
+   type the code. Next sign-in asks for the app code; "Lost your phone? Use an emailed code" stays available.
+
+## 10. Bot check (Cloudflare Turnstile, invisible)
+
+Order matters: put the site key into the app first, switch Supabase's check on last.
+
+1. Cloudflare dashboard → **Turnstile** (Application security → Turnstile) → **Add widget**:
+   name `SLATE·SPACE`, hostnames `slatespace-32m.pages.dev` and `localhost`, widget mode **Invisible**.
+   Copy the **Site key** (public) and the **Secret key** (private).
+2. Cloudflare Pages → your project → **Settings → Environment variables** → add `VITE_TURNSTILE_SITE_KEY` = site key,
+   then **Deployments → Retry deployment** (or push to `main`). Locally: add the same line to `frontend/.env.supabase.local`.
+3. Supabase → **Authentication → Attack Protection** → **Enable CAPTCHA protection** → provider **Turnstile** →
+   paste the **Secret key** → Save. Supabase now rejects sign-in, sign-up and reset requests without a valid token.

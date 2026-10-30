@@ -27,6 +27,7 @@ function CloudAccount() {
         <header className="acct-head"><h2>Account</h2><p className="muted">Your sign-in, sessions and data.</p></header>
         <Profile user={user} providers={providers} onSaved={() => s.reload()} />
         <Password hasPassword={providers.includes('email')} />
+        <TwoStep />
         <Sessions user={user} />
         <DangerZone email={user.email ?? ''} />
       </div>
@@ -82,6 +83,67 @@ function Password({ hasPassword }: { hasPassword: boolean }) {
       <label>Repeat password<Input className="ss-input" type="password" autoComplete="new-password" value={pw2} onChange={e => setPw2(e.target.value)} /></label>
       <button className="btn primary" disabled={busy || !pw} aria-busy={busy}>{busy && <Spinner />}{hasPassword ? 'Change password' : 'Set password'}</button>
     </form>
+  </Section>;
+}
+
+/** Authenticator app (TOTP via Supabase MFA): set up with a QR code, then sign-ins ask for its code; the emailed code stays as fallback */
+function TwoStep() {
+  const s = useStore();
+  const [factor, setFactor] = useState<{ id: string } | null | undefined>(undefined);   // undefined = loading
+  const [setup, setSetup] = useState<{ id: string; qr: string; secret: string } | null>(null);
+  const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [copied, setCopied] = useState(false);
+  const load = async () => { const { data } = await sb().auth.mfa.listFactors(); setFactor(data?.totp?.[0] ?? null) };
+  useEffect(() => { load() }, []);
+  const start = async () => {
+    setBusy(true);
+    // an earlier setup that was never confirmed would block a new one with the same name
+    const { data: all } = await sb().auth.mfa.listFactors();
+    for (const f of all?.all ?? []) if (f.factor_type === 'totp' && f.status === 'unverified') await sb().auth.mfa.unenroll({ factorId: f.id });
+    const { data, error } = await sb().auth.mfa.enroll({ factorType: 'totp', friendlyName: 'SLATE·SPACE', issuer: 'SLATE·SPACE' });
+    setBusy(false);
+    if (error || !data) return s.toast(error?.message ?? 'The setup could not start. Try again.', true);
+    setSetup({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+  };
+  const cancel = async () => { if (setup) await sb().auth.mfa.unenroll({ factorId: setup.id }); setSetup(null); setCode('') };
+  const confirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!setup) return;
+    setBusy(true);
+    const { error } = await sb().auth.mfa.challengeAndVerify({ factorId: setup.id, code });
+    setBusy(false);
+    if (error) { setCode(''); return s.toast('That code is not right. Type the current code from the app.', true) }
+    setSetup(null); setCode(''); s.toast('Authenticator app is on – sign-ins now ask for its code'); load();
+  };
+  const remove = async () => {
+    if (!factor) return;
+    const { error } = await sb().auth.mfa.unenroll({ factorId: factor.id });
+    if (error) return s.toast(/aal2|assurance/i.test(error.message) ? 'To remove it, sign out and sign in with a code from the app first.' : error.message, true);
+    s.toast('Authenticator app removed – sign-ins use the emailed code again'); load();
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(setup?.secret ?? ''); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch { /* clipboard blocked */ } };
+  return <Section title="Two-step verification" sub="Every new sign-in needs a second step. An authenticator app is faster than email and works offline; the emailed code stays available as a backup.">
+    {factor === undefined ? <div className="sk" style={{ height: 40 }} /> : factor ? <>
+      <p className="acct-status"><span className="acct-pill on"><Icon name="check" size={13} />Authenticator app is on</span></p>
+      <p className="muted acct-note">Sign-ins ask for the 6-digit code from your app. Lost your phone? Choose “Use an emailed code” when signing in.</p>
+      <HoldButton className="btn danger-btn" label="Remove authenticator app" onConfirm={remove}><Icon name="trash" size={14} />Hold to remove</HoldButton>
+    </> : setup ? <form className="acct-totp" onSubmit={confirm}>
+      <ol>
+        <li>Open Google Authenticator (or Microsoft Authenticator, 1Password, Authy) and add a new account.</li>
+        <li>Scan this code with the app:<img className="acct-qr" src={setup.qr} alt="QR code to add SLATE·SPACE to your authenticator app" width={176} height={176} /></li>
+        <li>Can't scan? Enter this key instead:
+          <span className="acct-secret"><code>{setup.secret}</code><button type="button" className="btn" onClick={copy}><Icon name={copied ? 'check' : 'file'} size={14} />{copied ? 'Copied' : 'Copy'}</button></span></li>
+        <li>Type the 6-digit code the app shows:</li>
+      </ol>
+      <label className="acct-code"><Input className="ss-input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
+        value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} aria-label="6-digit code from the app" /></label>
+      <div className="acct-actions">
+        <button className="btn primary" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}Turn on</button>
+        <button type="button" className="btn" onClick={cancel}>Cancel</button>
+      </div>
+    </form> : <>
+      <p className="acct-status"><span className="acct-pill">Using the emailed code</span></p>
+      <button className="btn primary" onClick={start} disabled={busy} aria-busy={busy}>{busy ? <Spinner /> : <Icon name="plus" size={14} />}Set up authenticator app</button>
+    </>}
   </Section>;
 }
 

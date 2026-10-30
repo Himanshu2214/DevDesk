@@ -1,22 +1,32 @@
-// Sign-in for the standalone (Supabase) backend: email + password or Google, email confirmation,
-// password reset by link, and the emailed 2-step code that unlocks the data for this session.
+// Sign-in for the standalone (Supabase) backend: email + password or Google (with an invisible Turnstile bot check),
+// email confirmation, password reset by link, and the second step that unlocks the data for this session:
+// a code from an authenticator app (Supabase MFA, AAL2) or, as fallback, a code sent by email.
 import { type ComponentProps, useEffect, useId, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { appUrl, getRemember, sb, setRemember, supabaseConfigured } from '../lib/supabase';
 import { Icon, LogoMark, Spinner } from './Icons';
 import Input from './smoothui/input';
+import { RibbonArt } from './RibbonArt';
+import { useTurnstile } from './Turnstile';
 
-type Stage = 'loading' | 'signed-out' | 'recovery' | 'code' | 'ready';
+type Stage = 'loading' | 'signed-out' | 'recovery' | 'app-code' | 'code' | 'ready';
 type View = 'signin' | 'register' | 'forgot' | 'sent';
 
-/** Shows the app only for a signed-in user whose session has passed the 2-step code */
+/** Shows the app only for a signed-in user whose session has passed the second step */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [stage, setStage] = useState<Stage>('loading');
+  const [hasApp, setHasApp] = useState(false);
   const decide = async (s: Session | null) => {
     if (!s) return setStage('signed-out');
     const { data } = await sb().rpc('session_verified');
-    setStage(data ? 'ready' : 'code');
+    if (data) return setStage('ready');
+    // an enrolled authenticator app means the session can be raised to AAL2: ask for its code first
+    const { data: aal } = await sb().auth.mfa.getAuthenticatorAssuranceLevel();
+    const app = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2';
+    setHasApp(app);
+    setStage(app ? 'app-code' : 'code');
   };
+  const decideNow = async () => decide((await sb().auth.getSession()).data.session);
   useEffect(() => {
     if (!supabaseConfigured) return;
     sb().auth.getSession().then(({ data }) => decide(data.session));
@@ -33,35 +43,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!supabaseConfigured) return <AuthCard title="Setup needed"><p className="auth-note">Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env.supabase.local</code> (see docs/SUPABASE-SETUP.md).</p></AuthCard>;
   if (stage === 'ready') return <>{children}</>;
   if (stage === 'loading') return null;
-  if (stage === 'recovery') return <NewPassword onDone={() => setStage('code')} />;
-  if (stage === 'code') return <CodeStep onVerified={() => setStage('ready')} />;
+  if (stage === 'recovery') return <NewPassword onDone={decideNow} />;
+  if (stage === 'app-code') return <AppCodeStep onVerified={() => setStage('ready')} onUseEmail={() => setStage('code')} />;
+  if (stage === 'code') return <CodeStep onVerified={() => setStage('ready')} onUseApp={hasApp ? () => setStage('app-code') : undefined} />
   return <SignedOut />;
 }
 
-/** Split shell: brand panel with slowly floating slate layers (desktop) and the form panel */
+/** Window shell: a dark rounded window on a graphite backdrop – form on the left, animated ribbon artwork on the right */
 function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNode; children: React.ReactNode }) {
-  const brand = <><span className="auth-mark"><LogoMark size={22} /></span><span className="auth-word">SLATE<span className="brand-dot">·</span>SPACE</span></>;
   return <div className="auth-page">
-    <div className="auth-bg" aria-hidden="true"><span className="blob b1" /><span className="blob b2" /><span className="auth-grid" /></div>
-    <aside className="auth-hero">
-      <div className="auth-brand">{brand}</div>
-      <div className="hero-layers" aria-hidden="true"><span className="layer l1" /><span className="layer l2" /><span className="layer l3" /></div>
-      <div className="hero-copy">
-        <h2>Work.<br />Without friction.</h2>
-        <p>Tickets, time, transports and knowledge for SAP developers – in one calm workspace.</p>
-        <ul>
-          <li><Icon name="check" size={14} />Every change tracked from ticket to production</li>
-          <li><Icon name="check" size={14} />Private by default – your data is only yours</li>
-          <li><Icon name="check" size={14} />2-step sign-in on every new session</li>
-        </ul>
-      </div>
-    </aside>
-    <main className="auth-panel">
+    <main className="auth-window">
+      <span className="auth-dots" aria-hidden="true"><i /><i /><i /></span>
       <div className="auth-card" aria-labelledby="auth-title">
-        <div className="auth-brand auth-brand-sm">{brand}</div>
+        <div className="auth-brand"><span className="auth-mark"><LogoMark size={20} /></span><span className="auth-word">SLATE<span className="brand-dot">·</span>SPACE</span></div>
         <h1 id="auth-title">{title}</h1>{sub && <p className="auth-sub">{sub}</p>}{children}
       </div>
-      <p className="auth-tag">Work. Without friction.</p>
+      <aside className="auth-art" aria-hidden="true"><RibbonArt /><span className="auth-art-tag">Work. Without friction.</span></aside>
     </main>
   </div>;
 }
@@ -96,6 +93,7 @@ function say(e: { message?: string } | null): string {
   if (/already registered|already exists/i.test(m)) return 'An account with this email exists. Sign in instead.';
   if (/password should be at least/i.test(m)) return 'Use a password with at least 8 characters.';
   if (/rate limit|too many/i.test(m)) return 'Too many attempts. Wait a minute and try again.';
+  if (/captcha/i.test(m)) return 'The bot check did not pass. Reload the page and try again.';
   return m || 'Something went wrong. Try again.';
 }
 
@@ -130,31 +128,35 @@ function SignedOut() {
   const [name, setName] = useState(''), [email, setEmail] = useState(''), [pw, setPw] = useState(''), [pw2, setPw2] = useState('');
   const [remember, setRem] = useState(getRemember);
   const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [sentText, setSentText] = useState<React.ReactNode>('');
+  const bot = useTurnstile();
   const to = (v: View) => { setView(v); setErr('') };
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setErr('');
     if (view === 'register' && pw !== pw2) return setErr('The two passwords do not match.');
     if (view === 'register' && pw.length < 8) return setErr('Use a password with at least 8 characters.');
+    if (!bot.ready) return setErr('One moment – checking that you are not a bot.');
     setBusy(true);
+    const captchaToken = bot.token;                      // undefined when no bot check is configured
     if (view === 'signin') {
       setRemember(remember);                           // decides where the session is kept (see lib/supabase.ts)
-      const { error } = await sb().auth.signInWithPassword({ email, password: pw });
-      if (error) setErr(say(error));                     // success: AuthGate moves on to the 2-step code
+      const { error } = await sb().auth.signInWithPassword({ email, password: pw, options: { captchaToken } });
+      if (error) setErr(say(error));                     // success: AuthGate moves on to the second step
     } else if (view === 'register') {
-      const { data, error } = await sb().auth.signUp({ email, password: pw, options: { emailRedirectTo: appUrl(), data: { full_name: name.trim() } } });
+      const { data, error } = await sb().auth.signUp({ email, password: pw, options: { emailRedirectTo: appUrl(), data: { full_name: name.trim() }, captchaToken } });
       if (error) setErr(say(error));
       else if (!data.session) { setSentText(<>We sent a confirmation link to <b>{email}</b>. Open it to activate your account, then sign in.</>); to('sent') }
     } else if (view === 'forgot') {
-      const { error } = await sb().auth.resetPasswordForEmail(email, { redirectTo: appUrl() });
+      const { error } = await sb().auth.resetPasswordForEmail(email, { redirectTo: appUrl(), captchaToken });
       if (error) setErr(say(error));
       else { setSentText(<>If an account exists for <b>{email}</b>, a link to set a new password is on its way.</>); to('sent') }
     }
+    bot.reset();                                          // Turnstile tokens are single-use
     setBusy(false);
   };
   if (view === 'sent') return <AuthCard title="Check your email" sub={sentText}>
     <button type="button" className="btn auth-wide" onClick={() => to('signin')}><Icon name="move" size={14} />Back to sign in</button></AuthCard>;
-  const title = { signin: 'Welcome back', register: 'Create your account', forgot: 'Reset your password' }[view];
-  const sub = { signin: 'Sign in to your SLATE·SPACE workspace.', register: 'Free to use. Your data stays private to you.', forgot: 'We will email you a link to set a new password.' }[view];
+  const title = { signin: 'Welcome Back!', register: 'Create your account', forgot: 'Reset your password' }[view];
+  const sub = { signin: 'Enter your info to sign in to your workspace.', register: 'Free to use. Your data stays private to you.', forgot: 'We will email you a link to set a new password.' }[view];
   const action = { signin: busy ? 'Signing in…' : 'Sign in', register: busy ? 'Creating account…' : 'Create account', forgot: busy ? 'Sending…' : 'Send reset link' }[view];
   return <AuthCard title={title} sub={sub}>
     <form className="auth-form" onSubmit={submit} noValidate>
@@ -165,7 +167,8 @@ function SignedOut() {
       {view === 'signin' && <div className="auth-row">
         <label className="auth-check"><input type="checkbox" checked={remember} onChange={e => setRem(e.target.checked)} /><span className="auth-box" aria-hidden="true"><Icon name="check" size={12} /></span>Remember me</label>
         <button type="button" className="auth-link" onClick={() => to('forgot')}>Forgot password?</button></div>}
-      <AuthError text={err} />
+      {bot.widget}
+      <AuthError text={err || bot.error} />
       <button className="btn primary auth-wide auth-submit" disabled={busy || !email || (view !== 'forgot' && !pw)} aria-busy={busy}>
         {busy && <Spinner />}{action}{!busy && <Icon name="move" size={15} />}</button>
     </form>
@@ -199,7 +202,32 @@ function NewPassword({ onDone }: { onDone(): void }) {
 }
 
 /** Second step: a 6-digit code emailed for this session (edge functions send-login-code / verify-login-code) */
-function CodeStep({ onVerified }: { onVerified(): void }) {
+/** Second step with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, …): raises the session to AAL2 */
+function AppCodeStep({ onVerified, onUseEmail }: { onVerified(): void; onUseEmail(): void }) {
+  const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [err, setErr] = useState('');
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault(); setErr(''); setBusy(true);
+    const { data: f, error: listErr } = await sb().auth.mfa.listFactors();
+    const factor = f?.totp?.[0];
+    if (listErr || !factor) { setBusy(false); return setErr('No authenticator app is set up for this account. Use the emailed code.') }
+    const { error } = await sb().auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    setBusy(false);
+    if (error) { setErr(/invalid|expired/i.test(error.message) ? 'That code is not right or has expired. Use the current code from the app.' : say(error)); setCode(''); return }
+    onVerified();
+  };
+  return <AuthCard title="Enter the code from your app" sub="Open your authenticator app and type the 6-digit code for SLATE·SPACE.">
+    <form className="auth-form" onSubmit={verify} noValidate>
+      <Field label="6-digit code" className="auth-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6}
+        value={code} onChange={v => setCode(v.replace(/\D/g, '').slice(0, 6))} />
+      <AuthError text={err} />
+      <button className="btn primary auth-wide auth-submit" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}{busy ? 'Verifying…' : 'Verify'}</button>
+    </form>
+    <p className="auth-switch"><button type="button" className="auth-link" onClick={onUseEmail}>Lost your phone? Use an emailed code</button>
+      <span aria-hidden="true"> · </span><button type="button" className="auth-link" onClick={() => sb().auth.signOut()}>Use another account</button></p>
+  </AuthCard>;
+}
+
+function CodeStep({ onVerified, onUseApp }: { onVerified(): void; onUseApp?(): void }) {
   const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [err, setErr] = useState(''), [info, setInfo] = useState('');
   const [wait, setWait] = useState(0), [email, setEmail] = useState('');
   const sentOnce = useRef(false);
@@ -236,6 +264,7 @@ function CodeStep({ onVerified }: { onVerified(): void }) {
       <button className="btn primary auth-wide auth-submit" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}{busy ? 'Verifying…' : 'Verify'}</button>
     </form>
     <p className="auth-switch"><button type="button" className="auth-link" disabled={wait > 0} onClick={send}>{wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}</button>
+      {onUseApp && <><span aria-hidden="true"> · </span><button type="button" className="auth-link" onClick={onUseApp}>Use your authenticator app</button></>}
       <span aria-hidden="true"> · </span><button type="button" className="auth-link" onClick={() => sb().auth.signOut()}>Use another account</button></p>
   </AuthCard>;
 }
