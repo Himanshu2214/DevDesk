@@ -183,7 +183,9 @@ export function TicketList({ route }: { route: string }) {
     );
   }
 
-  const cols = STATUS_ORDER.filter(k => (k !== 'DONE' || tab === 'all' || tab === 'done') && (k !== 'BACKLOG' || tab !== 'active'));
+  // views (overdue, blocked, recently done …): only the columns that hold tickets, so e.g. Done is not pushed off-screen by empty columns
+  const used = STATUS_ORDER.filter(k => set.some(t => t.Status === k));
+  const cols = view && used.length ? used : STATUS_ORDER.filter(k => (k !== 'DONE' || tab === 'all' || tab === 'done') && (k !== 'BACKLOG' || tab !== 'active'));
   const dragged = s.tickets.find(t => t.TicketUUID === dragId);
   return (
     <Page crumb={crumb} bar2={bar2} right={p && <ShareButton project={p} />}>

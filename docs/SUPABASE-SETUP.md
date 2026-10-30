@@ -215,3 +215,19 @@ same button ("Shared by …"). Each person's timesheet shows only their own hour
 The hosted site is an installable app (Chrome / Edge: the install icon in the address bar, or menu → *Install
 SLATE·SPACE*; Android: *Add to home screen*; iPhone: Share → *Add to Home Screen*). It opens in its own window and
 starts instantly; data still needs the internet.
+
+## 15. Google Calendar meetings in the Calendar page
+
+1. **SQL Editor → New query**: paste `supabase/migrations/20261105000000_calendar.sql` → **Run**.
+2. Deploy the function that reads the calendar:
+
+   ```bash
+   npx supabase functions deploy calendar-feed
+   ```
+3. In the app: **Account → Google Calendar** → paste your calendar's **Secret address in iCal format**
+   (Google Calendar → Settings → your calendar → *Integrate calendar*) → **Connect**.
+
+Meetings (including invitations from others) then show in **Calendar** in month, week and day view; a click on one
+with a Meet / Zoom / Teams link opens the call. Google updates the address every few minutes to hours, so a meeting
+created just now can take a while to appear; **Meetings** (top right of Calendar) reloads it. Read-only: SLATE·SPACE
+never changes your calendar. Outlook works too (Settings → Calendar → Shared calendars → Publish a calendar → ICS link).

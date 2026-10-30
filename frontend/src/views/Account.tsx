@@ -29,6 +29,7 @@ function CloudAccount() {
         <Password hasPassword={providers.includes('email')} />
         <TwoStep />
         <DailyEmail />
+        <GoogleCalendar />
         <Sessions user={user} />
         <DangerZone email={user.email ?? ''} />
       </div>
@@ -193,6 +194,59 @@ function DailyEmail() {
         <button className="btn primary" disabled={busy || !dirty} aria-busy={busy} onClick={save}>{busy && <Spinner />}Save</button>
         <button className="btn" disabled={testing} aria-busy={testing} onClick={test}>{testing ? <Spinner /> : <Icon name="chat" size={14} />}Send a test email now</button>
       </div>
+    </>}
+  </Section>;
+}
+
+/** Google Calendar (or Outlook / Apple): the private iCal address, read by the calendar-feed function for the Calendar page */
+function GoogleCalendar() {
+  const s = useStore();
+  const [saved, setSaved] = useState<string | null>(null);
+  const [url, setUrl] = useState(''), [busy, setBusy] = useState<'' | 'check' | 'save'>(''), [found, setFound] = useState<string>('');
+  useEffect(() => {
+    sb().from('user_settings').select('"CalendarUrl"').maybeSingle().then(({ data }) => { const v = (data as { CalendarUrl?: string } | null)?.CalendarUrl ?? ''; setSaved(v); setUrl(v) });
+  }, []);
+  const invokeError = async (error: unknown) => {
+    const ctx = (error as { context?: Response }).context;
+    return ctx?.status === 404 ? 'The calendar-feed function is not deployed yet (setup guide, step 15).' : (await ctx?.json().catch(() => null))?.error || 'The calendar could not be read.';
+  };
+  const check = async (): Promise<boolean> => {
+    setBusy('check'); setFound('');
+    const from = new Date().toISOString(), to = new Date(Date.now() + 14 * 864e5).toISOString();
+    const { data, error } = await sb().functions.invoke('calendar-feed', { body: { test: url.trim(), from, to } });
+    setBusy('');
+    if (error) { s.toast(await invokeError(error), true); return false }
+    const n = (data?.events ?? []).length;
+    setFound(n ? `Found ${n} meeting${n === 1 ? '' : 's'} in the next 2 weeks.` : 'The calendar works – no meetings in the next 2 weeks.');
+    return true;
+  };
+  const save = async (value: string | null) => {
+    if (value && !(await check())) return;
+    setBusy('save');
+    const { error } = await sb().from('user_settings').upsert({ CalendarUrl: value }, { onConflict: 'user_id' });
+    setBusy('');
+    if (error) return s.toast(/CalendarUrl|user_settings/.test(error.message) ? 'Google Calendar is not set up yet (setup guide, step 15).' : error.message, true);
+    setSaved(value ?? ''); if (!value) { setUrl(''); setFound('') }
+    s.toast(value ? 'Google Calendar connected – meetings now show in Calendar' : 'Google Calendar disconnected');
+  };
+  return <Section title="Google Calendar" sub="Show your meetings – including ones others invite you to – in the Calendar page, next to your ticket due dates. Read-only: SLATE·SPACE never changes your calendar.">
+    {saved === null ? <div className="sk" style={{ height: 40 }} /> : <>
+      {saved ? <p className="acct-status"><span className="acct-pill on"><Icon name="check" size={13} />Connected</span></p> : <ol className="acct-steps">
+        <li>Open <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noreferrer">Google Calendar settings</a>.</li>
+        <li>On the left under <b>Settings for my calendars</b>, click your calendar.</li>
+        <li>Scroll to <b>Integrate calendar</b> and copy the <b>Secret address in iCal format</b>.</li>
+        <li>Paste it here. (Outlook: Settings → Calendar → Shared calendars → Publish → ICS link.)</li>
+      </ol>}
+      <label className="acct-confirm">Secret address in iCal format
+        <Input className="ss-input" type="url" placeholder="https://calendar.google.com/calendar/ical/…/private-…/basic.ics" value={url}
+          onChange={e => { setUrl(e.target.value); setFound('') }} spellCheck={false} autoComplete="off" /></label>
+      {found && <p className="muted acct-note">{found}</p>}
+      <div className="acct-actions">
+        <button className="btn primary" disabled={!!busy || !url.trim() || url.trim() === saved} aria-busy={!!busy} onClick={() => save(url.trim())}>{busy && <Spinner />}{saved ? 'Save new address' : 'Connect'}</button>
+        <button className="btn" disabled={!!busy || !url.trim()} onClick={check}>Check</button>
+        {saved && <HoldButton className="btn danger-btn" label="Disconnect Google Calendar" onConfirm={() => save(null)}><Icon name="x" size={14} />Hold to disconnect</HoldButton>}
+      </div>
+      <p className="muted acct-note">Keep this address private: anyone with it can read your calendar. Google lets you reset it there at any time.</p>
     </>}
   </Section>;
 }

@@ -787,3 +787,12 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 .um-out:hover{background:color-mix(in srgb,var(--danger) 10%,transparent)!important}
 @media (max-width:900px){.um-name,.um-btn>svg{display:none}.um-btn{padding:0 4px}}
 @media (max-width:420px){.um-panel{position:fixed;left:12px;right:12px;top:56px;width:auto}}
+
+/* Calendar: meetings from Google Calendar, connect button; Account: setup steps */
+.fc .ev-meet{background:color-mix(in srgb,var(--accent) 16%,var(--panel));border:0;border-left:3px solid var(--accent);color:var(--text);cursor:pointer}
+.fc .ev-meet .ev-in svg{color:var(--accent);flex:none}
+.fc .ev-meet .ev-in b{font-weight:600;color:var(--text-2)}
+.fc .timegrid-ev .ev-in,.fc-timegrid-event .ev-in{white-space:normal;align-items:flex-start}
+.cal-connect{margin-right:6px}
+.acct-steps{margin:0 0 12px;padding-left:20px;display:grid;gap:6px;color:var(--text-2);line-height:1.5}
+.acct-steps a{color:var(--accent-2)}

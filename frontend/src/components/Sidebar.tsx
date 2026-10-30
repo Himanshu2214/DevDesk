@@ -3,11 +3,10 @@ import { m } from 'motion/react';
 import { indicatorTransition } from '../lib/motion';
 import { useStore, useTransports } from '../store';
 import { isOpen, isOverdue } from '../lib/format';
-import { MeAvatar, Tip } from './ui';
+import { Tip } from './ui';
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from './smoothui/collapsible';
 import { Icon, LogoMark, StatusIcon } from './Icons';
 import { useDialogs } from './Dialogs';
-import { api } from '../api';
 import { inboxItems } from '../views/Inbox';
 import { setMode, shownMode } from '../lib/theme';
 
@@ -101,11 +100,9 @@ export function Sidebar({ route }: { route: string }) {
           s.tickets.filter(t => t.Project === p.Project && isOpen(t)).length || '')))}
       </m.div>
       <div className="side-foot">
-        <Tip label={(s.user.fullName || s.user.id) + (api.kind === 'mock' ? ' · sample data' : api.kind === 'supabase' ? ' · cloud' : ' · SAP')} side="right" disabled={!collapsed}>
-          <a className="who" href="#account" aria-label="Account"><MeAvatar /><span className="lbl">{s.user.fullName || s.user.id}</span></a></Tip>
-        <span className="muted env-tag" title={api.kind === 'mock' ? 'Sample data in this browser' : api.kind === 'supabase' ? 'Your private cloud workspace' : 'Connected to SAP'}>{api.kind === 'mock' ? 'MOCK' : api.kind === 'supabase' ? 'CLOUD' : 'SAP'}</span>
         <Tip label={light ? 'Dark theme' : 'Light theme'} side={collapsed ? 'right' : 'top'}>
           <button className="ib" aria-label="Toggle theme" onClick={toggleTheme}><span key={light ? 'm' : 's'} className="swap-in"><Icon name={light ? 'moon' : 'sun'} /></span></button></Tip>
+        <span className="sp" />
         <Tip label={(collapsed ? 'Expand' : 'Collapse') + ' sidebar · Ctrl \\'} side={collapsed ? 'right' : 'top'}>
           <button className="ib collapse-btn" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} onClick={toggleCollapsed}>
             <Icon name={collapsed ? 'panel-open' : 'panel-close'} /></button></Tip>
