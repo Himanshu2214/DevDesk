@@ -236,6 +236,7 @@ function Palette({ close }: { close(): void }) {
             {action('My tickets', 'my', () => go('list/active'))}
             {action('Overdue', 'alert', () => go('list/overdue'))}
             {action('Timesheet', 'clock', () => go('timesheet'))}
+            {action('Calendar', 'cal', () => go('calendar'))}
             {action('Transports', 'truck', () => go('transports'))}
             {action('Objects', 'cube', () => go('objects'))}
             {action('Knowledge', 'book', () => go('kb'))}

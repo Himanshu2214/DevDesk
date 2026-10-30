@@ -114,9 +114,9 @@ export const CHILD_KEY: Record<ChildSet, string> = {
   Attachment: 'AttUUID', ObjectLink: 'LinkUUID',
 };
 
-/** Everything the UI needs from a backend. Implemented by the OData client (SAP) and the in-browser mock. */
+/** Everything the UI needs from a backend. Implemented by the OData client (SAP), the in-browser mock and Supabase (standalone). */
 export interface Api {
-  readonly kind: 'sap' | 'mock';
+  readonly kind: 'sap' | 'mock' | 'supabase';
   user(): Promise<User>;
   listProjects(): Promise<Project[]>;
   listValues(): Promise<ValueItem[]>;

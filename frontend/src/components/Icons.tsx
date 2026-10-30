@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import {
   ArrowRight, Bell, BookOpen, Box, Bug, Calendar, ChartColumnBig, Check, ChevronDown, ChevronRight, ChevronUp, CircleDashed, Clock, Columns3, Download, FileText, Folder,
-  House, Inbox, Link2, List, LoaderCircle, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Play, Plus, RefreshCw, Search, SignalHigh, Square, SquarePen, Sun,
+  House, Inbox, Link2, List, LoaderCircle, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Play, Plus, RefreshCw, Search, SignalHigh, Square, SquarePen, Sun,
   Tag, Timer, Trash2, TriangleAlert, Truck, Upload, User, X, type LucideIcon,
 } from 'lucide-react';
 import type { Status } from '../api';
@@ -12,7 +12,7 @@ const ICONS: Record<string, LucideIcon> = {
   priority: SignalHigh, move: ArrowRight, plus: Plus, chat: MessageSquare, alert: TriangleAlert, list: List, board: Columns3, play: Play, stop: Square,
   up: ChevronUp, down: ChevronDown, right: ChevronRight, cal: Calendar, user: User, tag: Tag, check: Check, search: Search, x: X, folder: Folder, env: Monitor, moon: Moon,
   sun: Sun, edit: SquarePen, trash: Trash2, refresh: RefreshCw, link: Link2, bug: Bug, graph: Network, file: FileText, download: Download,
-  upload: Upload, loader: LoaderCircle, 'panel-close': PanelLeftClose, 'panel-open': PanelLeftOpen,
+  upload: Upload, loader: LoaderCircle, logout: LogOut, 'panel-close': PanelLeftClose, 'panel-open': PanelLeftOpen,
 };
 
 /** Stroke width comes from CSS (svg.i), so every icon reads equally heavy at any size; data-icon lets CSS animate specific icons */

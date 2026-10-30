@@ -3,11 +3,12 @@ import { m } from 'motion/react';
 import { indicatorTransition } from '../lib/motion';
 import { useStore, useTransports } from '../store';
 import { isOpen, isOverdue } from '../lib/format';
-import { Avatar, go, Tip } from './ui';
+import { Avatar, Tip } from './ui';
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from './smoothui/collapsible';
 import { Icon, LogoMark, StatusIcon } from './Icons';
-import { TIMER_WARN_H, useDialogs } from './Dialogs';
+import { useDialogs } from './Dialogs';
 import { api } from '../api';
+import { signOut } from './Auth';
 import { inboxItems } from '../views/Inbox';
 
 export const VIEWS = {
@@ -23,32 +24,6 @@ function useRing(n: number) {
   const prev = useRef(n), [ring, setRing] = useState(0);
   useEffect(() => { if (n > prev.current) setRing(r => r + 1); prev.current = n }, [n]);
   return ring;
-}
-
-function Timer({ collapsed }: { collapsed: boolean }) {
-  const s = useStore();
-  const running = s.tickets.find(t => t.TimerStartedAt);
-  const [, tick] = useState(0);
-  useEffect(() => { const id = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(id) }, []);
-  const sec = running?.TimerStartedAt ? Math.max(0, (Date.now() - Date.parse(running.TimerStartedAt)) / 1000) : 0;
-  const { openStop } = useDialogs();
-  // Poppins has no tabular figures: each digit gets a fixed-width cell so the ticking clock doesn't jitter
-  const p = (n: number) => [...String(Math.floor(n)).padStart(2, '0')].map((d, i) => <span key={i} className="d">{d}</span>);
-  const long = sec / 3600 > TIMER_WARN_H;
-  return (
-    <div className={'timer' + (long ? ' warn' : '') + (running ? ' running' : '')}>
-      <span className="rec" style={{ visibility: running ? 'visible' : 'hidden' }} />
-      <div className="w">
-        <div className="clk num">{p(sec / 3600)}:{p(sec % 3600 / 60)}:{p(sec % 60)}</div>
-        {long && running
-          ? <div className="tk" style={{ color: 'var(--urgent)' }} onClick={() => openStop(running)}>Still working on {running.TicketId}? Stop and correct</div>
-          : <div className="tk" onClick={() => running && go('ticket/' + running.TicketId)}>{running ? `${running.TicketId} · ${running.Title}` : 'No timer running'}</div>}
-      </div>
-      <Tip label={running ? `Stop and log time · ${running.TicketId}` : 'No timer running'} side={collapsed ? 'right' : 'top'}>
-        <button className="ib" aria-label="Stop and log time" disabled={!running}
-          onClick={() => running && openStop(running)}><Icon name={collapsed && !running ? 'timer' : 'stop'} size={14} /></button></Tip>
-    </div>
-  );
 }
 
 const readJson = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) ?? '') as T } catch { return fallback } };
@@ -114,6 +89,7 @@ export function Sidebar({ route }: { route: string }) {
           {nav('inbox', 'Inbox', <span key={ring} className={ring ? 'bell-ring' : undefined} style={{ display: 'grid' }}><Icon name="bell" /></span>, unread || '', true)}
           {nav('list/active', 'My tickets', <Icon name="my" />, active)}
           {nav('timesheet', 'Timesheet', <Icon name="clock" />)}
+          {nav('calendar', 'Calendar', <Icon name="cal" />)}
         </nav>
         {g('sap', 'SAP work', <>
           {nav('transports', 'Transports', <Icon name="truck" />, failedTr.length || '', true)}
@@ -126,13 +102,13 @@ export function Sidebar({ route }: { route: string }) {
           s.tickets.filter(t => t.Project === p.Project && isOpen(t)).length || '')))}
         {g('later', 'Coming next', nav('insights', 'Insights', <Icon name="chart" />, undefined, false, { opacity: .55 }))}
       </m.div>
-      <Timer collapsed={collapsed} />
       <div className="side-foot">
-        <Tip label={(s.user.fullName || s.user.id) + (api.kind === 'mock' ? ' · sample data' : ' · SAP')} side="right" disabled={!collapsed}>
+        <Tip label={(s.user.fullName || s.user.id) + (api.kind === 'mock' ? ' · sample data' : api.kind === 'supabase' ? ' · cloud' : ' · SAP')} side="right" disabled={!collapsed}>
           <span className="who" tabIndex={collapsed ? 0 : undefined}><Avatar name={s.user.fullName || s.user.id} /><span className="lbl">{s.user.fullName || s.user.id}</span></span></Tip>
-        <span className="muted env-tag" title={api.kind === 'mock' ? 'Sample data in this browser' : 'Connected to SAP'}>{api.kind === 'mock' ? 'MOCK' : 'SAP'}</span>
+        <span className="muted env-tag" title={api.kind === 'mock' ? 'Sample data in this browser' : api.kind === 'supabase' ? 'Your private cloud workspace' : 'Connected to SAP'}>{api.kind === 'mock' ? 'MOCK' : api.kind === 'supabase' ? 'CLOUD' : 'SAP'}</span>
         <Tip label={light ? 'Dark theme' : 'Light theme'} side={collapsed ? 'right' : 'top'}>
           <button className="ib" aria-label="Toggle theme" onClick={toggleTheme}><span key={light ? 'm' : 's'} className="swap-in"><Icon name={light ? 'moon' : 'sun'} /></span></button></Tip>
+        {api.kind === 'supabase' && <Tip label="Sign out" side={collapsed ? 'right' : 'top'}><button className="ib" aria-label="Sign out" onClick={signOut}><Icon name="logout" /></button></Tip>}
         <Tip label={(collapsed ? 'Expand' : 'Collapse') + ' sidebar · Ctrl \\'} side={collapsed ? 'right' : 'top'}>
           <button className="ib collapse-btn" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} onClick={toggleCollapsed}>
             <Icon name={collapsed ? 'panel-open' : 'panel-close'} /></button></Tip>

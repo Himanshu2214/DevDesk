@@ -13,6 +13,7 @@ import { useDialogs } from '../components/Dialogs';
 import { activeFilterCount, applyFilters, EMPTY_PREFS, rememberOrder, sorter, useListPrefs } from '../lib/listPrefs';
 import type { DueFilter, FilterField, GroupBy, SortBy } from '../lib/listPrefs';
 import { PRIORITY_NAME } from '../lib/format';
+import AnimatedTags from '../components/smoothui/animated-tags';
 
 const GROUP_ORDER: Status[] = ['PROG', 'TEST', 'BLOCK', 'TODO', 'BACKLOG', 'DONE'];
 type Layout = 'list' | 'board';
@@ -108,6 +109,19 @@ export function TicketList({ route }: { route: string }) {
       v => setPrefs(v.startsWith('g:') ? { ...prefs, group: v.slice(2) as GroupBy } : { ...prefs, sort: v.slice(2) as SortBy }), false)}
       label="Display" />
   </>;
+  // active filters as SmoothUI animated tags; clicking a tag removes that filter
+  const FIELD_LABEL: Record<FilterField, string> = { Priority: 'Priority', Project: 'Project', Tech: 'Tech', TicketType: 'Type' };
+  const valueText = (f: FilterField, v: string) => f === 'Priority' ? PRIORITY_NAME[v] ?? v : f === 'Project' ? s.project(v)?.Name ?? v : s.text(f === 'Tech' ? 'TECH' : 'TYPE', v);
+  const tagKeys = [...(Object.keys(prefs.filters) as FilterField[]).flatMap(f => prefs.filters[f].map(v => `${f}:${v}`)), ...(prefs.due !== 'any' ? [`due:${prefs.due}`] : [])];
+  const tagLabels = Object.fromEntries(tagKeys.map(k => {
+    const [f, v] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)];
+    return [k, f === 'due' ? `Due: ${DUE.find(d => d[0] === v)?.[1] ?? v}` : `${FIELD_LABEL[f as FilterField]}: ${valueText(f as FilterField, v)}`];
+  }));
+  const removeTag = (next: string[]) => {
+    const gone = tagKeys.find(k => !next.includes(k)); if (!gone) return;
+    const [f, v] = [gone.slice(0, gone.indexOf(':')), gone.slice(gone.indexOf(':') + 1)];
+    if (f === 'due') setPrefs({ ...prefs, due: 'any' }); else toggleFilter(f as FilterField, v);
+  };
   const bar2 = <>
     {view ? <span className="muted">{set.length} tickets</span> : ([['active', 'Active', (t: Ticket) => isOpen(t) && t.Status !== 'BACKLOG'], ['backlog', 'Backlog', (t: Ticket) => t.Status === 'BACKLOG'], ['all', 'All', () => true]] as const)
       .map(([k, l, f]) => <a key={k} className={'pill' + (tab === k ? ' on' : '')} href={base + k}>{tab === k && <TabIndicator id="list-tab" />}{l}<span className="c num">{count(f)}</span></a>)}
@@ -115,6 +129,7 @@ export function TicketList({ route }: { route: string }) {
     <span className="sp" />
     <div className="xseg"><XBtn icon="list" label="List" title="List" aria-label="List" on={layout === 'list'} open={layout === 'list'} indicator="layout-seg" onClick={() => setLayout('list')} />
       <XBtn icon="board" label="Board" title="Board" aria-label="Board" on={layout === 'board'} open={layout === 'board'} indicator="layout-seg" onClick={() => setLayout('board')} /></div>
+    <AnimatedTags compact className="filter-tags" initialTags={[]} selectedTags={tagKeys} labels={tagLabels} onChange={removeTag} />
   </>;
 
   if (!s.ready) return <Page crumb={crumb}>{[...Array(8)].map((_, i) => <div key={i} className="sk-row"><span className="sk" /><span className="sk" />

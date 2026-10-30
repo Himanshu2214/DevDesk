@@ -1,8 +1,10 @@
-// Date fields: SmoothUI Calendar in a Base UI popover. The due date adds presets
+// Date fields: a compact FullCalendar month in a Base UI popover (plus a typed-date field for keyboard users). The due date adds presets
 // (Today, Tomorrow, End of week, Next Monday, In 2 weeks) in a dropdown, with "Pick a date…" opening the calendar.
 import { useRef, useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
-import Calendar from './smoothui/calendar';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import { DAY, fmtDate, isoDate, parseDate, today } from '../lib/format';
 import { Icon } from './Icons';
 import { useMenu } from './ui';
@@ -27,7 +29,8 @@ export function DatePicker({ value, onChange, label, placeholder = 'Pick a date'
   const menu = useMenu();
   const btn = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const selected = parseDate(value) ?? undefined;
+  const pick = (d: string) => { if (!d || (max && d > max)) return; onChange(d); setOpen(false) };
+  const dayAfter = (d: string) => isoDate(new Date(parseDate(d)!.getTime() + DAY));
   const click = () => {
     if (!withPresets) return setOpen(true);
     menu(btn.current!, [...presets().map(p => ({ ...p, checked: p.value === value })), { label: 'Pick a date…', value: 'custom' }],
@@ -40,9 +43,16 @@ export function DatePicker({ value, onChange, label, placeholder = 'Pick a date'
       <Popover.Portal>
         <Popover.Positioner anchor={btn} side="bottom" align="start" sideOffset={6} className="cal-pos">
           <Popover.Popup className="cal-pop" aria-label={label}>
-            <Calendar mode="single" selected={selected} defaultMonth={selected ?? today()} weekStartsOn={1}
-              disabled={max ? { after: parseDate(max)! } : undefined}
-              onSelect={(d?: Date) => { if (d) { onChange(isoDate(d)); setOpen(false) } }} />
+            <div className="mini-cal">
+              <FullCalendar plugins={[dayGridPlugin, interactionPlugin]} initialView="dayGridMonth" initialDate={value ?? isoDate(today())}
+                firstDay={1} fixedWeekCount={false} height="auto" headerToolbar={{ left: 'prev', center: 'title', right: 'next' }}
+                titleFormat={{ month: 'long', year: 'numeric' }} dayHeaderFormat={{ weekday: 'narrow' }}
+                validRange={max ? { end: dayAfter(max) } : undefined}
+                dayCellClassNames={a => (isoDate(a.date) === value ? ['is-selected'] : [])}
+                dateClick={a => pick(a.dateStr)} />
+            </div>
+            <label className="cal-type"><span>Or type a date</span>
+              <input type="date" value={value ?? ''} max={max} onChange={e => pick(e.target.value)} /></label>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

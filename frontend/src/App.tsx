@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, LazyMotion, MotionConfig, domMax, m } from 'motion/react';
 import { toastMotion } from './lib/motion';
 import { Icon } from './components/Icons';
+import PagePreloader from './components/smoothui/page-preloader';
+import { AuthGate } from './components/Auth';
 import { StoreProvider, useStore } from './store';
 import { Empty, isTyping, MenuProvider, Page, useHash } from './components/ui';
 import { DialogsProvider, useDialogs } from './components/Dialogs';
@@ -11,6 +13,7 @@ import { Inbox } from './views/Inbox';
 import { TicketList } from './views/TicketList';
 import { TicketPage } from './views/TicketPage';
 import { Timesheet } from './views/Timesheet';
+import { CalendarPage } from './views/Calendar';
 import { Placeholder } from './views/Placeholder';
 import { Transports } from './views/Transports';
 import { Objects } from './views/Objects';
@@ -26,6 +29,7 @@ function Router({ route }: { route: string }) {
     case 'list': case 'project': return <TicketList route={route} />;
     case 'ticket': return <TicketPage ticketId={decodeURIComponent(rest)} />;
     case 'timesheet': return <Timesheet />;
+    case 'calendar': return <CalendarPage />;
     case 'transports': return <Transports route={route} />;
     case 'objects': return <Objects route={route} />;
     case 'kb': return <Knowledge route={route} />;
@@ -56,6 +60,20 @@ function ToastStack() {
       })}</AnimatePresence>
     </div>
   );
+}
+
+/** SmoothUI page preloader: takes over from the static #boot screen in index.html and stays until the data has loaded
+ *  (at least ~0.9 s from page open, so a fast load does not flash) */
+function Preloader() {
+  const s = useStore();
+  const [minDone, setMinDone] = useState(false);
+  useEffect(() => {
+    document.getElementById('boot')?.remove();
+    const id = setTimeout(() => setMinDone(true), Math.max(0, 900 - performance.now()));
+    return () => clearTimeout(id);
+  }, []);
+  return <PagePreloader variant="words" active={!(s.ready && minDone) && !s.error} background="bg-background"
+    words={['Loading', 'Fetching your work', 'Almost ready']} />;
 }
 
 function Shell() {
@@ -89,25 +107,30 @@ function Shell() {
       {s.error
         ? <Page crumb={<b>SLATE·SPACE</b>}><Empty error icon="alert" title="Could not load data" action={<button className="btn primary" onClick={() => s.reload()}><Icon name="refresh" size={14} />Try again</button>}>
             <span className="t2" style={{ whiteSpace: 'pre-wrap', display: 'block', marginBottom: 6 }}>{s.error}</span>
-            {api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : 'The mock backend failed – try clearing site data.'}</Empty></Page>
+            {api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : api.kind === 'supabase' ? 'Check your internet connection. If it keeps failing, sign out and sign in again.' : 'The mock backend failed – try clearing site data.'}</Empty></Page>
         : <Router route={route} />}
       <ToastStack />
+      <Preloader />
       <AnimatePresence>{help && <ShortcutHelp key="help" close={() => setHelp(false)} />}</AnimatePresence>
     </div>
   );
 }
 
 export default function App() {
+  // the standalone (Supabase) build shows sign-in first; data loading starts only after the 2-step code
+  const app = (
+    <StoreProvider>
+      <MenuProvider>
+        <DialogsProvider>
+          <Shell />
+        </DialogsProvider>
+      </MenuProvider>
+    </StoreProvider>
+  );
   return (
     <LazyMotion features={domMax}>
       <MotionConfig reducedMotion="user">
-        <StoreProvider>
-          <MenuProvider>
-            <DialogsProvider>
-              <Shell />
-            </DialogsProvider>
-          </MenuProvider>
-        </StoreProvider>
+        {api.kind === 'supabase' ? <AuthGate>{app}</AuthGate> : app}
       </MotionConfig>
     </LazyMotion>
   );
