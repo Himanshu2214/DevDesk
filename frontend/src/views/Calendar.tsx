@@ -11,7 +11,7 @@ import { api } from '../api';
 import type { Status, Ticket } from '../api';
 import { useStore } from '../store';
 import { fmtDate } from '../lib/format';
-import { sb } from '../lib/supabase';
+import { calendarCall, connectGoogleCalendar } from '../lib/calendar';
 import { Icon, StatusIcon } from '../components/Icons';
 import { go, Page } from '../components/ui';
 
@@ -22,12 +22,8 @@ const cache = new Map<string, { at: number; events: Meeting[]; connected: boolea
 async function meetings(from: string, to: string, fresh = false) {
   const key = from + '|' + to, hit = cache.get(key);
   if (hit && !fresh && Date.now() - hit.at < 5 * 60_000) return hit;
-  const { data, error } = await sb().functions.invoke('calendar-feed', { body: { from, to } });
-  if (error) {
-    const ctx = (error as { context?: Response }).context;
-    throw new Error(ctx?.status === 404 ? 'Google Calendar is not set up yet (setup guide, step 15).' : (await ctx?.json().catch(() => null))?.error || 'Your calendar could not be loaded.');
-  }
-  const v = { at: Date.now(), events: (data?.events ?? []) as Meeting[], connected: !!data?.connected };
+  const data = await calendarCall<{ events?: Meeting[]; connected?: boolean }>({ from, to });
+  const v = { at: Date.now(), events: data.events ?? [], connected: !!data.connected };
   cache.set(key, v);
   return v;
 }
@@ -60,6 +56,8 @@ export function CalendarPage() {
   }, [cloud]);
   // stable sources: FullCalendar refetches a source whenever it is replaced
   const sources = useMemo(() => [{ id: 'tickets', events: tickets }, { id: 'meetings', events: meetingSource }], [tickets, meetingSource]);
+  const [connecting, setConnecting] = useState(false);
+  const connect = async () => { setConnecting(true); try { await connectGoogleCalendar() } catch (e) { setConnecting(false); s.toast((e as Error).message, true) } };
   const refresh = () => { cache.clear(); warned.current = false; cal.current?.getApi().refetchEvents() };
 
   const moveDue = (info: EventDropArg) => {
@@ -80,7 +78,7 @@ export function CalendarPage() {
   };
   const right = cloud && <>
     {connected && <button className="btn" onClick={refresh} title="Reload meetings from Google Calendar"><Icon name="refresh" size={14} className={loading ? 'spin' : undefined} />Meetings</button>}
-    {connected === false && <button className="btn primary cal-connect" onClick={() => go('account')}><Icon name="cal" size={14} />Connect Google Calendar</button>}
+    {connected === false && <button className="btn primary cal-connect" disabled={connecting} aria-busy={connecting} onClick={connect}><Icon name="cal" size={14} />Connect Google Calendar</button>}
   </>;
   return (
     <Page crumb={<b>Calendar</b>} right={right}>

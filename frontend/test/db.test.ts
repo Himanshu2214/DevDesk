@@ -74,6 +74,16 @@ describe('privacy between users', () => {
     expect(await t.rows('select 1 from ticket_templates')).toEqual([]);
     await t.db.query(`insert into ticket_templates ("Name") values ('GST bug')`);           // same name is fine for another user
   });
+  it('keeps Google Calendar tokens away from users; they only learn which account is connected', async () => {
+    await t.reset();
+    await t.db.query(`insert into calendar_tokens (user_id, google_email, refresh_token) values ($1, 'a@gmail.com', 'sealed')`, [A]);
+    await t.as(A, SA);
+    await expect(t.db.query('select * from calendar_tokens')).rejects.toThrow(/permission denied/);
+    await expect(t.db.query('select * from oauth_states')).rejects.toThrow(/permission denied/);
+    expect(await t.one('select calendar_connection() as g')).toEqual({ g: 'a@gmail.com' });
+    await t.as(B, SB);
+    expect(await t.one('select calendar_connection() as g')).toEqual({ g: null });
+  });
   it('keeps the 2-step code tables away from users', async () => {
     await t.as(A, SA);
     await expect(t.db.query('select * from login_codes')).rejects.toThrow(/permission denied/);

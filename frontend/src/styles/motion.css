@@ -796,3 +796,15 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 .cal-connect{margin-right:6px}
 .acct-steps{margin:0 0 12px;padding-left:20px;display:grid;gap:6px;color:var(--text-2);line-height:1.5}
 .acct-steps a{color:var(--accent-2)}
+
+/* Account → Calendar: Google connect button, connected row, link fallback */
+.gcal-off{display:grid;gap:10px;justify-items:start}
+.gcal-connect{gap:10px;height:40px;padding:0 16px;border-radius:10px;font-weight:600;background:var(--raised);border:1px solid var(--border-2)}
+.gcal-connect:hover:not(:disabled){border-color:var(--accent);background:var(--hover)}
+.gcal-on{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--raised)}
+.gcal-badge{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#fff;flex:none}
+.gcal-who{flex:1;min-width:0;display:grid}
+.gcal-who small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-more{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:0;border:0;background:none;color:var(--text-2);font:inherit;font-size:var(--fs-sm);cursor:pointer}
+.acct-more:hover{color:var(--text)}
+.acct-link-box{margin-top:10px;padding:12px;border-radius:12px;border:1px dashed var(--border-2)}

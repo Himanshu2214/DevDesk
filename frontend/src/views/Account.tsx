@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { api } from '../api';
 import { useStore } from '../store';
 import { sb } from '../lib/supabase';
+import { CALENDAR_RESULT, calendarCall, type CalendarStatus, connectGoogleCalendar, takeCalendarResult } from '../lib/calendar';
 import { fmtDate } from '../lib/format';
 import { Icon, Spinner } from '../components/Icons';
 import { Empty, HoldButton, MenuSelect, Page } from '../components/ui';
@@ -198,55 +199,70 @@ function DailyEmail() {
   </Section>;
 }
 
-/** Google Calendar (or Outlook / Apple): the private iCal address, read by the calendar-feed function for the Calendar page */
+const GoogleG = () => <svg viewBox="0 0 48 48" width="16" height="16" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>;
+
+/** Calendar: "Connect Google Calendar" (one click, Google asks for read-only permission), or a pasted iCal link for
+ *  Outlook / Apple. Read by the calendar-feed function for the Calendar page. */
 function GoogleCalendar() {
   const s = useStore();
-  const [saved, setSaved] = useState<string | null>(null);
-  const [url, setUrl] = useState(''), [busy, setBusy] = useState<'' | 'check' | 'save'>(''), [found, setFound] = useState<string>('');
+  const [st, setSt] = useState<CalendarStatus | null>(null);
+  const [busy, setBusy] = useState<'' | 'connect' | 'check' | 'save'>('');
+  const [showLink, setShowLink] = useState(false);
+  const [saved, setSaved] = useState(''), [url, setUrl] = useState(''), [found, setFound] = useState('');
+  const load = () => calendarCall<CalendarStatus>({ action: 'status' }).then(setSt).catch(() => setSt({ google: null, googleReady: false, ics: false }));
   useEffect(() => {
-    sb().from('user_settings').select('"CalendarUrl"').maybeSingle().then(({ data }) => { const v = (data as { CalendarUrl?: string } | null)?.CalendarUrl ?? ''; setSaved(v); setUrl(v) });
-  }, []);
-  const invokeError = async (error: unknown) => {
-    const ctx = (error as { context?: Response }).context;
-    return ctx?.status === 404 ? 'The calendar-feed function is not deployed yet (setup guide, step 15).' : (await ctx?.json().catch(() => null))?.error || 'The calendar could not be read.';
+    const r = takeCalendarResult();
+    if (r && CALENDAR_RESULT[r]) s.toast(...CALENDAR_RESULT[r]);
+    load();
+    sb().from('user_settings').select('"CalendarUrl"').maybeSingle().then(({ data }) => { const v = (data as { CalendarUrl?: string } | null)?.CalendarUrl ?? ''; setSaved(v); setUrl(v); if (v) setShowLink(true) });
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const connect = async () => { setBusy('connect'); try { await connectGoogleCalendar() } catch (e) { setBusy(''); s.toast((e as Error).message, true) } };
+  const disconnect = async () => {
+    try { await calendarCall({ action: 'disconnect' }); s.toast('Google Calendar disconnected'); load() } catch (e) { s.toast((e as Error).message, true) }
   };
   const check = async (): Promise<boolean> => {
     setBusy('check'); setFound('');
-    const from = new Date().toISOString(), to = new Date(Date.now() + 14 * 864e5).toISOString();
-    const { data, error } = await sb().functions.invoke('calendar-feed', { body: { test: url.trim(), from, to } });
-    setBusy('');
-    if (error) { s.toast(await invokeError(error), true); return false }
-    const n = (data?.events ?? []).length;
-    setFound(n ? `Found ${n} meeting${n === 1 ? '' : 's'} in the next 2 weeks.` : 'The calendar works – no meetings in the next 2 weeks.');
-    return true;
+    try {
+      const r = await calendarCall<{ events: unknown[] }>({ test: url.trim(), from: new Date().toISOString(), to: new Date(Date.now() + 14 * 864e5).toISOString() });
+      const n = r.events.length;
+      setFound(n ? `Found ${n} meeting${n === 1 ? '' : 's'} in the next 2 weeks.` : 'The calendar works – no meetings in the next 2 weeks.');
+      return true;
+    } catch (e) { s.toast((e as Error).message, true); return false } finally { setBusy('') }
   };
-  const save = async (value: string | null) => {
+  const saveLink = async (value: string | null) => {
     if (value && !(await check())) return;
     setBusy('save');
     const { error } = await sb().from('user_settings').upsert({ CalendarUrl: value }, { onConflict: 'user_id' });
     setBusy('');
-    if (error) return s.toast(/CalendarUrl|user_settings/.test(error.message) ? 'Google Calendar is not set up yet (setup guide, step 15).' : error.message, true);
+    if (error) return s.toast(/CalendarUrl|user_settings/.test(error.message) ? 'The calendar connection is not set up yet (setup guide, step 15).' : error.message, true);
     setSaved(value ?? ''); if (!value) { setUrl(''); setFound('') }
-    s.toast(value ? 'Google Calendar connected – meetings now show in Calendar' : 'Google Calendar disconnected');
+    s.toast(value ? 'Calendar link saved – meetings now show in Calendar' : 'Calendar link removed');
   };
-  return <Section title="Google Calendar" sub="Show your meetings – including ones others invite you to – in the Calendar page, next to your ticket due dates. Read-only: SLATE·SPACE never changes your calendar.">
-    {saved === null ? <div className="sk" style={{ height: 40 }} /> : <>
-      {saved ? <p className="acct-status"><span className="acct-pill on"><Icon name="check" size={13} />Connected</span></p> : <ol className="acct-steps">
-        <li>Open <a href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noreferrer">Google Calendar settings</a>.</li>
-        <li>On the left under <b>Settings for my calendars</b>, click your calendar.</li>
-        <li>Scroll to <b>Integrate calendar</b> and copy the <b>Secret address in iCal format</b>.</li>
-        <li>Paste it here. (Outlook: Settings → Calendar → Shared calendars → Publish → ICS link.)</li>
-      </ol>}
-      <label className="acct-confirm">Secret address in iCal format
-        <Input className="ss-input" type="url" placeholder="https://calendar.google.com/calendar/ical/…/private-…/basic.ics" value={url}
-          onChange={e => { setUrl(e.target.value); setFound('') }} spellCheck={false} autoComplete="off" /></label>
-      {found && <p className="muted acct-note">{found}</p>}
-      <div className="acct-actions">
-        <button className="btn primary" disabled={!!busy || !url.trim() || url.trim() === saved} aria-busy={!!busy} onClick={() => save(url.trim())}>{busy && <Spinner />}{saved ? 'Save new address' : 'Connect'}</button>
-        <button className="btn" disabled={!!busy || !url.trim()} onClick={check}>Check</button>
-        {saved && <HoldButton className="btn danger-btn" label="Disconnect Google Calendar" onConfirm={() => save(null)}><Icon name="x" size={14} />Hold to disconnect</HoldButton>}
-      </div>
-      <p className="muted acct-note">Keep this address private: anyone with it can read your calendar. Google lets you reset it there at any time.</p>
+
+  return <Section title="Calendar" sub="Show your meetings – including ones others invite you to – in the Calendar page, next to your ticket due dates. Read-only: SLATE·SPACE never changes your calendar.">
+    {st === null ? <div className="sk" style={{ height: 40 }} /> : <>
+      {st.google ? <div className="gcal-on">
+        <span className="gcal-badge"><GoogleG /></span>
+        <span className="gcal-who"><b>Google Calendar connected</b><small>{st.google || 'Your Google account'}</small></span>
+        <HoldButton className="btn" label="Disconnect Google Calendar" onConfirm={disconnect}><Icon name="x" size={14} />Hold to disconnect</HoldButton>
+      </div> : <div className="gcal-off">
+        <button className="btn gcal-connect" onClick={connect} disabled={!!busy} aria-busy={busy === 'connect'}>{busy === 'connect' ? <Spinner /> : <GoogleG />}Connect Google Calendar</button>
+        <p className="muted acct-note">Google asks once for permission to <b>see</b> your calendar. If it shows “Google hasn't verified this app”, choose <b>Advanced → Go to SLATE·SPACE</b> – the app is yours.</p>
+      </div>}
+
+      <button className="acct-more" aria-expanded={showLink} onClick={() => setShowLink(v => !v)}><Icon name={showLink ? 'down' : 'right'} size={13} />Use a calendar link instead (Outlook, Apple, other)</button>
+      {showLink && <div className="acct-link-box">
+        <label className="acct-confirm">Calendar link (iCal / ICS)
+          <Input className="ss-input" type="url" placeholder="https://…/calendar.ics" value={url} onChange={e => { setUrl(e.target.value); setFound('') }} spellCheck={false} autoComplete="off" /></label>
+        <p className="muted acct-note">Outlook: Settings → Calendar → Shared calendars → Publish a calendar → ICS link. Google: Settings → your calendar → Integrate calendar → Secret address in iCal format. Keep it private.</p>
+        {found && <p className="muted acct-note">{found}</p>}
+        <div className="acct-actions">
+          <button className="btn primary" disabled={!!busy || !url.trim() || url.trim() === saved} aria-busy={busy === 'save'} onClick={() => saveLink(url.trim())}>{busy === 'save' && <Spinner />}{saved ? 'Save new link' : 'Save link'}</button>
+          <button className="btn" disabled={!!busy || !url.trim()} onClick={check}>{busy === 'check' && <Spinner />}Check</button>
+          {saved && <HoldButton className="btn danger-btn" label="Remove the calendar link" onConfirm={() => saveLink(null)}><Icon name="x" size={14} />Hold to remove</HoldButton>}
+        </div>
+      </div>}
     </>}
   </Section>;
 }

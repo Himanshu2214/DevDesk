@@ -216,18 +216,37 @@ The hosted site is an installable app (Chrome / Edge: the install icon in the ad
 SLATE·SPACE*; Android: *Add to home screen*; iPhone: Share → *Add to Home Screen*). It opens in its own window and
 starts instantly; data still needs the internet.
 
-## 15. Google Calendar meetings in the Calendar page
+## 15. Calendar meetings (database and function)
 
-1. **SQL Editor → New query**: paste `supabase/migrations/20261105000000_calendar.sql` → **Run**.
-2. Deploy the function that reads the calendar:
+1. **SQL Editor → New query**: run `supabase/migrations/20261105000000_calendar.sql`, then
+   `supabase/migrations/20261106000000_google_calendar.sql`.
+2. Deploy the calendar function. `--no-verify-jwt` is needed because Google's redirect back carries no user token;
+   the function checks the user itself:
 
    ```bash
-   npx supabase functions deploy calendar-feed
+   npx supabase functions deploy calendar-feed --no-verify-jwt
    ```
-3. In the app: **Account → Google Calendar** → paste your calendar's **Secret address in iCal format**
-   (Google Calendar → Settings → your calendar → *Integrate calendar*) → **Connect**.
 
-Meetings (including invitations from others) then show in **Calendar** in month, week and day view; a click on one
-with a Meet / Zoom / Teams link opens the call. Google updates the address every few minutes to hours, so a meeting
-created just now can take a while to appear; **Meetings** (top right of Calendar) reloads it. Read-only: SLATE·SPACE
-never changes your calendar. Outlook works too (Settings → Calendar → Shared calendars → Publish a calendar → ICS link).
+## 16. "Connect Google Calendar" (one click for the user)
+
+Reuses the Google OAuth client from step 4.
+
+1. <https://console.cloud.google.com> → your project **SLATE SPACE** → **APIs & Services → Library** → search
+   **Google Calendar API** → **Enable**.
+2. **APIs & Services → Credentials** → your **Web application** OAuth client → **Authorized redirect URIs** → add
+   `https://<ref>.supabase.co/functions/v1/calendar-feed` → **Save**.
+3. **OAuth consent screen → Data access** (or *Scopes*) → **Add or remove scopes** → tick
+   `.../auth/calendar.readonly` → **Update** → **Save**.
+4. **OAuth consent screen → Audience**: **Publish app** (status *In production*). In *Testing* status Google ends the
+   calendar permission after 7 days. Until Google has reviewed the app, the consent screen says "Google hasn't verified
+   this app" – choose **Advanced → Go to SLATE·SPACE**. (Verification is only needed for more than 100 users.)
+5. Give the function the client ID and secret (same values as in Supabase → Authentication → Providers → Google):
+
+   ```bash
+   npx supabase secrets set GOOGLE_CLIENT_ID=<client id> GOOGLE_CLIENT_SECRET=<client secret>
+   ```
+6. In the app: **Account → Calendar → Connect Google Calendar** (or the button in **Calendar**). Google asks once;
+   meetings then show in month, week and day view. The permission is read-only and kept encrypted on the server;
+   **Hold to disconnect** removes it at Google too.
+
+Outlook / Apple calendars: **Account → Calendar → Use a calendar link instead** and paste the published ICS link.
