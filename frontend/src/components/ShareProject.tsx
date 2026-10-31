@@ -6,15 +6,21 @@ import type { Project, ProjectMember } from '../api';
 import { useStore } from '../store';
 import { fmtDate } from '../lib/format';
 import { Icon, Spinner } from './Icons';
-import { Avatar, go, HoldButton } from './ui';
+import { Avatar, go } from './ui';
 import { Modal } from './Dialogs';
+import { AvatarGroup } from './AvatarGroup';
+import { useQuery } from '@tanstack/react-query';
 import Input from './smoothui/input';
+import { ConfirmButton } from './ConfirmButton';
 
-/** Header button on a project page: "Share" for your projects, "Shared by …" with Leave for projects shared with you */
+/** Header of a project page: the people on it (avatar group, when shared) and "Share" / "Shared by …" */
 export function ShareButton({ project }: { project: Project }) {
   const [open, setOpen] = useState(false);
+  const shared = !!project.SharedBy || !!project.Members;
+  const people = useQuery({ queryKey: ['people', project.Project, project.Members], queryFn: () => api.projectPeople!(project.Project), enabled: shared && !!api.projectPeople, staleTime: 60_000 });
   if (!api.shareProject) return null;
   return <>
+    {shared && (people.data?.length ?? 0) > 1 && <AvatarGroup people={people.data!.map(p => ({ name: p.name, email: p.email, photo: p.photo, owner: p.is_owner }))} size={26} />}
     <button className="btn share-btn" onClick={() => setOpen(true)}>
       <Icon name="users" size={14} />{project.SharedBy ? `Shared by ${project.SharedBy.split(' ')[0]}` : project.Members ? `Shared · ${project.Members}` : 'Share'}</button>
     <AnimatePresence>{open && <ShareDialog key="share" project={project} close={() => setOpen(false)} />}</AnimatePresence>
@@ -61,11 +67,11 @@ function ShareDialog({ project, close }: { project: Project; close(): void }) {
             : members.length === 0 ? <li className="muted">Not shared yet. They need a SLATE·SPACE account first.</li>
             : members.map(m => <li key={m.member_id}><Avatar name={m.name || m.email} size={26} />
               <span className="share-who"><b>{m.name || m.email}</b><small>{m.email} · since {fmtDate(m.since)}</small></span>
-              <HoldButton className="btn" label={`Remove ${m.name || m.email}`} onConfirm={() => remove(m)}><Icon name="x" size={13} />Remove</HoldButton></li>)}
+              <ConfirmButton className="btn" label={`Remove ${m.name || m.email}`} onConfirm={() => remove(m)}><Icon name="x" size={13} />Remove</ConfirmButton></li>)}
         </ul>
       </div> : <div className="share-body">
         <p className="share-note"><b>{project.SharedBy}</b> shared this project with you. You can see and edit its tickets and create new ones; your own projects stay private.</p>
-        <div className="acct-actions"><HoldButton className="btn danger-btn" label={`Leave ${project.Name}`} onConfirm={leave}><Icon name="logout" size={14} />Hold to leave</HoldButton></div>
+        <div className="acct-actions"><ConfirmButton className="btn danger-btn" label={`Leave ${project.Name}`} onConfirm={leave}><Icon name="logout" size={14} />Leave project</ConfirmButton></div>
       </div>}
     </Modal>
   );

@@ -1,6 +1,7 @@
 // Meetings for the Calendar page, from two possible sources:
-//  1. "Connect Google Calendar" (OAuth, read-only): this function sends the user to Google, receives the callback,
-//     keeps the refresh token encrypted (table calendar_tokens) and reads events from the Google Calendar API.
+//  1. "Connect Google Calendar" (OAuth, events): this function sends the user to Google, receives the callback,
+//     keeps the refresh token encrypted (table calendar_tokens), reads events from the Google Calendar API and
+//     creates meetings in it ('create': optional Google Meet link, invitations sent to the guests).
 //  2. A pasted private iCal address (Outlook, Apple, or Google without OAuth), read server-side (no CORS on feeds).
 // POST (signed in, verified session) – body { action }:
 //   'connect' → { url } to send the browser to Google · 'disconnect' · 'status' → { google, ics }
@@ -13,8 +14,12 @@ import { type CalEvent, eventsBetween } from '../_shared/ics.ts';
 import { fromGoogle, type GEvent } from '../_shared/gcal.ts';
 
 type Db = ReturnType<typeof admin>;
+interface NewMeeting { title?: string; start?: string; end?: string; allDay?: boolean; description?: string; location?: string; attendees?: string[]; meet?: boolean; timeZone?: string }
 const MAX_BYTES = 8 * 1024 * 1024;
-const SCOPE = 'openid email https://www.googleapis.com/auth/calendar.readonly';
+// read and create events: meetings created in SLATE·SPACE land in the real Google Calendar
+const SCOPE = 'openid email https://www.googleapis.com/auth/calendar.events';
+/** a secret, forgiving stray spaces, quotes or <angle brackets> pasted around the value */
+const env = (k: string) => (Deno.env.get(k) ?? '').trim().replace(/^[<"']+|[>"']+$/g, '').trim();
 const STATE_TTL_MS = 15 * 60_000;
 const redirectUri = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/calendar-feed`;
 const appUrl = () => (Deno.env.get('APP_URL') ?? '').replace(/\/?$/, '/');
@@ -40,24 +45,28 @@ async function open(sealed: string) {
 async function tokenRequest(params: Record<string, string>) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '', client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '', ...params }),
+    body: new URLSearchParams({ client_id: env('GOOGLE_CLIENT_ID'), client_secret: env('GOOGLE_CLIENT_SECRET'), ...params }),
   });
   return { ok: res.ok, body: await res.json().catch(() => ({})) as Record<string, string> };
 }
 class Gone extends Error {}
-async function googleEvents(db: Db, userId: string, sealed: string, from: string, to: string): Promise<CalEvent[]> {
+async function accessToken(db: Db, userId: string, sealed: string): Promise<string> {
   const t = await tokenRequest({ grant_type: 'refresh_token', refresh_token: await open(sealed) });
   if (!t.ok) {
     if (t.body.error === 'invalid_grant') { await db.from('calendar_tokens').delete().eq('user_id', userId); throw new Gone('Google Calendar access was removed. Connect it again in Account.') }
     throw new Error('Google Calendar did not answer. Try again in a moment.');
   }
+  return t.body.access_token;
+}
+async function googleEvents(db: Db, userId: string, sealed: string, from: string, to: string): Promise<CalEvent[]> {
+  const access = await accessToken(db, userId, sealed);
   const items: GEvent[] = [];
   let page = '';
   for (let i = 0; i < 5; i++) {
     const q = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString(), maxResults: '2500',
       fields: 'nextPageToken,items(id,status,summary,location,hangoutLink,start,end,eventType,conferenceData/entryPoints(entryPointType,uri),attendees(self,responseStatus))' });
     if (page) q.set('pageToken', page);
-    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${t.body.access_token}` }, signal: AbortSignal.timeout(12_000) });
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${access}` }, signal: AbortSignal.timeout(12_000) });
     if (res.status === 403) throw new Error('Google Calendar API is not enabled for this app yet (setup guide, step 16).');
     if (!res.ok) throw new Error(`Google Calendar could not be read (HTTP ${res.status}).`);
     const j = await res.json() as { items?: GEvent[]; nextPageToken?: string };
@@ -78,7 +87,7 @@ async function callback(req: Request): Promise<Response> {
   if (p.get('error') || !p.get('code')) return back('denied');
   const t = await tokenRequest({ grant_type: 'authorization_code', code: p.get('code')!, redirect_uri: redirectUri() });
   if (!t.ok || !t.body.refresh_token) return back('failed');
-  if (!(t.body.scope ?? '').includes('calendar.readonly')) return back('noscope');      // the calendar box was unticked
+  if (!(t.body.scope ?? '').includes('calendar.events')) return back('noscope');        // the calendar box was unticked
   let email = '';
   try { email = JSON.parse(atob(t.body.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).email ?? '' } catch { /* optional */ }
   const { error } = await db.from('calendar_tokens').upsert({ user_id: st.user_id, google_email: email, refresh_token: await seal(t.body.refresh_token), connected_at: new Date().toISOString() });
@@ -125,23 +134,49 @@ Deno.serve(async req => {
     const { data: v } = await db.from('verified_sessions').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle();
     if (!v) return json(403, { error: 'Finish the 2-step sign-in first.' });
   }
-  const body = await req.json().catch(() => ({})) as { action?: string; from?: string; to?: string; test?: string };
+  const body = await req.json().catch(() => ({})) as { action?: string; from?: string; to?: string; test?: string; meeting?: NewMeeting };
   const [{ data: tok }, { data: set }] = await Promise.all([
     db.from('calendar_tokens').select('google_email, refresh_token').eq('user_id', user.id).maybeSingle(),
     db.from('user_settings').select('"CalendarUrl"').eq('user_id', user.id).maybeSingle(),
   ]);
   const ics = (set as { CalendarUrl?: string } | null)?.CalendarUrl ?? '';
 
-  if (body.action === 'status') return json(200, { google: tok?.google_email ?? null, googleReady: !!Deno.env.get('GOOGLE_CLIENT_ID'), ics: !!ics });
+  if (body.action === 'status') return json(200, { google: tok?.google_email ?? null, googleReady: !!env('GOOGLE_CLIENT_ID'), ics: !!ics });
   if (body.action === 'connect') {
-    if (!Deno.env.get('GOOGLE_CLIENT_ID') || !Deno.env.get('GOOGLE_CLIENT_SECRET')) return json(501, { error: 'Connecting Google Calendar is not set up yet (setup guide, step 16).' });
+    if (!env('GOOGLE_CLIENT_ID') || !env('GOOGLE_CLIENT_SECRET')) return json(501, { error: 'Connecting Google Calendar is not set up yet (setup guide, step 16).' });
     const state = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
     await db.from('oauth_states').delete().lt('created_at', new Date(Date.now() - STATE_TTL_MS).toISOString());
     const { error } = await db.from('oauth_states').insert({ state, user_id: user.id });
     if (error) return json(500, { error: 'Could not start the Google connection. Try again.' });
-    const q = new URLSearchParams({ client_id: Deno.env.get('GOOGLE_CLIENT_ID')!, redirect_uri: redirectUri(), response_type: 'code', scope: SCOPE,
+    const q = new URLSearchParams({ client_id: env('GOOGLE_CLIENT_ID'), redirect_uri: redirectUri(), response_type: 'code', scope: SCOPE,
       access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state, login_hint: user.email ?? '' });
     return json(200, { url: `https://accounts.google.com/o/oauth2/v2/auth?${q}` });
+  }
+  if (body.action === 'create') {
+    if (!tok) return json(400, { error: 'Connect Google Calendar first – meetings you create here then appear in it.' });
+    const m = body.meeting ?? {};
+    const title = String(m.title ?? '').trim().slice(0, 200);
+    if (!title) return json(400, { error: 'Enter a title for the meeting.' });
+    const allDay = !!m.allDay, start = String(m.start ?? ''), end = String(m.end ?? '');
+    if (Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end)) || Date.parse(end) < Date.parse(start)) return json(400, { error: 'Check the start and end time.' });
+    const guests = (m.attendees ?? []).map(x => String(x).trim().toLowerCase()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).slice(0, 50);
+    const tz = String(m.timeZone || 'UTC');
+    const event = {
+      summary: title, description: String(m.description ?? '').slice(0, 8000), location: String(m.location ?? '').slice(0, 500),
+      start: allDay ? { date: start.slice(0, 10) } : { dateTime: new Date(start).toISOString(), timeZone: tz },
+      end: allDay ? { date: end.slice(0, 10) } : { dateTime: new Date(end).toISOString(), timeZone: tz },
+      attendees: guests.map(email => ({ email })),
+      ...(m.meet ? { conferenceData: { createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } } } } : {}),
+    };
+    try {
+      const access = await accessToken(db, user.id, tok.refresh_token);
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=${guests.length ? 'all' : 'none'}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' }, body: JSON.stringify(event), signal: AbortSignal.timeout(15_000) });
+      const j = await res.json().catch(() => ({})) as GEvent & { htmlLink?: string; error?: { message?: string } };
+      if (res.status === 403 || res.status === 401) return json(403, { error: 'Google did not allow creating meetings. Disconnect and connect Google Calendar again to give the new permission.' });
+      if (!res.ok) return json(502, { error: j.error?.message || `Google Calendar refused the meeting (HTTP ${res.status}).` });
+      return json(200, { created: fromGoogle([j])[0] ?? null, htmlLink: j.htmlLink ?? '' });
+    } catch (e) { return json(502, { error: (e as Error).message }) }
   }
   if (body.action === 'disconnect') {
     if (tok) {

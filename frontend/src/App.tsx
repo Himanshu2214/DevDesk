@@ -22,6 +22,16 @@ import { Knowledge } from './views/Knowledge';
 import { Insights } from './views/Insights';
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
+import GravityStars from './components/smoothui/gravity-stars';
+import { BottomNav } from './components/BottomNav';
+import { Onboarding } from './components/Onboarding';
+import { PageTransition, Ripples } from './components/Motion';
+
+/** what counts as a new page for the transition: a list keeps its key while you switch tabs, every ticket is its own page */
+const pageKey = (route: string) => {
+  const head = route.split('/')[0], rest = route.slice(head.length + 1);
+  return head === 'ticket' ? route : head === 'project' ? 'project/' + rest.split('?')[0] : head;
+};
 
 function Router({ route }: { route: string }) {
   const [head, rest] = [route.split('/')[0], route.split('/').slice(1).join('/')];
@@ -86,6 +96,9 @@ function Shell() {
   const { openNew, openPalette } = useDialogs();
   const [navOpen, setNavOpen] = useState(false);
   const [help, setHelp] = useState(false);
+  // first run (standalone): a new account without tickets gets the setup steps once
+  const [setupDone, setSetupDone] = useState(false);
+  const firstRun = api.kind === 'supabase' && s.ready && !s.error && s.user.onboarded === false && !s.tickets.length && !setupDone;
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -105,6 +118,8 @@ function Shell() {
   useEffect(() => { setNavOpen(false) }, [route]);
 
   return (
+    // SmoothUI Gravity Stars behind the whole app; the stars lean towards the pointer
+    <GravityStars className="app-sky" color="var(--muted)" count={120} glow={3} gravity={0.6} speed={0.6} tint={0.35} connectDistance={90}>
     <div className={'app' + (navOpen ? ' nav-open' : '')}>
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <Sidebar route={route} />
@@ -112,11 +127,15 @@ function Shell() {
         ? <Page crumb={<b>SLATE·SPACE</b>}><Empty error icon="alert" title="Could not load data" action={<button className="btn primary" onClick={() => s.reload()}><Icon name="refresh" size={14} />Try again</button>}>
             <span className="t2" style={{ whiteSpace: 'pre-wrap', display: 'block', marginBottom: 6 }}>{s.error}</span>
             {api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : api.kind === 'supabase' ? 'Check your internet connection. If it keeps failing, sign out and sign in again.' : 'The mock backend failed – try clearing site data.'}</Empty></Page>
-        : <Router route={route} />}
+        : <PageTransition id={pageKey(route)}><Router route={route} /></PageTransition>}
+      <Ripples />
+      <BottomNav route={route} />
       <ToastStack />
       <Preloader />
       <AnimatePresence>{help && <ShortcutHelp key="help" close={() => setHelp(false)} />}</AnimatePresence>
+      <AnimatePresence>{firstRun && <Onboarding key="setup" close={() => setSetupDone(true)} />}</AnimatePresence>
     </div>
+    </GravityStars>
   );
 }
 

@@ -10,6 +10,7 @@ import { daysUntil, fmtDate, PRIORITY_NAME, STATUS_ORDER } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from './Icons';
 import { lookBg } from '../lib/avatar';
 import { UserMenu } from './UserMenu';
+import { ScrollProgress } from './Motion';
 
 /* ---------- Router (hash based, works inside the BSP without server config) ---------- */
 export function useHash(): string {
@@ -84,6 +85,11 @@ export function useFieldMenus() {
 
 /* ---------- Page frame: header bars + scrolling body ---------- */
 export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.ReactNode; bar2?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; bodyRef?: React.Ref<HTMLDivElement> }) {
+  const body = useRef<HTMLDivElement>(null);
+  const setBody = (el: HTMLDivElement | null) => {
+    (body as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (typeof bodyRef === 'function') bodyRef(el); else if (bodyRef) (bodyRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
   return (
     <section className="main">
       <header className="bar1">
@@ -95,7 +101,8 @@ export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.R
         <button className="ib" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
       </header>
       {bar2 && <div className="bar2">{bar2}</div>}
-      <m.div className="body" ref={bodyRef} layoutScroll>{children}</m.div>
+      <ScrollProgress target={body} />
+      <m.div className="body" ref={setBody} layoutScroll>{children}</m.div>
     </section>
   );
 }

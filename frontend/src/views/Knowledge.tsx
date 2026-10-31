@@ -6,8 +6,9 @@ import type { Article, ArticleType, Status } from '../api';
 import { useArticles, useObjects, useStore } from '../store';
 import { DAY, fmtDate } from '../lib/format';
 import { Icon, StatusIcon } from '../components/Icons';
-import { Empty, go, HoldButton, isTyping, Page, useMenu } from '../components/ui';
+import { Empty, go, isTyping, Page, useMenu } from '../components/ui';
 import { Area, Line, ObjType, usePickers } from '../components/p2';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 const TYPES: [ArticleType, string][] = [['SNIP', 'book'], ['FIX', 'bug'], ['API', 'link'], ['CONF', 'tag'], ['DECI', 'graph']];
 const typeIcon = (t: string) => <Icon name={TYPES.find(k => k[0] === t)?.[1] ?? 'book'} size={14} />;
@@ -104,7 +105,7 @@ function ArticlePage({ uuid }: { uuid: string }) {
     if (await s.run(() => api.deleteRoot('Article', a! as never), { ok: `${a!.ArticleId} deleted` })) go('kb');
   }
   return (
-    <Page crumb={crumb} right={<HoldButton label="Delete article" onConfirm={remove}><Icon name="trash" /></HoldButton>}>
+    <Page crumb={crumb} right={<ConfirmButton label="Delete article" onConfirm={remove}><Icon name="trash" /></ConfirmButton>}>
       <div className="artpage">
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{typeIcon(a.ArticleType)}{s.text('KBTYPE', a.ArticleType)}</span>

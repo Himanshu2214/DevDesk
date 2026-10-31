@@ -8,6 +8,8 @@ import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from './smoothu
 import { Icon, LogoMark, StatusIcon } from './Icons';
 import { useDialogs } from './Dialogs';
 import { inboxItems } from '../views/Inbox';
+import CountBadge from './smoothui/count-badge';
+import ThemeToggle from './smoothui/theme-toggle';
 import { setMode, shownMode } from '../lib/theme';
 
 export const VIEWS = {
@@ -28,16 +30,18 @@ function useRing(n: number) {
 const readJson = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) ?? '') as T } catch { return fallback } };
 const writeJson = (key: string, v: unknown) => { try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* private mode */ } };
 
-/** Sidebar link; the active background is one shared element that glides between items. Collapsed: icon only, label in a tooltip. */
-function NavItem({ href, active, collapsed, label, icon, count, alert, style }: {
+/** Sidebar link; the active background is one shared element that glides between items. Notifications (alert counts)
+ *  are a SmoothUI Count Badge on the icon, so they show on the rail too; other counts sit at the right. */
+function NavItem({ href, active, label, icon, count, alert, style }: {
   href: string; active: boolean; collapsed: boolean; label: string; icon: React.ReactNode; count?: number | string; alert?: boolean; style?: React.CSSProperties;
 }) {
-  return <Tip label={<>{label}{count ? <span className="tip-c">{count}</span> : null}</>} side="right" disabled={!collapsed}>
-    <a className={'ni' + (active ? ' active' : '')} href={href} style={style} aria-current={active ? 'page' : undefined}>
+  const n = typeof count === 'number' ? count : 0;
+  return <Tip label={label} side="right" disabled>
+    <a className={'ni' + (active ? ' active' : '')} href={href} style={style} aria-current={active ? 'page' : undefined} aria-label={alert && n ? `${label}, ${n} new` : undefined}>
       {active && <m.span layoutId="nav-active" className="ni-bg" transition={indicatorTransition} />}
-      <span className="ni-ic">{icon}{collapsed && count && alert ? <i className="ni-dot" /> : null}</span>
+      <span className="ni-ic">{alert && n ? <CountBadge variant="count" count={n} max={99} ping className="ni-badge">{icon}</CountBadge> : icon}</span>
       <span className="lbl">{label}</span>
-      {count ? <span className={'c num' + (alert ? ' badge-alert' : '')}>{count}</span> : null}</a></Tip>;
+      {count && !alert ? <span className="c num">{count}</span> : null}</a></Tip>;
 }
 
 /** Collapsible group of nav links (SmoothUI Collapsible on Base UI); always open while the sidebar is collapsed */
@@ -56,24 +60,33 @@ export function Sidebar({ route }: { route: string }) {
   const ring = useRing(unread);
   const [light, setLight] = useState(() => shownMode() === 'light');
   useEffect(() => { const sync = () => setLight(shownMode() === 'light'); addEventListener('devdesk-theme', sync); return () => removeEventListener('devdesk-theme', sync) }, []);
-  const [collapsed, setCollapsed] = useState(() => readJson('devdesk-sidebar-collapsed', false));
+  // Hover sidebar (after Animate UI's sidebar): a slim icon rail that slides open while the pointer is over it and closes
+  // when it leaves; "pinned" keeps it open. Keyboard focus inside opens it too.
+  const [pinned, setPinned] = useState(() => readJson('devdesk-sidebar-pinned', false));
+  const [peek, setPeek] = useState(false);
+  const peekTimer = useRef<ReturnType<typeof setTimeout>>();
+  const peekTo = (open: boolean, delay: number) => { clearTimeout(peekTimer.current); peekTimer.current = setTimeout(() => setPeek(open), delay) };
+  useEffect(() => () => clearTimeout(peekTimer.current), []);
+  useEffect(() => { setPeek(false) }, [route]);
+  const collapsed = !pinned && !peek;
   const [groups, setGroups] = useState<Record<string, boolean>>(() => readJson('devdesk-nav-groups', {}));
   const toggleGroup = (id: string, open: boolean) => setGroups(g => { const n = { ...g, [id]: open }; writeJson('devdesk-nav-groups', n); return n });
-  const toggleCollapsed = () => setCollapsed(c => { writeJson('devdesk-sidebar-collapsed', !c); return !c });
+  const toggleCollapsed = () => setPinned(p => { writeJson('devdesk-sidebar-pinned', !p); return !p });
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key === '\\') { e.preventDefault(); toggleCollapsed() } };
     addEventListener('keydown', k); return () => removeEventListener('keydown', k);
   }, []);
   const active = s.tickets.filter(t => isOpen(t) && t.Status !== 'BACKLOG').length;
   const isActive = (h: string) => route === h || route.startsWith(h + '/') && h !== 'list/active' || (h === 'list/active' && (route === 'list/backlog' || route === 'list/all'));
-  const toggleTheme = () => setMode(shownMode() === 'light' ? 'dark' : 'light');
   const nav = (h: string, label: string, icon: React.ReactNode, count?: number | string, alert?: boolean, style?: React.CSSProperties) =>
     <NavItem key={h} href={'#' + h} active={isActive(h)} collapsed={collapsed} label={label} icon={icon} count={count} alert={alert} style={style} />;
   const g = (id: string, title: string, children: React.ReactNode) =>
     <Group id={id} title={title} open={groups[id] ?? true} onToggle={toggleGroup} collapsed={collapsed}>{children}</Group>;
   const side = collapsed ? 'right' : 'bottom';
   return (
-    <aside className="side" data-collapsed={collapsed || undefined}>
+    <aside className="side" data-collapsed={collapsed || undefined} data-rail={!pinned || undefined} data-peek={(!pinned && peek) || undefined}
+      onPointerEnter={e => { if (e.pointerType === 'mouse' && !pinned) peekTo(true, 90) }} onPointerLeave={e => { if (e.pointerType === 'mouse' && !pinned) peekTo(false, 220) }}
+      onFocus={() => { if (!pinned) peekTo(true, 0) }} onBlur={e => { if (!pinned && !e.currentTarget.contains(e.relatedTarget as Node)) peekTo(false, 120) }}>
       <div className="ws">
         <span className="logo" role="img" aria-label="SLATE·SPACE"><LogoMark size={20} /></span><span className="name" aria-hidden="true">SLATE<span className="brand-dot">·</span>SPACE</span><span className="sp" />
         <Tip label="Search · Ctrl K" side={side}><button className="ib" aria-label="Search" onClick={openPalette}><Icon name="search" /></button></Tip>
@@ -100,12 +113,11 @@ export function Sidebar({ route }: { route: string }) {
           s.tickets.filter(t => t.Project === p.Project && isOpen(t)).length || '')))}
       </m.div>
       <div className="side-foot">
-        <Tip label={light ? 'Dark theme' : 'Light theme'} side={collapsed ? 'right' : 'top'}>
-          <button className="ib" aria-label="Toggle theme" onClick={toggleTheme}><span key={light ? 'm' : 's'} className="swap-in"><Icon name={light ? 'moon' : 'sun'} /></span></button></Tip>
+        <ThemeToggle variant="sun-moon" size="sm" theme={light ? 'light' : 'dark'} onThemeChange={setMode} className="side-theme" />
         <span className="sp" />
-        <Tip label={(collapsed ? 'Expand' : 'Collapse') + ' sidebar · Ctrl \\'} side={collapsed ? 'right' : 'top'}>
-          <button className="ib collapse-btn" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed} onClick={toggleCollapsed}>
-            <Icon name={collapsed ? 'panel-open' : 'panel-close'} /></button></Tip>
+        <Tip label={(pinned ? 'Unpin – open on hover' : 'Keep sidebar open') + ' · Ctrl \\'} side={collapsed ? 'right' : 'top'}>
+          <button className="ib collapse-btn" aria-label={pinned ? 'Unpin sidebar' : 'Keep sidebar open'} aria-pressed={pinned} onClick={toggleCollapsed}>
+            <Icon name={pinned ? 'panel-close' : 'panel-open'} /></button></Tip>
       </div>
     </aside>
   );

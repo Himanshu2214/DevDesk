@@ -101,7 +101,7 @@ export interface Project { Project: string; Name: string; Color: string; SortOrd
 export interface ProjectMember { member_id: string; email: string; name: string; since: string }
 export interface ValueItem { ListType: string; Code: string; Text: string; SortOrder: number; Color: string; WipLimit: number; IsActive: boolean }
 /** email / photo (Google picture) / avatar (chosen look) are filled in standalone mode */
-export interface User { id: string; fullName: string; email?: string; photo?: string; avatar?: string }
+export interface User { id: string; fullName: string; email?: string; photo?: string; avatar?: string; onboarded?: boolean }
 
 export interface NewTicket {
   Title: string; Description: string; Priority: string; Project: string; Area: string; Tech: string; TicketType: string;
@@ -173,6 +173,8 @@ export interface Api {
   projectMembers?(project: string): Promise<ProjectMember[]>;
   unshareProject?(project: string, memberId: string): Promise<void>;
   leaveProject?(project: string): Promise<void>;
+  /** everyone on a shared project (owner first) – for the avatar group */
+  projectPeople?(project: string): Promise<{ name: string; email: string; is_owner: boolean; photo: string }[]>;
 
   // ticket templates (your own; starters are built into the app). Same name = overwrite.
   listTemplates(): Promise<TicketTemplate[]>;

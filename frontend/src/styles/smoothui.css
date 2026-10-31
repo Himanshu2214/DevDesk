@@ -19,6 +19,9 @@
   --color-ring: var(--accent);
   --color-primary: var(--accent);
   --color-primary-foreground: var(--accent-ink);
+  --color-brand: var(--accent);
+  --color-destructive: var(--danger);
+  --color-input: var(--border-2);
   --font-sans: Poppins, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
 }
 

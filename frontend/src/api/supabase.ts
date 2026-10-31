@@ -97,7 +97,7 @@ export const supabaseApi: Api = {
     const meta = u.user_metadata ?? {};
     const fullName = String(meta.full_name || meta.name || u.email || 'You');
     me = fullName;
-    return { id: u.email ?? u.id, fullName, email: u.email ?? '', photo: String(meta.avatar_url || meta.picture || ''), avatar: String(meta.avatar || '') };
+    return { id: u.email ?? u.id, fullName, email: u.email ?? '', photo: String(meta.avatar_url || meta.picture || ''), avatar: String(meta.avatar || ''), onboarded: !!meta.onboarded };
   },
   // own projects and projects shared with you (shared ones carry "<code>@<owner>" and SharedBy);
   // before the teams migration has run there is no projects_v yet – then just your own projects
@@ -215,6 +215,8 @@ export const supabaseApi: Api = {
   projectMembers: async project => (await run(sb().rpc('project_members', { p_project: project }))) as ProjectMember[],
   async unshareProject(project, memberId) { await run(sb().from('project_shares').delete().eq('Project', project).eq('member_id', memberId)) },
   async leaveProject(project) { await run(sb().rpc('leave_project', { p_key: project })) },
+  // before the people migration has run: nobody to show
+  async projectPeople(project) { const r = await sb().rpc('project_people', { p_key: project }); return r.error ? [] : (r.data ?? []) },
   listTemplates: async () => cleanAll<TicketTemplate>(await run(sb().from('ticket_templates').select('"TemplateUUID","Name","Data"').order('Name'))),
   async saveTemplate(Name, Data) {
     const row = await run(sb().from('ticket_templates').upsert({ Name, Data }, { onConflict: 'user_id,name_key' }).select('"TemplateUUID","Name","Data"').single());

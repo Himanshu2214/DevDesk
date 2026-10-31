@@ -1,5 +1,6 @@
 // Calendar: tickets on their due dates (FullCalendar month / week / day). Drag an open ticket to another day to move its
-// due date. In standalone mode your Google Calendar meetings (Account → Google Calendar) are shown alongside, read-only.
+// due date. In standalone mode your Google Calendar meetings are shown alongside; with Google connected, "New meeting"
+// (or dragging over a time range in week / day view) creates one in the real Google Calendar.
 import { useCallback, useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -14,6 +15,8 @@ import { fmtDate } from '../lib/format';
 import { calendarCall, connectGoogleCalendar } from '../lib/calendar';
 import { Icon, StatusIcon } from '../components/Icons';
 import { go, Page } from '../components/ui';
+import { MeetingDialog } from '../components/MeetingDialog';
+import { AnimatePresence } from 'motion/react';
 
 interface Meeting { id: string; title: string; start: string; end: string; allDay: boolean; location: string; link: string }
 
@@ -56,6 +59,8 @@ export function CalendarPage() {
   }, [cloud]);
   // stable sources: FullCalendar refetches a source whenever it is replaced
   const sources = useMemo(() => [{ id: 'tickets', events: tickets }, { id: 'meetings', events: meetingSource }], [tickets, meetingSource]);
+  const [draft, setDraft] = useState<{ start: Date; end: Date; allDay: boolean } | null>(null);
+  const newMeeting = (start = new Date(Math.ceil(Date.now() / 18e5) * 18e5), end?: Date, allDay = false) => setDraft({ start, end: end ?? new Date(start.getTime() + 18e5), allDay });
   const [connecting, setConnecting] = useState(false);
   const connect = async () => { setConnecting(true); try { await connectGoogleCalendar() } catch (e) { setConnecting(false); s.toast((e as Error).message, true) } };
   const refresh = () => { cache.clear(); warned.current = false; cal.current?.getApi().refetchEvents() };
@@ -77,6 +82,7 @@ export function CalendarPage() {
       <StatusIcon status={t.Status as Status} /><b className="num">{t.TicketId}</b><span className="ev-t">{t.Title}</span></span>;
   };
   const right = cloud && <>
+    {connected && <button className="btn primary cal-connect" onClick={() => newMeeting()}><Icon name="plus" size={14} />New meeting</button>}
     {connected && <button className="btn" onClick={refresh} title="Reload meetings from Google Calendar"><Icon name="refresh" size={14} className={loading ? 'spin' : undefined} />Meetings</button>}
     {connected === false && <button className="btn primary cal-connect" disabled={connecting} aria-busy={connecting} onClick={connect}><Icon name="cal" size={14} />Connect Google Calendar</button>}
   </>;
@@ -89,6 +95,7 @@ export function CalendarPage() {
           slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }} eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
           eventSources={sources}
           eventContent={content} editable eventDurationEditable={false} eventDrop={moveDue}
+          selectable={cloud && !!connected} selectMirror select={i => { i.view.calendar.unselect(); newMeeting(i.start, i.end, i.allDay) }}
           eventClick={i => {
             i.jsEvent.preventDefault();
             const m = i.event.extendedProps.m as Meeting | undefined;
@@ -96,6 +103,7 @@ export function CalendarPage() {
             go('ticket/' + (i.event.extendedProps.t as Ticket).TicketId);
           }} />
       </div>
+      <AnimatePresence>{draft && <MeetingDialog key="meet" {...draft} close={() => setDraft(null)} onCreated={() => refresh()} />}</AnimatePresence>
     </Page>
   );
 }

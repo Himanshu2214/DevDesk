@@ -1,12 +1,14 @@
 // Sign-in for the standalone (Supabase) backend: email + password or Google (with an invisible Turnstile bot check),
 // email confirmation, password reset by link, and the second step that unlocks the data for this session:
 // a code from an authenticator app (Supabase MFA, AAL2) or, as fallback, a code sent by email.
-import { type ComponentProps, useEffect, useId, useRef, useState } from 'react';
+import { type InputHTMLAttributes, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { appUrl, getRemember, sb, setRemember, supabaseConfigured } from '../lib/supabase';
 import { Icon, LogoMark, Spinner } from './Icons';
-import Input from './smoothui/input';
+import FloatInput from './smoothui/float-input';
+import { OtpSlots } from './smoothui/otp-slots';
 import { RibbonArt } from './RibbonArt';
+import GravityStars from './smoothui/gravity-stars';
 import { useTurnstile } from './Turnstile';
 
 type Stage = 'loading' | 'signed-out' | 'recovery' | 'app-code' | 'code' | 'ready';
@@ -52,6 +54,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 /** Window shell: a dark rounded window on a graphite backdrop – form on the left, animated ribbon artwork on the right */
 function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNode; children: React.ReactNode }) {
   return <div className="auth-page">
+    <GravityStars className="auth-sky" color="#9aa0aa" count={140} glow={3.5} tint={0.4} />
     <main className="auth-window">
       <span className="auth-dots" aria-hidden="true"><i /><i /><i /></span>
       <div className="auth-card" aria-labelledby="auth-title">
@@ -63,15 +66,21 @@ function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNo
   </div>;
 }
 
-/** Input with a floating label: the label sits inside the field and glides up on focus or when filled */
-type FieldProps = { label: string; value: string; onChange(v: string): void; trailing?: React.ReactNode; className?: string; type?: string }
-  & Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'className' | 'placeholder' | 'type'>;
-function Field({ label, value, onChange, trailing, className = '', type = 'text', ...rest }: FieldProps) {
-  const id = useId();
-  return <div className={'fl' + (trailing ? ' has-trailing' : '')}>
-    <Input {...rest} id={id} type={type} placeholder=" " className={'fl-in ' + className} value={value} onChange={e => onChange(e.target.value)} />
-    <label htmlFor={id}>{label}</label>{trailing}
-  </div>;
+/** SmoothUI Float Input: the label rests in the field and floats onto its border on focus or when filled */
+type FieldProps = { label: string; value: string; onChange(v: string): void; trailing?: React.ReactNode; type?: string }
+  & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'className' | 'placeholder' | 'type' | 'id'>;
+function Field({ label, value, onChange, trailing, type = 'text', ...rest }: FieldProps) {
+  return <FloatInput label={label} value={value} onChange={onChange} trailing={trailing} inputProps={{ ...rest, type }}
+    className={'fi' + (trailing ? ' fi-trailing' : '')} inputClassName="fi-in" labelClassName="fi-lb" />;
+}
+
+/** SmoothUI OTP Slots for the 6-digit codes; the last digit submits the form */
+function CodeSlots({ value, onChange, label }: { value: string; onChange(v: string): void; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { ref.current?.querySelector('input')?.focus() }, []);
+  return <div className="otp" ref={ref}>
+    <OtpSlots aria-label={label} value={value} onChange={v => onChange(v.slice(0, 6))}
+      onComplete={() => setTimeout(() => ref.current?.closest('form')?.requestSubmit(), 0)} /></div>;
 }
 
 /** Password field with a show / hide toggle */
@@ -217,8 +226,7 @@ function AppCodeStep({ onVerified, onUseEmail }: { onVerified(): void; onUseEmai
   };
   return <AuthCard title="Enter the code from your app" sub="Open your authenticator app and type the 6-digit code for SLATE·SPACE.">
     <form className="auth-form" onSubmit={verify} noValidate>
-      <Field label="6-digit code" className="auth-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6}
-        value={code} onChange={v => setCode(v.replace(/\D/g, '').slice(0, 6))} />
+      <CodeSlots label="6-digit code" value={code} onChange={setCode} />
       <AuthError text={err} />
       <button className="btn primary auth-wide auth-submit" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}{busy ? 'Verifying…' : 'Verify'}</button>
     </form>
@@ -257,8 +265,7 @@ function CodeStep({ onVerified, onUseApp }: { onVerified(): void; onUseApp?(): v
   };
   return <AuthCard title="Enter your sign-in code" sub={<>Second step for <b>{email || 'your account'}</b>. Check your inbox (and spam).</>}>
     <form className="auth-form" onSubmit={verify} noValidate>
-      <Field label="6-digit code" className="auth-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6}
-        value={code} onChange={v => setCode(v.replace(/\D/g, '').slice(0, 6))} />
+      <CodeSlots label="6-digit code" value={code} onChange={setCode} />
       {info && !err && <p className="auth-info" role="status">{info}</p>}
       <AuthError text={err} />
       <button className="btn primary auth-wide auth-submit" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}{busy ? 'Verifying…' : 'Verify'}</button>

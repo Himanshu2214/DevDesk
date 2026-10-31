@@ -5,9 +5,10 @@ import type { Status, TechObject } from '../api';
 import { useArticles, useObjectLinks, useObjects, useStore, useTransports } from '../store';
 import { fmtDate } from '../lib/format';
 import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
-import { Empty, go, HoldButton, MenuSelect, Page, ProjectChip, useMenu } from '../components/ui';
+import { Empty, go, MenuSelect, Page, ProjectChip, useMenu } from '../components/ui';
 import { Area, depEdges, ImpactMap, Line, ObjType, related, SidePanel, usePickers } from '../components/p2';
 import Input from '../components/smoothui/input';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 export function Objects({ route }: { route: string }) {
   const s = useStore();
@@ -82,7 +83,7 @@ function ObjectDetail({ o, objects }: { o: TechObject; objects: TechObject[] }) 
       <button className="pill" style={{ height: 24 }} onClick={e => menu(e.currentTarget, [{ label: 'No project', value: '' }, ...s.projects.map(p => ({ label: p.Name, value: p.Project, icon: <Dot color={p.Color} />, checked: p.Project === o.Project }))],
         v => upd({ Project: v }))}>{o.Project ? <ProjectChip code={o.Project} /> : 'No project'}</button>
       <span className="sp" style={{ flex: 1 }} />
-      <HoldButton label="Remove from registry" onConfirm={remove}><Icon name="trash" /></HoldButton></div>
+      <ConfirmButton label="Remove from registry" onConfirm={remove}><Icon name="trash" /></ConfirmButton></div>
     <Line value={o.ObjectName} mono onSave={v => v && upd({ ObjectName: v })} style={{ fontSize: 20, height: 40, margin: '10px 0 2px', fontWeight: 600 }} />
     <Line value={o.Description} placeholder="What it does" onSave={v => upd({ Description: v })} style={{ fontSize: 14, color: 'var(--text-2)' }} />
     <div className="kv" style={{ marginTop: 14, alignItems: 'center' }}>

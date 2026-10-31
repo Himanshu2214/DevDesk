@@ -5,8 +5,9 @@ import type { Attachment, ChangeKind, Ticket } from '../api';
 import { useArticles, useObjects, useStore, useTransports } from '../store';
 import { ago } from '../lib/format';
 import { Icon } from '../components/Icons';
-import { go, HoldButton, useMenu } from '../components/ui';
+import { go, useMenu } from '../components/ui';
 import { attachFiles, fmtBytes, Line, ObjType, saveBlob, trEdge, trState, usePickers } from '../components/p2';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 const KINDS: [ChangeKind, string][] = [['CHANGE', 'changed'], ['NEW', 'new'], ['CHECK', 'checked only']];
 
@@ -65,7 +66,7 @@ export function TicketSap({ t }: { t: Ticket }) {
       <div className="files" style={{ marginTop: 6 }}>
         {files.map(f => <div className="file" key={f.AttUUID}><Icon name="file" size={14} style={{ color: 'var(--muted)' }} />
           <a onClick={() => download(f)} title={`Download · ${f.MimeType}`}>{f.FileName}</a><span className="muted num" style={{ fontSize: 12 }}>{fmtBytes(f.FileSize)} · {ago(f.CreatedAt)}</span>
-          <HoldButton className="file-x" label={'Delete ' + f.FileName} onConfirm={() => s.run(() => api.deleteChild('Attachment', f as never), { uuids })}>×</HoldButton></div>)}
+          <ConfirmButton className="file-x" label={'Delete ' + f.FileName} onConfirm={() => s.run(() => api.deleteChild('Attachment', f as never), { uuids })}>×</ConfirmButton></div>)}
         <div className={'dropz' + (drag ? ' on' : '')} role="button" tabIndex={0} style={{ cursor: 'pointer' }}
           onClick={() => fileInput.current?.click()} onKeyDown={e => { if (e.key === 'Enter') fileInput.current?.click() }}
           onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}

@@ -30,7 +30,7 @@ export function takeCalendarResult(): string | null {
 export const CALENDAR_RESULT: Record<string, [string, boolean]> = {
   connected: ['Google Calendar connected – your meetings now show in Calendar', false],
   denied: ['Google Calendar was not connected: permission was not given.', true],
-  noscope: ['Google Calendar was not connected: tick "See your calendars" on the Google screen.', true],
+  noscope: ['Google Calendar was not connected: tick the calendar permission on the Google screen.', true],
   expired: ['The Google connection took too long. Try again.', true],
   failed: ['Google Calendar could not be connected. Try again.', true],
 };

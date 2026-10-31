@@ -205,6 +205,9 @@ normal 30-second refresh, Account → Daily email says it is not set up yet, and
 
 ## 13. Teams (shared projects)
 
+Also run `supabase/migrations/20261107000000_project_people.sql` (SQL Editor) – it lets everyone on a shared project see
+who else is on it (the avatars next to **Share**).
+
 After step 11, open a project in the sidebar → **Share** (top right) → enter the other person's SLATE·SPACE email.
 They need an account first. Members see and edit that project's tickets with their time, notes, tests, files and
 transports, and can create tickets in it; only the owner deletes tickets and manages members. Members can leave from the
@@ -236,17 +239,19 @@ Reuses the Google OAuth client from step 4.
 2. **APIs & Services → Credentials** → your **Web application** OAuth client → **Authorized redirect URIs** → add
    `https://<ref>.supabase.co/functions/v1/calendar-feed` → **Save**.
 3. **OAuth consent screen → Data access** (or *Scopes*) → **Add or remove scopes** → tick
-   `.../auth/calendar.readonly` → **Update** → **Save**.
+   `.../auth/calendar.events` (see and edit events) → **Update** → **Save**.
 4. **OAuth consent screen → Audience**: **Publish app** (status *In production*). In *Testing* status Google ends the
    calendar permission after 7 days. Until Google has reviewed the app, the consent screen says "Google hasn't verified
    this app" – choose **Advanced → Go to SLATE·SPACE**. (Verification is only needed for more than 100 users.)
-5. Give the function the client ID and secret (same values as in Supabase → Authentication → Providers → Google):
+5. Give the function the client ID and secret (same values as in Supabase → Authentication → Providers → Google).
+   Paste the bare values – no `< >` around them:
 
    ```bash
    npx supabase secrets set GOOGLE_CLIENT_ID=<client id> GOOGLE_CLIENT_SECRET=<client secret>
    ```
 6. In the app: **Account → Calendar → Connect Google Calendar** (or the button in **Calendar**). Google asks once;
-   meetings then show in month, week and day view. The permission is read-only and kept encrypted on the server;
-   **Hold to disconnect** removes it at Google too.
+   meetings then show in month, week and day view, and **New meeting** (or dragging over hours in week / day view)
+   creates one in Google Calendar – with a Google Meet link and invitations to guests. The permission is kept encrypted
+   on the server; **Hold to disconnect** removes it at Google too.
 
 Outlook / Apple calendars: **Account → Calendar → Use a calendar link instead** and paste the published ICS link.

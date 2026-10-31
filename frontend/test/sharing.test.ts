@@ -42,6 +42,19 @@ describe('sharing a project', () => {
   });
 });
 
+describe('people on a shared project', () => {
+  it('lists owner and members to everyone on the project, nobody else', async () => {
+    await t.as(MEMBER, SM);
+    expect((await t.rows<{ name: string; is_owner: boolean }>('select name, is_owner from project_people($1)', [SHARED])).map(r => [r.name, r.is_owner]))
+      .toEqual([['Olivia Owner', true], ['Max Member', false]]);
+    await t.as(OWNER, SO);
+    expect(await t.rows('select 1 from project_people($1)', ['GST'])).toHaveLength(2);
+    expect(await t.rows('select 1 from project_people($1)', ['GEN'])).toEqual([]);          // not shared
+    await t.as(OUTSIDER, SX);
+    expect(await t.rows('select 1 from project_people($1)', [SHARED])).toEqual([]);
+  });
+});
+
 describe('member access', () => {
   it('sees only the shared project\'s tickets', async () => {
     await t.as(MEMBER, SM);

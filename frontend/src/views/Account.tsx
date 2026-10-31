@@ -7,8 +7,10 @@ import { sb } from '../lib/supabase';
 import { CALENDAR_RESULT, calendarCall, type CalendarStatus, connectGoogleCalendar, takeCalendarResult } from '../lib/calendar';
 import { fmtDate } from '../lib/format';
 import { Icon, Spinner } from '../components/Icons';
-import { Empty, HoldButton, MenuSelect, Page } from '../components/ui';
+import { Empty, MenuSelect, Page } from '../components/ui';
 import Input from '../components/smoothui/input';
+import { OtpSlots } from '../components/smoothui/otp-slots';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 export function Account() {
   if (api.kind !== 'supabase') return <Page crumb={<b>Account</b>}>
@@ -128,7 +130,7 @@ function TwoStep() {
     {factor === undefined ? <div className="sk" style={{ height: 40 }} /> : factor ? <>
       <p className="acct-status"><span className="acct-pill on"><Icon name="check" size={13} />Authenticator app is on</span></p>
       <p className="muted acct-note">Sign-ins ask for the 6-digit code from your app. Lost your phone? Choose “Use an emailed code” when signing in.</p>
-      <HoldButton className="btn danger-btn" label="Remove authenticator app" onConfirm={remove}><Icon name="trash" size={14} />Hold to remove</HoldButton>
+      <ConfirmButton className="btn danger-btn" label="Remove authenticator app" onConfirm={remove} description="Sign-ins will ask for the emailed code again. You can set the app up again any time."><Icon name="trash" size={14} />Remove</ConfirmButton>
     </> : setup ? <form className="acct-totp" onSubmit={confirm}>
       <ol>
         <li>Open Google Authenticator (or Microsoft Authenticator, 1Password, Authy) and add a new account.</li>
@@ -137,8 +139,7 @@ function TwoStep() {
           <span className="acct-secret"><code>{setup.secret}</code><button type="button" className="btn" onClick={copy}><Icon name={copied ? 'check' : 'file'} size={14} />{copied ? 'Copied' : 'Copy'}</button></span></li>
         <li>Type the 6-digit code the app shows:</li>
       </ol>
-      <label className="acct-code"><Input className="ss-input auth-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus
-        value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} aria-label="6-digit code from the app" /></label>
+      <div className="otp otp-left"><OtpSlots aria-label="6-digit code from the app" value={code} onChange={v => setCode(v.slice(0, 6))} /></div>
       <div className="acct-actions">
         <button className="btn primary" disabled={busy || code.length !== 6} aria-busy={busy}>{busy && <Spinner />}Turn on</button>
         <button type="button" className="btn" onClick={cancel}>Cancel</button>
@@ -240,15 +241,15 @@ function GoogleCalendar() {
     s.toast(value ? 'Calendar link saved – meetings now show in Calendar' : 'Calendar link removed');
   };
 
-  return <Section title="Calendar" sub="Show your meetings – including ones others invite you to – in the Calendar page, next to your ticket due dates. Read-only: SLATE·SPACE never changes your calendar.">
+  return <Section title="Calendar" sub="See your meetings – including ones others invite you to – next to your ticket due dates, and create meetings from the Calendar page that appear in your Google Calendar.">
     {st === null ? <div className="sk" style={{ height: 40 }} /> : <>
       {st.google ? <div className="gcal-on">
         <span className="gcal-badge"><GoogleG /></span>
         <span className="gcal-who"><b>Google Calendar connected</b><small>{st.google || 'Your Google account'}</small></span>
-        <HoldButton className="btn" label="Disconnect Google Calendar" onConfirm={disconnect}><Icon name="x" size={14} />Hold to disconnect</HoldButton>
+        <ConfirmButton className="btn" label="Disconnect Google Calendar" onConfirm={disconnect} confirmLabel="Disconnect" description="Meetings stop showing in Calendar and SLATE·SPACE loses access to your Google Calendar. Your meetings in Google stay as they are."><Icon name="x" size={14} />Disconnect</ConfirmButton>
       </div> : <div className="gcal-off">
         <button className="btn gcal-connect" onClick={connect} disabled={!!busy} aria-busy={busy === 'connect'}>{busy === 'connect' ? <Spinner /> : <GoogleG />}Connect Google Calendar</button>
-        <p className="muted acct-note">Google asks once for permission to <b>see</b> your calendar. If it shows “Google hasn't verified this app”, choose <b>Advanced → Go to SLATE·SPACE</b> – the app is yours.</p>
+        <p className="muted acct-note">Google asks once for permission to see your events and add new ones. If it shows “Google hasn't verified this app”, choose <b>Advanced → Go to SLATE·SPACE</b> – the app is yours.</p>
       </div>}
 
       <button className="acct-more" aria-expanded={showLink} onClick={() => setShowLink(v => !v)}><Icon name={showLink ? 'down' : 'right'} size={13} />Use a calendar link instead (Outlook, Apple, other)</button>
@@ -260,7 +261,7 @@ function GoogleCalendar() {
         <div className="acct-actions">
           <button className="btn primary" disabled={!!busy || !url.trim() || url.trim() === saved} aria-busy={busy === 'save'} onClick={() => saveLink(url.trim())}>{busy === 'save' && <Spinner />}{saved ? 'Save new link' : 'Save link'}</button>
           <button className="btn" disabled={!!busy || !url.trim()} onClick={check}>{busy === 'check' && <Spinner />}Check</button>
-          {saved && <HoldButton className="btn danger-btn" label="Remove the calendar link" onConfirm={() => saveLink(null)}><Icon name="x" size={14} />Hold to remove</HoldButton>}
+          {saved && <ConfirmButton className="btn danger-btn" label="Remove the calendar link" onConfirm={() => saveLink(null)}><Icon name="x" size={14} />Remove link</ConfirmButton>}
         </div>
       </div>}
     </>}
@@ -304,7 +305,8 @@ function DangerZone({ email }: { email: string }) {
     <label className="acct-confirm">Type <b>{email}</b> to confirm
       <Input className="ss-input" value={typed} onChange={e => setTyped(e.target.value)} autoComplete="off" spellCheck={false} /></label>
     {ready
-      ? <HoldButton className="btn danger-btn" label="Delete my account" onConfirm={remove}>{busy ? <Spinner /> : <Icon name="trash" size={14} />}Hold to delete my account</HoldButton>
+      ? <ConfirmButton className="btn danger-btn" label="Delete my account" onConfirm={remove} title="Delete your account?" confirmLabel="Delete everything"
+        description="Your account and everything in it – tickets, time, transports, objects, articles and files – are removed for good. Projects you shared stop being shared.">{busy ? <Spinner /> : <Icon name="trash" size={14} />}Delete my account</ConfirmButton>
       : <button className="btn" disabled><Icon name="trash" size={14} />Delete my account</button>}
   </Section>;
 }

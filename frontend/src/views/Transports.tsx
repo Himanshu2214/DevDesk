@@ -5,9 +5,10 @@ import type { Status, Ticket, Transport } from '../api';
 import { useStore, useTransports } from '../store';
 import { fmtDate } from '../lib/format';
 import { Dot, Icon, Spinner, StatusIcon } from '../components/Icons';
-import { CharCount, Empty, go, HoldButton, Page, TabIndicator, useChangeFlash, useMenu } from '../components/ui';
+import { CharCount, Empty, go, Page, TabIndicator, useChangeFlash, useMenu } from '../components/ui';
 import { Area, Line, SidePanel, trEdge, trState, usePickers } from '../components/p2';
 import Input from '../components/smoothui/input';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 const RC_ITEMS = [['0', 'RC 0 – success'], ['4', 'RC 4 – warnings'], ['8', 'RC 8 – errors'], ['12', 'RC 12 – aborted']].map(([value, label]) => ({ label, value }));
 
@@ -138,7 +139,7 @@ function TransportPanel({ x, all, close }: { x: Transport; all: Transport[]; clo
       <h5>Test evidence</h5><Area value={x.TestEvidence} placeholder="What was tested, by whom, link to screenshots" onSave={v => upd({ TestEvidence: v })} />
       <h5>Deployment notes</h5><Area value={x.DeployNotes} placeholder="Import window, manual steps, post-processing" onSave={v => upd({ DeployNotes: v })} />
       <h5>Rollback</h5><Area value={x.RollbackNotes} placeholder="How to undo this change" onSave={v => upd({ RollbackNotes: v })} />
-      <HoldButton className="btn danger-btn" label="Remove from tracker" onConfirm={remove}><Icon name="trash" size={14} />Remove from tracker</HoldButton>
+      <ConfirmButton className="btn danger-btn" label="Remove from tracker" onConfirm={remove}><Icon name="trash" size={14} />Remove from tracker</ConfirmButton>
     </SidePanel>
   );
 }
