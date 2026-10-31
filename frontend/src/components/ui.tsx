@@ -189,7 +189,8 @@ export function XBtn({ icon, label, open, on, indicator, className = '', ...rest
 /** True while the user types in a field or a dialog/menu is open (keyboard shortcuts are ignored then) */
 export const isTyping = (e: KeyboardEvent) => {
   const el = e.target instanceof Element ? e.target : null;
-  return !!el?.closest('input,textarea,select,[contenteditable],.modal,[role=menu]') || !!document.querySelector('.modal.on') || menuOpen();
+  // .wb: the whiteboard owns the keyboard while it is open
+  return !!el?.closest('input,textarea,select,[contenteditable],.modal,[role=menu]') || !!document.querySelector('.modal.on, .wb') || menuOpen();
 };
 
 /* ---------- Motion patterns (motion.dev examples, rebuilt with Motion for React) ---------- */

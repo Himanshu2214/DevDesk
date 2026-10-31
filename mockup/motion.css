@@ -914,5 +914,54 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 .ni-ic{position:relative}
 .ni-badge{min-width:16px!important;width:auto!important;height:16px!important;padding:0 4px!important;top:-7px!important;right:-9px!important;
   font-size:9.5px!important;font-weight:700;background:var(--danger)!important;box-shadow:0 0 0 2px var(--app)}
-.side-theme{transform:scale(.82);transform-origin:left center}
-.side[data-collapsed] .side-theme{transform-origin:center}
+/* sidebar theme toggle: the SmoothUI sun-moon glyph at icon size, in a 32px button like the other footer icons */
+.side-theme{flex:none;gap:0!important}
+.side-theme>button{width:32px!important;height:32px!important;padding:0!important;display:grid!important;place-items:center;border-radius:8px!important;border:0!important;box-shadow:none!important;background:transparent!important;color:var(--text-2)}
+.side-theme>button:hover{background:var(--hover)!important}
+.side-theme>button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.side-theme svg{width:18px!important;height:18px!important}
+
+/* Timeline (SVAR React Gantt) */
+.tl{height:100%;min-height:420px;display:flex;flex-direction:column}
+.tl>*{flex:1;min-height:0}
+.tl .wx-gantt,.tl [class*="wx-"]{font-family:Poppins,"Segoe UI",system-ui,sans-serif}
+.tl-dark{--wx-background:var(--panel);--wx-background-alt:var(--raised);--wx-color-font:var(--text);--wx-color-secondary-font:var(--text-2);--wx-border:1px solid var(--border);
+  --wx-gantt-task-color:var(--accent);--wx-gantt-task-fill-color:color-mix(in srgb,var(--accent) 55%,#000);--wx-gantt-summary-color:var(--st-backlog)}
+.tl-weekend{background:color-mix(in srgb,var(--text) 4%,transparent)}
+.tl-today{background:var(--danger)!important;color:#fff}
+.tl-hint{font-size:12px}
+.tl-st{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--hover);color:var(--text-2)}
+.tl-st.st-prog{background:color-mix(in srgb,var(--st-prog) 20%,transparent);color:var(--st-prog)}
+.tl-st.st-test{background:color-mix(in srgb,var(--st-test) 18%,transparent);color:var(--st-test)}
+.tl-st.st-block{background:color-mix(in srgb,var(--st-block) 18%,transparent);color:var(--st-block)}
+.tl-st.st-todo{background:color-mix(in srgb,var(--st-todo) 18%,transparent);color:var(--st-todo)}
+.tl-st.st-done{background:color-mix(in srgb,var(--st-done) 18%,transparent);color:var(--st-done)}
+
+/* Code (Shiki, both themes as CSS variables) and Mermaid diagrams */
+.shiki,.shiki span{color:var(--shiki-dark);background-color:var(--shiki-dark-bg)}
+:root[data-theme="light"] .shiki,:root[data-theme="light"] .shiki span{color:var(--shiki-light);background-color:var(--shiki-light-bg)}
+.shiki span{background-color:transparent!important}
+pre.shiki{background-color:var(--raised)!important}
+pre.shiki,.code-view pre,.code-plain{margin:0;padding:12px 14px;border-radius:10px;border:1px solid var(--border);overflow:auto;font:12.5px/1.6 ui-monospace,"Cascadia Code",Consolas,monospace;tab-size:2}
+.code-plain{background:var(--raised);color:var(--text-2);white-space:pre}
+.rt-view pre.shiki{margin:8px 0}
+.code-field{position:relative}
+.code-field .code-edit{position:absolute;top:8px;right:8px;height:26px;padding:0 8px;font-size:12px;opacity:0;transition:opacity var(--dur-micro) var(--ease-std)}
+.code-field:hover .code-edit,.code-field .code-edit:focus-visible{opacity:1}
+.mmd{margin:8px 0;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--raised);overflow:auto;text-align:center}
+.mmd svg{max-width:100%;height:auto}
+.tp-desc-view{position:relative}
+.tp-desc-view .code-edit{position:absolute;top:0;right:0;height:26px;padding:0 8px;font-size:12px;opacity:0;transition:opacity var(--dur-micro) var(--ease-std)}
+.tp-desc-view:hover .code-edit,.tp-desc-view .code-edit:focus-visible{opacity:1}
+.rt-lang{height:26px;margin-left:6px;padding:0 6px;border-radius:6px;border:1px solid var(--border-2);background:var(--raised);color:var(--text-2);font:inherit;font-size:12px}
+
+/* Whiteboard (Excalidraw) */
+.wb{position:fixed;inset:0;z-index:95;display:flex;flex-direction:column;background:var(--panel)}
+.wb-loading{align-items:center;justify-content:center}
+.wb-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--menu)}
+.wb-name{flex:0 1 320px;min-width:0;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--border-2);background:var(--raised);color:var(--text);font:inherit}
+.wb-canvas{flex:1;min-height:0}
+.wb-canvas .excalidraw{--color-primary:var(--accent)}
+.wb-new{margin-top:8px}
+.wb-open{height:22px;padding:0 8px;font-size:11.5px;gap:4px}
+.wb-top .sp{flex:1}

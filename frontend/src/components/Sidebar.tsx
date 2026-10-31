@@ -39,7 +39,7 @@ function NavItem({ href, active, label, icon, count, alert, style }: {
   return <Tip label={label} side="right" disabled>
     <a className={'ni' + (active ? ' active' : '')} href={href} style={style} aria-current={active ? 'page' : undefined} aria-label={alert && n ? `${label}, ${n} new` : undefined}>
       {active && <m.span layoutId="nav-active" className="ni-bg" transition={indicatorTransition} />}
-      <span className="ni-ic">{alert && n ? <CountBadge variant="count" count={n} max={99} ping className="ni-badge">{icon}</CountBadge> : icon}</span>
+      <span className="ni-ic">{alert && n ? <CountBadge variant="count" count={n} max={99} className="ni-badge">{icon}</CountBadge> : icon}</span>
       <span className="lbl">{label}</span>
       {count && !alert ? <span className="c num">{count}</span> : null}</a></Tip>;
 }
@@ -99,6 +99,7 @@ export function Sidebar({ route }: { route: string }) {
           {nav('list/active', 'My tickets', <Icon name="my" />, active)}
           {nav('timesheet', 'Timesheet', <Icon name="clock" />)}
           {nav('calendar', 'Calendar', <Icon name="cal" />)}
+          {nav('timeline', 'Timeline', <Icon name="gantt" />)}
           {nav('insights', 'Insights', <Icon name="chart" />)}
         </nav>
         {g('sap', 'SAP work', <>

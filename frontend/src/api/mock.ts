@@ -1,7 +1,7 @@
 // In-browser stand-in for ZUI_DD_O4, used by `npm run dev` until the SAP service is active.
 // Behaves like the RAP BO: defaults on create, setStatus writes events, timer rounds to 0.25 h,
 // checklist from value list CHECKCAT, TK- numbers. Data is kept in localStorage.
-import type { Api, Article, ChildNav, ChildSet, NewTicket, Phase, Project, RootSet, Status, SubSet, TechObject, Ticket, TicketEvent, Transport, ValueItem, Worklog } from './types';
+import type { Api, Article, ChildNav, ChildSet, NewTicket, Phase, Project, RootSet, Status, SubSet, TechObject, Ticket, TicketEvent, TicketLink, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY, SUB_NAV } from './types';
 import { localTemplates } from '../lib/templates';
 
@@ -40,7 +40,7 @@ export const VALUES: ValueItem[] = [
   v('DEPKIND', 'USES', 'uses', 1), v('DEPKIND', 'EXPOSES', 'exposes', 2), v('DEPKIND', 'CALLS', 'calls', 3),
 ];
 
-interface Db { seq: number; tickets: Ticket[]; kbSeq: number; transports: Transport[]; objects: TechObject[]; articles: Article[] }
+interface Db { seq: number; tickets: Ticket[]; kbSeq: number; transports: Transport[]; objects: TechObject[]; articles: Article[]; links?: TicketLink[] }
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
 const isoDate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
@@ -389,6 +389,14 @@ export const mockApi: Api = {
     return new Blob([Uint8Array.from(bin, c => c.charCodeAt(0))], { type: String(item.MimeType) });
   },
   listObjectLinks: () => delay(db.tickets.flatMap(t => t._ObjectLink ?? [])),
+  listTicketLinks: () => delay(db.links ?? []),
+  async addTicketLink(from, to) {
+    if (from === to) throw new Error('A ticket cannot depend on itself');
+    if ((db.links ?? []).some(l => l.FromTicket === from && l.ToTicket === to)) throw new Error('These tickets are already linked');
+    const l: TicketLink = { LinkUUID: uuid(), FromTicket: from, ToTicket: to };
+    db.links = [...(db.links ?? []), l]; save(); return delay(l);
+  },
+  async deleteTicketLink(id) { db.links = (db.links ?? []).filter(l => l.LinkUUID !== id); save(); await delay(0) },
   listTemplates: localTemplates.list,
   saveTemplate: localTemplates.save,
   deleteTemplate: localTemplates.remove,

@@ -18,6 +18,17 @@ type Tab = 'overview' | 'tests' | 'sap' | 'activity';
 const NEXT_RESULT: Record<string, TestCase['TestResult']> = { OPEN: 'PASS', PASS: 'FAIL', FAIL: 'OPEN' };
 const CHECK_LABEL: Record<string, string> = { UNIT: 'Unit test', INTEG: 'Integration', AUTH: 'Authorization', ERROR: 'Error handling', PERF: 'Performance', TRANSPORT: 'Transport readiness', OTHER: 'Other' };
 
+/** Description: with code blocks it opens as a read view (Shiki colours, Mermaid diagrams) and switches to the editor on Edit */
+function Description({ value, onSave }: { value: string; onSave(v: string): void }) {
+  const hasCode = /<pre[s>]/i.test(value);
+  const [edit, setEdit] = useState(!hasCode);
+  useEffect(() => { if (!/<pre[s>]/i.test(value)) setEdit(true) }, [value]);
+  if (!edit) return <div className="tp-desc-rich tp-desc-view"><RichView value={value} />
+    <button className="btn code-edit" onClick={() => setEdit(true)}><Icon name="edit" size={13} />Edit</button></div>;
+  return <div className="tp-desc-rich"><RichEditor value={value} placeholder="Add description… (```abap or ```mermaid starts a code block or diagram)"
+    onSave={v => { onSave(v); if (/<pre[s>]/i.test(v)) setEdit(false) }} /></div>;
+}
+
 export function TicketPage({ ticketId }: { ticketId: string }) {
   const s = useStore();
   const menu = useMenu();
@@ -106,9 +117,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           <h1 className="tp-title" contentEditable suppressContentEditableWarning spellCheck={false} key={'t' + t.etag}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() } }}
             onBlur={e => { const v = e.currentTarget.innerText.trim(); if (v && v !== t.Title) patch({ Title: v }) }}>{t.Title}</h1>
-          <div className="tp-desc-rich">
-            <RichEditor key={t.TicketUUID} value={t.Description ?? ''} placeholder="Add description… (code blocks for ABAP, task lists, links)"
-              onSave={v => patch({ Description: v })} /></div>
+          <Description key={t.TicketUUID} value={t.Description ?? ''} onSave={v => patch({ Description: v })} />
 
           <div className="tp-tabs">
             {([['overview', 'Overview'], ['tests', <>Tests &amp; checklist <span className="muted num">{passed}/{tests.length} · {done}/{chk.length}</span></>],
@@ -157,6 +166,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           {prop('Status', <button className="pv" data-f="status" onClick={e => menu(e.currentTarget, menus.status(t), v => setStatus(v as Status))}><StatusIcon status={t.Status} />{s.text('STATUS', t.Status)}</button>)}
           {prop('Priority', <button className="pv" data-f="Priority" onClick={field('Priority')}><PriorityIcon priority={t.Priority} />{PRIORITY_NAME[t.Priority]}</button>)}
           {prop('Assignee', <label className="pv"><Avatar name={t.Assignee} size={18} /><input defaultValue={t.Assignee} key={'a' + t.etag} onBlur={e => { const v = e.target.value.trim().toUpperCase(); if (v !== t.Assignee) patch({ Assignee: v }) }} /></label>)}
+          {api.listTicketLinks && prop('Planned start', <DuePicker value={t.PlannedStart ?? null} onChange={v => patch({ PlannedStart: v })} />)}
           {prop('Due date', <DuePicker value={t.DueDate} onChange={v => patch({ DueDate: v })} />)}
           {prop('', <span style={{ paddingLeft: 8 }}><Due t={t} /></span>)}
           <div className="h">Classification</div>

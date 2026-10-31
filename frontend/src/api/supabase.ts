@@ -3,7 +3,7 @@
 // (ticket/article numbers, LastChangedAt, status events, timer rounding, transport phase) – see supabase/migrations.
 // Row level security returns only the signed-in user's rows, and only after the 2-step code.
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { Api, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketTemplate, Transport, ValueItem, Worklog } from './types';
+import type { Api, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketLink, TicketTemplate, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY } from './types';
 import { sb } from '../lib/supabase';
 
@@ -217,6 +217,10 @@ export const supabaseApi: Api = {
   async leaveProject(project) { await run(sb().rpc('leave_project', { p_key: project })) },
   // before the people migration has run: nobody to show
   async projectPeople(project) { const r = await sb().rpc('project_people', { p_key: project }); return r.error ? [] : (r.data ?? []) },
+  // before the planning migration has run there is no table: no dependencies to show
+  async listTicketLinks() { const r = await sb().from('ticket_links').select('"LinkUUID","FromTicket","ToTicket"'); return r.error ? [] : (r.data as TicketLink[]) },
+  addTicketLink: async (from, to) => (await run(sb().from('ticket_links').insert({ FromTicket: from, ToTicket: to }).select('"LinkUUID","FromTicket","ToTicket"').single())) as TicketLink,
+  async deleteTicketLink(id) { await run(sb().from('ticket_links').delete().eq('LinkUUID', id)) },
   listTemplates: async () => cleanAll<TicketTemplate>(await run(sb().from('ticket_templates').select('"TemplateUUID","Name","Data"').order('Name'))),
   async saveTemplate(Name, Data) {
     const row = await run(sb().from('ticket_templates').upsert({ Name, Data }, { onConflict: 'user_id,name_key' }).select('"TemplateUUID","Name","Data"').single());

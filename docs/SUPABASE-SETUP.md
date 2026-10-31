@@ -255,3 +255,21 @@ Reuses the Google OAuth client from step 4.
    on the server; **Hold to disconnect** removes it at Google too.
 
 Outlook / Apple calendars: **Account → Calendar → Use a calendar link instead** and paste the published ICS link.
+
+## 17. Timeline planning (planned start and dependencies)
+
+**SQL Editor → New query**: run `supabase/migrations/20261108000000_planning.sql`. Until then the Timeline works
+without planned start dates and dependencies. With the SAP backend they need new fields in the SAP tables first.
+
+## 18. Google sign-in screen (Branding)
+
+Google Cloud → Google Auth Platform → **Branding**: app name `SLATE·SPACE`, support email, then under App domain:
+
+| Field | Value |
+|---|---|
+| Application home page | `https://slatespace-32m.pages.dev` |
+| Application privacy policy link | `https://slatespace-32m.pages.dev/privacy.html` |
+| Application terms of service link | `https://slatespace-32m.pages.dev/terms.html` |
+| Authorized domains | `slatespace-32m.pages.dev` and `supabase.co` |
+
+Leave the logo empty: uploading one makes Google require a full verification. Then **Audience → Publish app**.

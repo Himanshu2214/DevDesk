@@ -112,3 +112,17 @@ describe('outsiders and leaving', () => {
     expect(await t.rows('select 1 from tickets_v where "TicketUUID" = $1', [shared])).toEqual([]);
   });
 });
+
+describe('timeline dependencies', () => {
+  it('link tickets you can see; others see nothing', async () => {
+    await t.as(OWNER, SO);
+    const ids = (await t.rows<{ TicketUUID: string }>(`select "TicketUUID" from tickets where user_id = $1 order by "TicketNo" limit 2`, [OWNER])).map(r => r.TicketUUID);
+    await t.db.query(`insert into ticket_links ("FromTicket","ToTicket") values ($1, $2)`, [ids[0], ids[1]]);
+    await expect(t.db.query(`insert into ticket_links ("FromTicket","ToTicket") values ($1, $1)`, [ids[0]])).rejects.toThrow();
+    await t.db.query(`update tickets set "PlannedStart" = current_date where "TicketUUID" = $1`, [ids[0]]);
+    expect(await t.one(`select "PlannedStart" is not null as ok from tickets_v where "TicketUUID" = $1`, [ids[0]])).toEqual({ ok: true });
+    await t.as(OUTSIDER, SX);
+    expect(await t.rows('select 1 from ticket_links')).toEqual([]);
+    await expect(t.db.query(`insert into ticket_links ("FromTicket","ToTicket") values ($1, $2)`, [ids[1], ids[0]])).rejects.toThrow(/row-level security/);
+  });
+});

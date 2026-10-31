@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { AnimatePresence, LazyMotion, MotionConfig, domMax, m } from 'motion/react';
 import { toastMotion } from './lib/motion';
 import { Icon } from './components/Icons';
@@ -20,6 +20,8 @@ import { Transports } from './views/Transports';
 import { Objects } from './views/Objects';
 import { Knowledge } from './views/Knowledge';
 import { Insights } from './views/Insights';
+// the Gantt library (Timeline) loads only when the page is opened
+const Timeline = lazy(() => import('./views/Timeline').then(m => ({ default: m.Timeline })));
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
 import GravityStars from './components/smoothui/gravity-stars';
@@ -47,6 +49,7 @@ function Router({ route }: { route: string }) {
     case 'objects': return <Objects route={route} />;
     case 'kb': return <Knowledge route={route} />;
     case 'insights': return <Insights />;
+    case 'timeline': return <Suspense fallback={<Page crumb={<b>Timeline</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>}><Timeline /></Suspense>;
     default: return <Placeholder route={head} />;
   }
 }

@@ -9,6 +9,7 @@ import { Icon, StatusIcon } from '../components/Icons';
 import { Empty, go, isTyping, Page, useMenu } from '../components/ui';
 import { Area, Line, ObjType, usePickers } from '../components/p2';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { CodeView, mermaidBlocks } from '../components/CodeView';
 
 const TYPES: [ArticleType, string][] = [['SNIP', 'book'], ['FIX', 'bug'], ['API', 'link'], ['CONF', 'tag'], ['DECI', 'graph']];
 const typeIcon = (t: string) => <Icon name={TYPES.find(k => k[0] === t)?.[1] ?? 'book'} size={14} />;
@@ -24,6 +25,15 @@ const FIELDS: Record<ArticleType, Field[]> = {
 const textOf = (a: Article) => [a.ArticleId, a.Title, a.Tags, ...Object.values(FIELDS).flat().map(([f]) => String(a[f] ?? ''))].join(' ').toLowerCase();
 const excerpt = (a: Article) => a.ErrorText || a.NoteText || (a.Endpoint ? `${a.HttpMethod} ${a.Endpoint}` : '') || a.ContextText || a.StepsText.split('\n').join(' · ') || a.CodeText || '';
 export const tagsOf = (a: Article) => a.Tags.split(',').map(t => t.trim()).filter(Boolean);
+
+
+/** Code field: highlighted (Shiki) or drawn (Mermaid) when not editing; click Edit to change it */
+function CodeField({ value, lang, onSave }: { value: string; lang: string; onSave(v: string): void }) {
+  const [edit, setEdit] = useState(!value.trim());
+  if (edit) return <Area value={value} mono rows={8} placeholder="Add…" onSave={v => { onSave(v); if (v.trim()) setEdit(false) }} />;
+  return <div className="code-field"><CodeView code={value} lang={lang} />
+    <button className="btn code-edit" onClick={() => setEdit(true)}><Icon name="edit" size={13} />Edit</button></div>;
+}
 
 export function Knowledge({ route }: { route: string }) {
   const id = route.split('/')[1];
@@ -118,7 +128,9 @@ function ArticlePage({ uuid }: { uuid: string }) {
           <div className="f"><h5>Tags</h5><Line value={a.Tags} placeholder="comma separated, e.g. rap, dump" onSave={v => upd({ Tags: v.split(',').map(t => t.trim().toLowerCase()).filter(Boolean).join(',') })} /></div>
           {FIELDS[a.ArticleType].map(([f, label, kind]) => <div className="f" key={f}><h5>{label}</h5>
             {kind === 'line' ? <Line value={String(a[f] ?? '')} upper={f === 'HttpMethod'} mono={f === 'Endpoint'} onSave={v => upd({ [f]: v })} placeholder="Add…" />
-              : <Area value={String(a[f] ?? '')} mono={kind === 'code'} rows={kind === 'code' ? 8 : 3} onSave={v => upd({ [f]: v })} placeholder="Add…" />}</div>)}
+              : kind === 'code' ? <CodeField key={f + a.etag} value={String(a[f] ?? '')} lang={f === 'CodeText' ? a.CodeLang : /Body$/.test(f) ? 'json' : ''} onSave={v => upd({ [f]: v })} />
+              : <><Area value={String(a[f] ?? '')} rows={3} onSave={v => upd({ [f]: v })} placeholder="Add…" />
+                {mermaidBlocks(String(a[f] ?? '')).map((m, i) => <CodeView key={i} code={m} lang="mermaid" />)}</>}</div>)}
         </div>
         <div className="tp-sec"><h4>Linked tickets<span className="c">{tickets.length}</span></h4>
           <div className="sub">{tickets.map(({ l, t }) => <div className="it" key={l.LinkUUID}>

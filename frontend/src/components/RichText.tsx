@@ -1,6 +1,6 @@
 // Rich text (Tiptap) for ticket descriptions and comments. Stored as HTML in the STRING fields;
 // older plain-text values are converted on the fly. Everything shown is sanitised with DOMPurify.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -9,6 +9,7 @@ import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import DOMPurify from 'dompurify';
+import { enhanceCode } from '../lib/code';
 
 const isHtml = (v: string) => /^\s*<(p|h[1-6]|ul|ol|pre|blockquote|div)[\s>]/i.test(v);
 const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -16,10 +17,16 @@ const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export const toHtml = (v: string) => (!v ? '' : isHtml(v) ? v : v.split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join(''));
 const clean = (html: string) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 const isEmpty = (e: Editor) => e.isEmpty || e.getText().trim() === '';
+const CODE_LANGS: [string, string][] = [['', 'Plain'], ['abap', 'ABAP'], ['mermaid', 'Mermaid diagram'], ['json', 'JSON'], ['sql', 'SQL'], ['xml', 'XML'], ['javascript', 'JavaScript'], ['typescript', 'TypeScript'], ['http', 'HTTP'], ['yaml', 'YAML'], ['shellscript', 'Shell']];
 
 /** Read-only display */
 export function RichView({ value }: { value: string }) {
-  return <div className="rt rt-view" dangerouslySetInnerHTML={{ __html: clean(toHtml(value)) }} />;
+  // code blocks get Shiki colours, ```mermaid blocks become diagrams (re-drawn when the theme changes)
+  const ref = useRef<HTMLDivElement>(null);
+  const [theme, setTheme] = useState(0);
+  useEffect(() => { const on = () => setTheme(t => t + 1); addEventListener('devdesk-theme', on); return () => removeEventListener('devdesk-theme', on) }, []);
+  useEffect(() => { if (ref.current?.querySelector('pre > code')) enhanceCode(ref.current) }, [value, theme]);
+  return <div key={theme} ref={ref} className="rt rt-view" dangerouslySetInnerHTML={{ __html: clean(toHtml(value)) }} />;
 }
 
 interface EditorProps {
@@ -78,7 +85,10 @@ export function RichEditor({ value, placeholder, onSave, onSubmit, submitLabel =
         {btn('•', 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
         {btn('1.', 'Numbered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
         {btn('☑', 'Task list', editor.isActive('taskList'), () => editor.chain().focus().toggleTaskList().run())}
-        {btn('{ }', 'Code block – for ABAP snippets', editor.isActive('codeBlock'), () => editor.chain().focus().toggleCodeBlock().run())}
+        {btn('{ }', 'Code block – for ABAP snippets and Mermaid diagrams', editor.isActive('codeBlock'), () => editor.chain().focus().toggleCodeBlock().run())}
+        {editor.isActive('codeBlock') && <select className="rt-lang" aria-label="Code language" value={String(editor.getAttributes('codeBlock').language ?? '')}
+          onMouseDown={e => e.stopPropagation()} onChange={e => editor.chain().focus().updateAttributes('codeBlock', { language: e.target.value || null }).run()}>
+          {CODE_LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
         {btn('🔗', 'Link', editor.isActive('link'), () => {
           const prev = editor.getAttributes('link').href as string | undefined;
           const url = prompt('Link URL', prev ?? 'https://');

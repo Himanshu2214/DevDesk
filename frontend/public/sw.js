@@ -2,7 +2,7 @@
 // The page itself is fetched from the network first (so a new version shows up on the next start) and falls back to the
 // cached copy when offline; the hashed build files never change, so they are served from the cache once loaded.
 // Supabase (data, sign-in) and Cloudflare (bot check) are other origins and are never touched here.
-const CACHE = 'slate-space-v1';
+const CACHE = 'slate-space-v2';
 const SHELL = ['./', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {

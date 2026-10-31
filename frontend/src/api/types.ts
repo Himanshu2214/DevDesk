@@ -76,6 +76,8 @@ export interface Ticket {
   Requester: string;
   Reference: string;
   DueDate: string | null;     // YYYY-MM-DD
+  /** planned start (Timeline); standalone and sample-data mode only */
+  PlannedStart?: string | null;
   EstimateHours: number;
   LoggedHours: number;
   StatusChangedAt: string | null;
@@ -111,6 +113,9 @@ export interface NewTicket {
 
 /** What changed, for live updates: ticket data (incl. work log, notes, …), transports/objects/articles, or templates */
 export type LiveArea = 'tickets' | 'p2' | 'templates';
+
+/** Timeline dependency: FromTicket must finish before ToTicket starts */
+export interface TicketLink { LinkUUID: string; FromTicket: string; ToTicket: string }
 
 /** Prefilled new-ticket form; DueDays = due date as days from the day the ticket is created */
 export type TemplateData = Partial<Omit<NewTicket, 'acceptance' | 'DueDate' | 'Reference'>> & { DueDays?: number | null; acceptance?: string[] };
@@ -175,6 +180,11 @@ export interface Api {
   leaveProject?(project: string): Promise<void>;
   /** everyone on a shared project (owner first) – for the avatar group */
   projectPeople?(project: string): Promise<{ name: string; email: string; is_owner: boolean; photo: string }[]>;
+
+  /** Timeline dependencies – not in SAP mode (the SAP tables have no place for them yet) */
+  listTicketLinks?(): Promise<TicketLink[]>;
+  addTicketLink?(from: string, to: string): Promise<TicketLink>;
+  deleteTicketLink?(id: string): Promise<void>;
 
   // ticket templates (your own; starters are built into the app). Same name = overwrite.
   listTemplates(): Promise<TicketTemplate[]>;

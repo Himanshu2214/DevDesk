@@ -1,5 +1,6 @@
 // Ticket tab "SAP & files": changed objects, transports, attachments and knowledge articles of one ticket.
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api';
 import type { Attachment, ChangeKind, Ticket } from '../api';
 import { useArticles, useObjects, useStore, useTransports } from '../store';
@@ -8,6 +9,9 @@ import { Icon } from '../components/Icons';
 import { go, useMenu } from '../components/ui';
 import { attachFiles, fmtBytes, Line, ObjType, saveBlob, trEdge, trState, usePickers } from '../components/p2';
 import { ConfirmButton } from '../components/ConfirmButton';
+
+// the whiteboard (Excalidraw, ~2 MB) loads only when a drawing is opened
+const Whiteboard = lazy(() => import('../components/Whiteboard'));
 
 const KINDS: [ChangeKind, string][] = [['CHANGE', 'changed'], ['NEW', 'new'], ['CHECK', 'checked only']];
 
@@ -27,6 +31,20 @@ export function TicketSap({ t }: { t: Ticket }) {
   const kbs = articles.filter(a => a._Link.some(l => l.TicketUUID === t.TicketUUID));
 
   const upload = (list: FileList | null) => attachFiles(s, t, Array.from(list ?? []));
+  // whiteboard: a new drawing, or an existing .excalidraw attachment (its .png preview is replaced together with it)
+  const [board, setBoard] = useState<{ name: string; scene: string | null; old: Attachment[] } | null>(null);
+  const openBoard = async (f?: Attachment) => {
+    if (!f) return setBoard({ name: `${t.TicketId} drawing`, scene: null, old: [] });
+    try {
+      const scene = await (await api.downloadAttachment(f)).text();
+      const base = f.FileName.replace(/.excalidraw$/i, '');
+      setBoard({ name: base, scene, old: [f, ...files.filter(x => x.FileName === base + '.png')] });
+    } catch (e) { s.toast((e as Error).message, true) }
+  };
+  const saveBoard = async (newFiles: File[]) => {
+    for (const f of board?.old ?? []) await s.run(() => api.deleteChild('Attachment', f as never), { uuids });
+    await attachFiles(s, t, newFiles);
+  };
   async function download(a: Attachment) {
     try { saveBlob(await api.downloadAttachment(a), a.FileName) } catch (e) { s.toast((e as Error).message, true) }
   }
@@ -65,7 +83,8 @@ export function TicketSap({ t }: { t: Ticket }) {
     <div className="tp-sec"><h4><Icon name="file" size={14} />Attachments<span className="c">{files.length}</span></h4>
       <div className="files" style={{ marginTop: 6 }}>
         {files.map(f => <div className="file" key={f.AttUUID}><Icon name="file" size={14} style={{ color: 'var(--muted)' }} />
-          <a onClick={() => download(f)} title={`Download · ${f.MimeType}`}>{f.FileName}</a><span className="muted num" style={{ fontSize: 12 }}>{fmtBytes(f.FileSize)} · {ago(f.CreatedAt)}</span>
+          <a onClick={() => download(f)} title={`Download · ${f.MimeType}`}>{f.FileName}</a>
+          {/.excalidraw$/i.test(f.FileName) && <button className="btn wb-open" onClick={() => openBoard(f)}><Icon name="edit" size={12} />Open</button>}<span className="muted num" style={{ fontSize: 12 }}>{fmtBytes(f.FileSize)} · {ago(f.CreatedAt)}</span>
           <ConfirmButton className="file-x" label={'Delete ' + f.FileName} onConfirm={() => s.run(() => api.deleteChild('Attachment', f as never), { uuids })}>×</ConfirmButton></div>)}
         <div className={'dropz' + (drag ? ' on' : '')} role="button" tabIndex={0} style={{ cursor: 'pointer' }}
           onClick={() => fileInput.current?.click()} onKeyDown={e => { if (e.key === 'Enter') fileInput.current?.click() }}
@@ -73,7 +92,11 @@ export function TicketSap({ t }: { t: Ticket }) {
           onDrop={e => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files) }}>
           <Icon name="upload" size={14} /> Drop files, click, or paste a screenshot (Ctrl+V) – max. 10 MB</div>
         <input ref={fileInput} type="file" multiple hidden onChange={e => { upload(e.target.files); e.target.value = '' }} />
+        <button className="btn wb-new" onClick={() => openBoard()}><Icon name="edit" size={14} />Draw on a whiteboard</button>
       </div></div>
+    {/* on <body>: the page transition wrapper would otherwise trap the full-screen layer inside the page panel */}
+    {board && createPortal(<Suspense fallback={<div className="wb wb-loading"><span className="muted">Loading the whiteboard…</span></div>}>
+      <Whiteboard name={board.name} scene={board.scene} onSave={saveBoard} onClose={() => setBoard(null)} /></Suspense>, document.body)}
 
     <div className="tp-sec"><h4><Icon name="book" size={14} />Knowledge<span className="c">{kbs.length}</span></h4>
       <div className="sub">{kbs.map(a => <a className="it" key={a.ArticleUUID} href={'#kb/' + a.ArticleUUID}><Icon name="book" size={14} /><span>{a.Title}</span><span className="sp" />
