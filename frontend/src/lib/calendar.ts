@@ -33,4 +33,5 @@ export const CALENDAR_RESULT: Record<string, [string, boolean]> = {
   noscope: ['Google Calendar was not connected: tick the calendar permission on the Google screen.', true],
   expired: ['The Google connection took too long. Try again.', true],
   failed: ['Google Calendar could not be connected. Try again.', true],
+  secret: ['Google refused the client secret – set GOOGLE_CLIENT_SECRET to the Google client secret again (setup guide, step 16).', true],
 };

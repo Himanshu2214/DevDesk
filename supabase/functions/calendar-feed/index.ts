@@ -86,11 +86,16 @@ async function callback(req: Request): Promise<Response> {
   if (!st || Date.now() - Date.parse(st.created_at) > STATE_TTL_MS) return back('expired');
   if (p.get('error') || !p.get('code')) return back('denied');
   const t = await tokenRequest({ grant_type: 'authorization_code', code: p.get('code')!, redirect_uri: redirectUri() });
-  if (!t.ok || !t.body.refresh_token) return back('failed');
+  if (!t.ok) {
+    console.error('calendar-feed token exchange', t.body.error, t.body.error_description);
+    return back(t.body.error === 'invalid_client' || t.body.error === 'unauthorized_client' ? 'secret' : 'failed');
+  }
+  if (!t.body.refresh_token) return back('failed');
   if (!(t.body.scope ?? '').includes('calendar.events')) return back('noscope');        // the calendar box was unticked
   let email = '';
   try { email = JSON.parse(atob(t.body.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).email ?? '' } catch { /* optional */ }
   const { error } = await db.from('calendar_tokens').upsert({ user_id: st.user_id, google_email: email, refresh_token: await seal(t.body.refresh_token), connected_at: new Date().toISOString() });
+  if (error) console.error('calendar-feed store', error.message);
   return back(error ? 'failed' : 'connected');
 }
 

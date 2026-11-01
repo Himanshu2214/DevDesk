@@ -296,7 +296,7 @@ function DangerZone({ email }: { email: string }) {
     if (error) {
       const ctx = (error as { context?: Response }).context;
       const msg = ctx?.status === 404 ? 'Account deletion is not set up yet: deploy the delete-account function (setup guide).' : (await ctx?.json().catch(() => null))?.error;
-      setBusy(false); return s.toast(msg || 'The account could not be deleted. Try again.', true);
+      setBusy(false); return s.toast(msg || `The account could not be deleted (error ${ctx?.status ?? 'network'}). Try again.`, true);
     }
     await sb().auth.signOut({ scope: 'local' });
     location.reload();

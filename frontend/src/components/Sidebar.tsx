@@ -114,7 +114,7 @@ export function Sidebar({ route }: { route: string }) {
           s.tickets.filter(t => t.Project === p.Project && isOpen(t)).length || '')))}
       </m.div>
       <div className="side-foot">
-        <ThemeToggle variant="sun-moon" size="sm" theme={light ? 'light' : 'dark'} onThemeChange={setMode} className="side-theme" />
+        <ThemeToggle variant="sun-moon" size="sm" showSystem={false} theme={light ? 'light' : 'dark'} onThemeChange={setMode} className="side-theme" />
         <span className="sp" />
         <Tip label={(pinned ? 'Unpin – open on hover' : 'Keep sidebar open') + ' · Ctrl \\'} side={collapsed ? 'right' : 'top'}>
           <button className="ib collapse-btn" aria-label={pinned ? 'Unpin sidebar' : 'Keep sidebar open'} aria-pressed={pinned} onClick={toggleCollapsed}>
