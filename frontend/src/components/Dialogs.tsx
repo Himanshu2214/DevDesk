@@ -164,7 +164,7 @@ function LogTimeDialog({ ticketUUID, close }: { ticketUUID: string | null; close
   const [date, setDate] = useState(isoDate(new Date()));
   const [hours, setHours] = useState('1');
   const [activity, setActivity] = useState('CODE');
-  const activities = s.values.filter(v => v.ListType === 'ACTIVITY').map(v => ({ value: v.Code, label: v.Text, icon: <Dot color={v.Color || 'var(--muted)'} /> }));
+  const activities = s.values.filter(v => v.ListType === 'ACTIVITY' && v.IsActive !== false).map(v => ({ value: v.Code, label: v.Text, icon: <Dot color={v.Color || 'var(--muted)'} /> }));
   const [comment, setComment] = useState('');
   async function save() {
     const t = s.tickets.find(x => x.TicketUUID === id); const h = Number(hours);
@@ -197,7 +197,7 @@ function StopTimerDialog({ ticket, close }: { ticket: Ticket; close(): void }) {
   const long = elapsed > TIMER_WARN_H;
   const [hours, setHours] = useState(String(long ? 1 : quarter(elapsed)));
   const [activity, setActivity] = useState(ticket.Status === 'TEST' ? 'TEST' : ticket.Status === 'TODO' ? 'ANA' : 'CODE');
-  const activities = s.values.filter(v => v.ListType === 'ACTIVITY').map(v => ({ value: v.Code, label: v.Text, icon: <Dot color={v.Color || 'var(--muted)'} /> }));
+  const activities = s.values.filter(v => v.ListType === 'ACTIVITY' && v.IsActive !== false).map(v => ({ value: v.Code, label: v.Text, icon: <Dot color={v.Color || 'var(--muted)'} /> }));
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const fmt = (h: number) => (h >= 48 ? `${Math.floor(h / 24)} days ${Math.round(h % 24)} h` : `${Math.floor(h)} h ${Math.round((h % 1) * 60)} min`);

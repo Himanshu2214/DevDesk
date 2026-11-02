@@ -24,6 +24,7 @@ const Objects = lazy(() => import('./views/Objects').then(m => ({ default: m.Obj
 const Knowledge = lazy(() => import('./views/Knowledge').then(m => ({ default: m.Knowledge })));
 const Account = lazy(() => import('./views/Account').then(m => ({ default: m.Account })));
 const Approve = lazy(() => import('./views/Approve').then(m => ({ default: m.Approve })));
+const Lists = lazy(() => import('./views/Lists').then(m => ({ default: m.Lists })));
 /** placeholder while a lazy page loads (usually a moment, once per visit) */
 const Loading = ({ title }: { title: string }) => <Page crumb={<b>{title}</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>;
 import { api } from './api';
@@ -49,6 +50,7 @@ function Router({ route }: { route: string }) {
     case 'timesheet': return <Timesheet />;
     case 'calendar': return <Suspense fallback={<Loading title="Calendar" />}><CalendarPage /></Suspense>;
     case 'account': return <Suspense fallback={<Loading title="Account" />}><Account /></Suspense>;
+    case 'lists': return <Suspense fallback={<Loading title="Lists" />}><Lists /></Suspense>;
     case 'approve': return <Suspense fallback={<Loading title="Sign-in request" />}><Approve /></Suspense>;
     case 'transports': return <Suspense fallback={<Loading title="Transports" />}><Transports route={route} /></Suspense>;
     case 'objects': return <Suspense fallback={<Loading title="Objects" />}><Objects route={route} /></Suspense>;

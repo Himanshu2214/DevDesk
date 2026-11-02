@@ -3,7 +3,7 @@
 // (ticket/article numbers, LastChangedAt, status events, timer rounding, transport phase) – see supabase/migrations.
 // Row level security returns only the signed-in user's rows, and only after the 2-step code.
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { Api, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketLink, TicketTemplate, Transport, ValueItem, Worklog } from './types';
+import type { Api, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketChange, TicketLink, TicketTemplate, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY } from './types';
 import { sb } from '../lib/supabase';
 
@@ -54,7 +54,7 @@ const conflict = () => Object.assign(new Error('Someone (or another tab) changed
 const clean = <T,>(r: Row): T => { const { user_id: _u, ...rest } = r; return { ...rest, ...(rest.LastChangedAt ? { etag: String(rest.LastChangedAt) } : {}) } as T };
 const cleanAll = <T,>(rows: Row[] | null): T[] => (rows ?? []).map(r => clean<T>(r));
 /** Only real columns go to the database: no navigation, derived or bookkeeping fields */
-const DERIVED = new Set(['etag', 'user_id', 'ProjectName', 'LoggedHours', 'IsOverdue', 'Phase', 'TicketNo', 'TicketId', 'ArticleNo', 'ArticleId', 'CreatedAt', 'LastChangedAt', 'SharedBy', 'SharedVia', 'Shares']);
+const DERIVED = new Set(['etag', 'user_id', 'ProjectName', 'LoggedHours', 'IsOverdue', 'Phase', 'TicketNo', 'TicketId', 'ArticleNo', 'ArticleId', 'CreatedAt', 'LastChangedAt', 'SharedBy', 'SharedVia', 'Shares', 'Access', 'ChangedByOthers']);
 const columns = (p: Row): Row => Object.fromEntries(Object.entries(p).filter(([k, v]) => !k.startsWith('_') && !DERIVED.has(k) && v !== undefined));
 
 let me = '';
@@ -107,6 +107,7 @@ export const supabaseApi: Api = {
     return cleanAll<Project>(await run(sb().from('projects').select('*').order('SortOrder')));
   },
   listValues: async () => cleanAll<ValueItem>(await run(sb().from('value_items').select('*').order('ListType').order('SortOrder'))),
+  async saveValue(v) { await run(sb().from('value_items').upsert({ ListType: v.ListType, Code: v.Code, Text: v.Text, SortOrder: v.SortOrder, Color: v.Color, WipLimit: v.WipLimit, IsActive: v.IsActive }, { onConflict: 'user_id,ListType,Code' })) },
   listTickets: async () => cleanAll<Ticket>(await run(sb().from('tickets_v').select('*').order('TicketNo', { ascending: false }))),
   changedSince: async iso => cleanAll<Ticket>(await run(sb().from('tickets_v').select('*').gt('LastChangedAt', iso))),
   async getTicket(id) {
@@ -211,11 +212,16 @@ export const supabaseApi: Api = {
     ch.subscribe(status => onStatus(status === 'SUBSCRIBED'));
     return () => { onStatus(false); sb().removeChannel(ch) };
   },
-  shareProject: async (project, email) => String(await run(sb().rpc('share_project', { p_project: project, p_email: email }))),
+  shareProject: async (project, email, access = 'edit') => String(await run(sb().rpc('share_project', { p_project: project, p_email: email, p_access: access }))),
+  async setProjectAccess(project, memberId, access) { await run(sb().from('project_shares').update({ Access: access }).eq('Project', project).eq('member_id', memberId)) },
   projectMembers: async project => (await run(sb().rpc('project_members', { p_project: project }))) as ProjectMember[],
   async unshareProject(project, memberId) { await run(sb().from('project_shares').delete().eq('Project', project).eq('member_id', memberId)) },
   async leaveProject(project) { await run(sb().rpc('leave_project', { p_key: project })) },
-  shareTicket: async (id, email) => String(await run(sb().rpc('share_ticket', { p_ticket: id, p_email: email }))),
+  shareTicket: async (id, email, access = 'edit') => String(await run(sb().rpc('share_ticket', { p_ticket: id, p_email: email, p_access: access }))),
+  async setTicketAccess(id, memberId, access) { await run(sb().from('ticket_shares').update({ Access: access }).eq('TicketUUID', id).eq('member_id', memberId)) },
+  ticketChanges: async id => (await run(sb().rpc('ticket_change_list', { p_ticket: id }))) as TicketChange[],
+  async undoTicketChange(id) { await run(sb().rpc('undo_ticket_change', { p_change: id })) },
+  async markTicketSeen(id) { await run(sb().rpc('mark_ticket_seen', { p_ticket: id })) },
   ticketMembers: async id => (await run(sb().rpc('ticket_members', { p_ticket: id }))) as ProjectMember[],
   async unshareTicket(id, memberId) { await run(sb().from('ticket_shares').delete().eq('TicketUUID', id).eq('member_id', memberId)) },
   async leaveTicket(id) { await run(sb().from('ticket_shares').delete().eq('TicketUUID', id).eq('member_id', await uid())) },

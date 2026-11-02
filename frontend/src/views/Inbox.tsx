@@ -14,6 +14,9 @@ export interface InboxItem { key: string; ticket: string; at: string; icon: Reac
 export function inboxItems(s: ReturnType<typeof useStore>, failedTransports: Transport[] = []): InboxItem[] {
   const red = (n: string, c = 'var(--danger)') => <span style={{ color: c, display: 'grid' }}><Icon name={n} size={15} /></span>;
   const pinned: InboxItem[] = [
+    // shared tickets someone else changed or commented on since you last opened them
+    ...s.tickets.filter(t => t.ChangedByOthers).map(t => ({ key: 'ch' + t.TicketUUID, ticket: t.TicketUUID, at: t.LastChangedAt ?? '', icon: <span style={{ color: 'var(--accent)', display: 'grid' }}><Icon name="users" size={15} /></span>,
+      title: `${t.TicketId} ${t.Title}`, pinned: true, read: false, text: t.SharedBy ? `Changed since you last looked · shared by ${t.SharedBy}` : 'Someone you shared it with changed or commented on it' })),
     ...s.tickets.filter(isOverdue).map(t => ({ key: 'od' + t.TicketUUID, ticket: t.TicketUUID, at: t.DueDate ?? '', icon: red('alert'), title: `${t.TicketId} ${t.Title}`, pinned: true, read: true,
       text: `Overdue by ${Math.ceil((today().getTime() - Date.parse(t.DueDate + 'T00:00:00')) / DAY)} days` })),
     ...failedTransports.map(x => ({ key: 'tr' + x.TransportUUID, ticket: x.TicketUUID ?? '', at: x.PrdImportedAt ?? x.QaImportedAt ?? '', icon: red('truck'), pinned: true, read: true,

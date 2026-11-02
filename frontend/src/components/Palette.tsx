@@ -67,6 +67,7 @@ export default function Palette({ close }: { close(): void }) {
             {action('Transports', 'truck', () => go('transports'))}
             {action('Objects', 'cube', () => go('objects'))}
             {action('Knowledge', 'book', () => go('kb'))}
+            {action('Lists: ticket types, areas, tech', 'list', () => go('lists'))}
           </Command.Group>
         </Command.List>
       </Command>

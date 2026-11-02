@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { api } from '../api';
-import type { Project, ProjectMember } from '../api';
+import type { AccessLevel, Project, ProjectMember } from '../api';
 import { useStore } from '../store';
 import { fmtDate } from '../lib/format';
 import { Icon, Spinner } from './Icons';
@@ -12,6 +12,14 @@ import { AvatarGroup } from './AvatarGroup';
 import { useQuery } from '@tanstack/react-query';
 import Input from './smoothui/input';
 import { ConfirmButton } from './ConfirmButton';
+
+export const ACCESS_LABEL: Record<AccessLevel, string> = { view: 'Can view', comment: 'Can comment', edit: 'Can edit' };
+/** the access level picker of the share dialogs (projects and tickets) */
+export function AccessSelect({ value, onChange, label }: { value: AccessLevel; onChange(v: AccessLevel): void; label: string }) {
+  return <select className="acc-sel" value={value} onChange={e => onChange(e.target.value as AccessLevel)} aria-label={label}
+    title="View: read only · Comment: also comments and their own time · Edit: change everything except delete">
+    {(Object.keys(ACCESS_LABEL) as AccessLevel[]).map(k => <option key={k} value={k}>{ACCESS_LABEL[k]}</option>)}</select>;
+}
 
 /** Header of a project page: the people on it (avatar group, when shared) and "Share" / "Shared by …" */
 export function ShareButton({ project }: { project: Project }) {
@@ -30,9 +38,12 @@ export function ShareButton({ project }: { project: Project }) {
 function ShareDialog({ project, close }: { project: Project; close(): void }) {
   const s = useStore();
   const [members, setMembers] = useState<ProjectMember[] | null>(null);
-  const [email, setEmail] = useState(''), [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState(''), [busy, setBusy] = useState(false), [access, setAccess] = useState<AccessLevel>('edit');
   const mine = !project.SharedBy;
   const load = () => api.projectMembers!(project.Project).then(setMembers).catch(e => { setMembers([]); s.toast((e as Error).message, true) });
+  const level = async (m: ProjectMember, v: AccessLevel) => {
+    if (await s.run(() => api.setProjectAccess!(project.Project, m.member_id, v), { ok: `${m.name || m.email}: ${ACCESS_LABEL[v].toLowerCase()}` })) load();
+  };
   useEffect(() => { if (mine) load() }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const add = async (e: React.FormEvent) => {
@@ -40,7 +51,7 @@ function ShareDialog({ project, close }: { project: Project; close(): void }) {
     if (!email.trim() || busy) return;
     setBusy(true);
     let name = '';
-    const ok = await s.run(async () => { name = await api.shareProject!(project.Project, email.trim()) });
+    const ok = await s.run(async () => { name = await api.shareProject!(project.Project, email.trim(), access) });
     setBusy(false);
     if (ok) { s.toast(`${project.Name} shared with ${name || email.trim()}`); setEmail(''); load() }
   };
@@ -56,10 +67,11 @@ function ShareDialog({ project, close }: { project: Project; close(): void }) {
       <div className="top"><Icon name="users" size={15} /><span>{mine ? 'Share' : 'Shared project'} · {project.Name}</span><span className="sp" />
         <button className="ib" onClick={close} aria-label="Close"><Icon name="x" /></button></div>
       {mine ? <div className="share-body">
-        <p className="muted share-note">Members see and edit this project's tickets – with their time, notes, tests, files and transports – and can create tickets in it.
-          Only you can delete tickets. Your other projects stay private.</p>
+        <p className="muted share-note">Members see this project's tickets with their time, notes, tests, files and transports. With <b>Can edit</b> they also change
+          them and create tickets in it; <b>Can comment</b> adds comments and their own time; <b>Can view</b> only reads. Only you can delete tickets. Your other projects stay private.</p>
         <form className="share-add" onSubmit={add}>
           <Input className="ss-input" type="email" placeholder="Their SLATE·SPACE email" autoFocus value={email} onChange={e => setEmail(e.target.value)} aria-label="Email of the person to share with" />
+          <AccessSelect value={access} onChange={setAccess} label="Access for the new person" />
           <button className="btn primary" disabled={!email.trim() || busy} aria-busy={busy}>{busy ? <Spinner /> : <Icon name="plus" size={14} />}Share</button>
         </form>
         <ul className="share-list">
@@ -67,6 +79,7 @@ function ShareDialog({ project, close }: { project: Project; close(): void }) {
             : members.length === 0 ? <li className="muted">Not shared yet. They need a SLATE·SPACE account first.</li>
             : members.map(m => <li key={m.member_id}><Avatar name={m.name || m.email} size={26} />
               <span className="share-who"><b>{m.name || m.email}</b><small>{m.email} · since {fmtDate(m.since)}</small></span>
+              {api.setProjectAccess && <AccessSelect value={m.access ?? 'edit'} onChange={v => level(m, v)} label={`Access for ${m.name || m.email}`} />}
               <ConfirmButton className="btn" label={`Remove ${m.name || m.email}`} onConfirm={() => remove(m)}><Icon name="x" size={13} />Remove</ConfirmButton></li>)}
         </ul>
       </div> : <div className="share-body">

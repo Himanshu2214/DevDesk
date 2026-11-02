@@ -71,14 +71,15 @@ export function MenuSelect({ value, options, onChange, label, id, className = 's
 /** Menu items for the ticket properties; values are the backend codes */
 export function useFieldMenus() {
   const s = useStore();
-  const list = (type: string) => s.values.filter(v => v.ListType === type);
+  // hidden list items (Settings → Lists) are not offered – except the one a ticket already uses
+  const list = (type: string, current = '') => s.values.filter(v => v.ListType === type && (v.IsActive !== false || v.Code === current));
   return {
     status: (t: { Status: Status }): MenuItem[] => STATUS_ORDER.map(k => ({ label: s.text('STATUS', k), value: k, icon: <StatusIcon status={k} />, checked: t.Status === k })),
     Priority: (t: { Priority: string }): MenuItem[] => ['1', '2', '3', '4'].map(p => ({ label: PRIORITY_NAME[p], value: p, icon: <PriorityIcon priority={p} />, checked: t.Priority === p })),
     Project: (t: { Project: string }): MenuItem[] => s.projects.map(p => ({ label: p.Name, value: p.Project, icon: <Dot color={p.Color} />, checked: t.Project === p.Project })),
-    Area: (t: { Area: string }): MenuItem[] => list('AREA').map(v => ({ label: `${v.Code} · ${v.Text}`, value: v.Code, icon: <Icon name="folder" size={14} />, checked: t.Area === v.Code })),
-    Tech: (t: { Tech: string }): MenuItem[] => list('TECH').map(v => ({ label: v.Text, value: v.Code, icon: <Dot color={v.Color || 'var(--muted)'} />, checked: t.Tech === v.Code })),
-    TicketType: (t: { TicketType: string }): MenuItem[] => list('TYPE').map(v => ({ label: v.Text, value: v.Code, icon: <Icon name="tag" size={14} />, checked: t.TicketType === v.Code })),
+    Area: (t: { Area: string }): MenuItem[] => list('AREA', t.Area).map(v => ({ label: `${v.Code} · ${v.Text}`, value: v.Code, icon: <Icon name="folder" size={14} />, checked: t.Area === v.Code })),
+    Tech: (t: { Tech: string }): MenuItem[] => list('TECH', t.Tech).map(v => ({ label: v.Text, value: v.Code, icon: <Dot color={v.Color || 'var(--muted)'} />, checked: t.Tech === v.Code })),
+    TicketType: (t: { TicketType: string }): MenuItem[] => list('TYPE', t.TicketType).map(v => ({ label: v.Text, value: v.Code, icon: <Icon name="tag" size={14} />, checked: t.TicketType === v.Code })),
     Environment: (t: { Environment: string }): MenuItem[] => ['DEV', 'QA', 'PRD'].map(x => ({ label: x, value: x, icon: <Icon name="env" size={14} />, checked: t.Environment === x })),
   };
 }
@@ -189,8 +190,8 @@ export function XBtn({ icon, label, open, on, indicator, className = '', ...rest
 /** True while the user types in a field or a dialog/menu is open (keyboard shortcuts are ignored then) */
 export const isTyping = (e: KeyboardEvent) => {
   const el = e.target instanceof Element ? e.target : null;
-  // .wb: the whiteboard owns the keyboard while it is open
-  return !!el?.closest('input,textarea,select,[contenteditable],.modal,[role=menu]') || !!document.querySelector('.modal.on, .wb') || menuOpen();
+  // .wb / .viewer: the whiteboard and the image viewer own the keyboard while open
+  return !!el?.closest('input,textarea,select,[contenteditable],.modal,[role=menu]') || !!document.querySelector('.modal.on, .wb, .viewer') || menuOpen();
 };
 
 /* ---------- Motion patterns (motion.dev examples, rebuilt with Motion for React) ---------- */

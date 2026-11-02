@@ -60,6 +60,7 @@ export function UserMenu() {
 
           <div className="um-links">
             <button onClick={() => { setOpen(false); go('account') }}><Icon name="user" size={15} />Account settings</button>
+            <button onClick={() => { setOpen(false); go('lists') }}><Icon name="list" size={15} />Lists: types, areas, tech</button>
             <button onClick={() => { setOpen(false); dispatchEvent(new Event('devdesk-help')) }}><Icon name="list" size={15} />Keyboard shortcuts<kbd>?</kbd></button>
             {api.kind === 'supabase' && <button className="um-out" onClick={signOut}><Icon name="logout" size={15} />Sign out</button>}
           </div>

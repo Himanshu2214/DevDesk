@@ -298,6 +298,7 @@ export const mockApi: Api = {
   user: () => delay({ id: ME, fullName: 'Himanshu Sudra' }),
   listProjects: () => delay(PROJECTS),
   listValues: () => delay(VALUES),
+  async saveValue(v) { await delay(null); const i = VALUES.findIndex(x => x.ListType === v.ListType && x.Code === v.Code); if (i >= 0) VALUES[i] = { ...v }; else VALUES.push({ ...v }) },
   listTickets: () => delay(db.tickets.map(head).sort((a, b) => b.TicketNo.localeCompare(a.TicketNo))),
   changedSince: iso => delay(db.tickets.filter(t => (t.LastChangedAt ?? '') > iso).map(head)),
   getTicket: uuid => delay(detail(find(uuid))),

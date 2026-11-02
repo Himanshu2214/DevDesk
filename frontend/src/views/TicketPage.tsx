@@ -11,19 +11,23 @@ import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TabIndicator, TechTag, useFieldMenus, useMenu } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
 import { TicketSap } from './TicketSap';
-import { attachFiles, pastedImages } from '../components/p2';
+import { attachFiles, pastedImages, saveBlob } from '../components/p2';
+import { ImageStrip, isImage } from '../components/FilePreview';
+import { TicketChanges } from '../components/TicketChanges';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { ShareTicketButton } from '../components/ShareTicket';
 
-type Tab = 'overview' | 'tests' | 'sap' | 'activity';
+type Tab = 'overview' | 'tests' | 'sap' | 'activity' | 'changes';
 const NEXT_RESULT: Record<string, TestCase['TestResult']> = { OPEN: 'PASS', PASS: 'FAIL', FAIL: 'OPEN' };
 const CHECK_LABEL: Record<string, string> = { UNIT: 'Unit test', INTEG: 'Integration', AUTH: 'Authorization', ERROR: 'Error handling', PERF: 'Performance', TRANSPORT: 'Transport readiness', OTHER: 'Other' };
 
-/** Description: with code blocks it opens as a read view (Shiki colours, Mermaid diagrams) and switches to the editor on Edit */
-function Description({ value, onSave }: { value: string; onSave(v: string): void }) {
+/** Description: with code blocks it opens as a read view (Shiki colours, Mermaid diagrams) and switches to the editor on Edit;
+ *  read-only for people the ticket is shared with to view or comment */
+function Description({ value, onSave, readOnly }: { value: string; onSave(v: string): void; readOnly?: boolean }) {
   const hasCode = /<pre[s>]/i.test(value);
   const [edit, setEdit] = useState(!hasCode);
   useEffect(() => { if (!/<pre[s>]/i.test(value)) setEdit(true) }, [value]);
+  if (readOnly) return <div className="tp-desc-rich tp-desc-view">{value ? <RichView value={value} /> : <p className="muted">No description.</p>}</div>;
   if (!edit) return <div className="tp-desc-rich tp-desc-view"><RichView value={value} />
     <button className="btn code-edit" onClick={() => setEdit(true)}><Icon name="edit" size={13} />Edit</button></div>;
   return <div className="tp-desc-rich"><RichEditor value={value} placeholder="Add description… (```abap or ```mermaid starts a code block or diagram)"
@@ -44,10 +48,19 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const t: Ticket | undefined = head ? { ...head, ...detail.data } : undefined;
 
   useEffect(() => { setTab('overview'); rememberTicket(ticketId) }, [ticketId]);
+  // what you may do: owner / edit change everything; comment adds comments and time; view only reads (standalone shares;
+  // the other backends have no levels and leave Access empty)
+  const canEdit = !head?.Access || head.Access === 'owner' || head.Access === 'edit';
+  const canComment = canEdit || head?.Access === 'comment';
+  // opening the ticket clears its "changed by someone else" dot
+  const uuid = head?.TicketUUID, unseen = !!head?.ChangedByOthers;
+  useEffect(() => {
+    if (uuid && unseen && api.markTicketSeen) s.run(() => api.markTicketSeen!(uuid), { uuids: [uuid], optimistic: x => ({ ...x, ChangedByOthers: false }) });
+  }, [uuid, unseen]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Ctrl+V with a screenshot (or copied image) anywhere on the ticket attaches it; text pastes are left alone
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      if (!t || document.querySelector('.modal')) return;
+      if (!t || !canEdit || document.querySelector('.modal')) return;
       const files = pastedImages(e.clipboardData);
       if (!files.length) return;
       e.preventDefault();
@@ -59,6 +72,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
     const k = (e: KeyboardEvent) => {
       if (!t || isTyping(e) || e.ctrlKey || e.metaKey) return;
       const key = e.key.toLowerCase();
+      if ((key === 's' || key === 'p') && !canEdit) return;
       if (key === 's') { const el = document.querySelector('.props [data-f="status"]'); if (el) menu(el, menus.status(t), v => setStatus(v as Status)); e.preventDefault() }
       if (key === 'p') { const el = document.querySelector('.props [data-f="Priority"]'); if (el) menu(el, menus.Priority(t), v => patch({ Priority: v })); e.preventDefault() }
       if (key === 'j') { step(1); e.preventDefault() }
@@ -98,7 +112,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const activity = [
     ...(t._Event ?? []).map(e => ({ at: e.EventAt ?? '', node: <><StatusIcon status={e.StatusTo as Status} /><span><b>{e.EventBy}</b> moved from {s.text('STATUS', e.StatusFrom)} to <b>{s.text('STATUS', e.StatusTo)}</b><span className="when"> · {ago(e.EventAt)}</span></span></> })),
     ...(t._Worklog ?? []).map(w => ({ at: w.WorkDate + 'T17:00:00', node: <><Icon name="clock" size={14} /><span><b>{w.CreatedBy}</b> logged {w.Hours} h · {s.text('ACTIVITY', w.Activity)}{w.CommentText ? ` – ${w.CommentText}` : ''}<span className="when"> · {fmtDate(w.WorkDate)}</span></span>
-      <button className="ib" style={{ marginLeft: 'auto', width: 22, height: 22 }} title="Delete entry" onClick={() => del('Worklog', w as never)}><Icon name="x" size={12} /></button></> })),
+      {canEdit && <button className="ib" style={{ marginLeft: 'auto', width: 22, height: 22 }} title="Delete entry" onClick={() => del('Worklog', w as never)}><Icon name="x" size={12} /></button>}</> })),
     ...(t._Note ?? []).map(n => ({ at: n.CreatedAt ?? '', note: n })),
   ].sort((a, b) => a.at.localeCompare(b.at));
   if (t.CreatedAt) activity.unshift({ at: t.CreatedAt, node: <><Icon name="plus" size={14} /><span><b>{t.CreatedBy}</b> created the ticket<span className="when"> · {ago(t.CreatedAt)}</span></span></> });
@@ -116,15 +130,17 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
         {!t.SharedBy && <ConfirmButton label="Delete ticket" onConfirm={remove} title={`Delete ${t.TicketId}?`} description="The ticket and its time, notes, tests and files are removed for good."><Icon name="trash" /></ConfirmButton>}</>}>
       <div className="tp">
         <div className="tp-main">
+          {!canEdit && <p className="tp-access"><Icon name="eye" size={14} />{t.SharedBy} shared this ticket with you to {canComment ? 'view, comment and log time' : 'view'}.</p>}
           <div className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}><ProjectChip code={t.Project} /><TechTag code={t.Tech} /><span className="tag">{s.text('TYPE', t.TicketType)}</span></div>
-          <h1 className="tp-title" contentEditable suppressContentEditableWarning spellCheck={false} key={'t' + t.etag}
+          <h1 className="tp-title" contentEditable={canEdit} suppressContentEditableWarning spellCheck={false} key={'t' + t.etag}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() } }}
-            onBlur={e => { const v = e.currentTarget.innerText.trim(); if (v && v !== t.Title) patch({ Title: v }) }}>{t.Title}</h1>
-          <Description key={t.TicketUUID} value={t.Description ?? ''} onSave={v => patch({ Description: v })} />
+            onBlur={e => { const v = e.currentTarget.innerText.trim(); if (canEdit && v && v !== t.Title) patch({ Title: v }) }}>{t.Title}</h1>
+          <Description key={t.TicketUUID} value={t.Description ?? ''} onSave={v => patch({ Description: v })} readOnly={!canEdit} />
 
           <div className="tp-tabs">
             {([['overview', 'Overview'], ['tests', <>Tests &amp; checklist <span className="muted num">{passed}/{tests.length} · {done}/{chk.length}</span></>],
-              ['activity', <>Activity <span className="muted num">{(t._Note ?? []).length}</span></>], ['sap', <>SAP &amp; files <span className="muted num">{(t._ObjectLink ?? []).length + (t._Attachment ?? []).length}</span></>]] as [Tab, React.ReactNode][])
+              ['activity', <>Activity <span className="muted num">{(t._Note ?? []).length}</span></>], ['sap', <>SAP &amp; files <span className="muted num">{(t._ObjectLink ?? []).length + (t._Attachment ?? []).length}</span></>],
+              ...(api.ticketChanges ? [['changes', 'Changes']] : [])] as [Tab, React.ReactNode][])
               .map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{tab === k && <TabIndicator id="ticket-tab" line />}{l}</button>)}
           </div>
 
@@ -132,40 +148,45 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           {!detail.isLoading && tab === 'overview' && <>
             <div className="tp-sec" style={{ marginTop: 6 }}><h4>Acceptance criteria<span className="c">{acc.length}</span></h4>
               <div className="sub">{acc.map(a => <div className="it" key={a.AccUUID}><Icon name="check" size={14} style={{ color: 'var(--muted)' }} /><span className="lbl">{a.Text}</span><span className="sp" />
-                <button className="ib" style={{ width: 22, height: 22 }} title="Remove" onClick={() => del('Acceptance', a as never)}><Icon name="x" size={12} /></button></div>)}
-                <AddLine placeholder="Add acceptance criterion and press Enter (also adds a test case)" onAdd={async v => {
+                {canEdit && <button className="ib" style={{ width: 22, height: 22 }} title="Remove" onClick={() => del('Acceptance', a as never)}><Icon name="x" size={12} /></button>}</div>)}
+                {canEdit && <AddLine placeholder="Add acceptance criterion and press Enter (also adds a test case)" onAdd={async v => {
                   await add('_Acceptance', { SortOrder: acc.length + 1, Text: v });
                   await add('_Test', { SortOrder: tests.length + 1, TestName: v, Expected: v });
-                }} /></div></div>
+                }} />}</div></div>
+            {(t._Attachment ?? []).some(isImage) && <div className="tp-sec"><h4>Images<span className="c">{(t._Attachment ?? []).filter(isImage).length}</span></h4>
+              <ImageStrip files={t._Attachment ?? []} onDownload={async a => { try { saveBlob(await api.downloadAttachment(a), a.FileName) } catch (e) { s.toast((e as Error).message, true) } }} /></div>}
             <div className="tp-sec"><h4>Reference</h4>
-              <input className="pv" style={{ width: '100%', border: '1px solid var(--border)', height: 34 }} defaultValue={t.Reference} key={'r' + t.etag} placeholder="Mail subject, document link, meeting…"
-                onBlur={e => { if (e.target.value !== t.Reference) patch({ Reference: e.target.value }) }} /></div>
+              <input className="pv" style={{ width: '100%', border: '1px solid var(--border)', height: 34 }} defaultValue={t.Reference} key={'r' + t.etag} placeholder={canEdit ? 'Mail subject, document link, meeting…' : ''}
+                readOnly={!canEdit} onBlur={e => { if (canEdit && e.target.value !== t.Reference) patch({ Reference: e.target.value }) }} /></div>
           </>}
 
           {tab === 'tests' && <>
             <div className="tp-sec" style={{ marginTop: 6 }}><h4>Test cases<span className="c">{passed}/{tests.length} passed</span><span className="sp" /><span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>click a result to change it</span></h4>
               <div className="sub">{tests.map(x => <div className="tst" key={x.TestUUID}>
                 <div style={{ minWidth: 0 }}><div style={{ fontWeight: 500 }}>{x.TestName}</div><div className="muted" style={{ fontSize: 12 }}>{x.TestSteps || 'No steps yet'} · expected: {x.Expected || '–'}{x.TestedBy ? ` · ${x.TestedBy} ${fmtDate(x.TestedAt)}` : ''}</div></div>
-                <button className={'res ' + x.TestResult.toLowerCase()} onClick={() => upd('TestCase', x as never, { TestResult: NEXT_RESULT[x.TestResult] })}>{({ PASS: 'Passed', FAIL: 'Failed', OPEN: 'Open' })[x.TestResult]}</button></div>)}
-                <AddLine placeholder="Add test case and press Enter" onAdd={v => add('_Test', { SortOrder: tests.length + 1, TestName: v })} /></div></div>
+                <button className={'res ' + x.TestResult.toLowerCase()} disabled={!canEdit} onClick={() => upd('TestCase', x as never, { TestResult: NEXT_RESULT[x.TestResult] })}>{({ PASS: 'Passed', FAIL: 'Failed', OPEN: 'Open' })[x.TestResult]}</button></div>)}
+                {canEdit && <AddLine placeholder="Add test case and press Enter" onAdd={v => add('_Test', { SortOrder: tests.length + 1, TestName: v })} />}</div></div>
             <div className="tp-sec"><h4>Release checklist<span className="c">{done}/{chk.length}</span></h4>
-              <div className="sub">{chk.map(c => <div key={c.ItemUUID} className={'it' + (c.IsDone ? ' done' : '')} style={{ cursor: 'pointer' }} onClick={() => upd('ChecklistItem', c as never, { IsDone: !c.IsDone })}>
+              <div className="sub">{chk.map(c => <div key={c.ItemUUID} className={'it' + (c.IsDone ? ' done' : '')} style={{ cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && upd('ChecklistItem', c as never, { IsDone: !c.IsDone })}>
                 <StatusIcon status={c.IsDone ? 'DONE' : 'TODO'} /><span className="chkcat">{CHECK_LABEL[c.Category] ?? c.Category}</span><span className="lbl">{c.Text}</span></div>)}
-                <AddLine placeholder="Add checklist item and press Enter" onAdd={v => add('_Checklist', { SortOrder: chk.length + 1, Category: 'OTHER', Text: v })} /></div></div>
+                {canEdit && <AddLine placeholder="Add checklist item and press Enter" onAdd={v => add('_Checklist', { SortOrder: chk.length + 1, Category: 'OTHER', Text: v })} />}</div></div>
           </>}
 
           {tab === 'activity' && <>
             <ul className="acts" style={{ marginTop: 6 }}>{activity.map((a, i) => 'note' in a && a.note
               ? <li className="note" key={i}><div className="h"><Avatar name={a.note.CreatedBy} size={18} /><b style={{ color: 'var(--text-2)' }}>{a.note.CreatedBy}</b><span>{ago(a.note.CreatedAt)}</span><span className="sp" style={{ flex: 1 }} />
-                  <button className="ib" style={{ width: 22, height: 22 }} title="Delete comment" onClick={() => del('Note', a.note as never)}><Icon name="x" size={12} /></button></div><RichView value={a.note.Text} /></li>
+                  {canEdit && <button className="ib" style={{ width: 22, height: 22 }} title="Delete comment" onClick={() => del('Note', a.note as never)}><Icon name="x" size={12} /></button>}</div><RichView value={a.note.Text} /></li>
               : <li key={i} style={{ display: 'flex', alignItems: 'center' }}>{'node' in a && a.node}</li>)}</ul>
-            <div style={{ marginTop: 14 }}><RichEditor key={'c' + t.TicketUUID} value="" placeholder="Leave a comment… (Ctrl+Enter to send)" onSubmit={v => add('_Note', { Text: v })} /></div>
+            {canComment && <div style={{ marginTop: 14 }}><RichEditor key={'c' + t.TicketUUID} value="" placeholder="Leave a comment… (Ctrl+Enter to send)" onSubmit={v => add('_Note', { Text: v })} /></div>}
           </>}
 
-          {!detail.isLoading && tab === 'sap' && <TicketSap t={t} />}
+          {!detail.isLoading && tab === 'sap' && <TicketSap t={t} readOnly={!canEdit} />}
+          {tab === 'changes' && <TicketChanges t={t} canUndo={canEdit} />}
         </div>
 
         <aside className="props">
+          {/* a disabled fieldset makes every field below read-only in one go for view / comment access */}
+          <fieldset className="props-set" disabled={!canEdit}>
           {prop('Status', <button className="pv" data-f="status" onClick={e => menu(e.currentTarget, menus.status(t), v => setStatus(v as Status))}><StatusIcon status={t.Status} />{s.text('STATUS', t.Status)}</button>)}
           {prop('Priority', <button className="pv" data-f="Priority" onClick={field('Priority')}><PriorityIcon priority={t.Priority} />{PRIORITY_NAME[t.Priority]}</button>)}
           {prop('Assignee', <label className="pv"><Avatar name={t.Assignee} size={18} /><input defaultValue={t.Assignee} key={'a' + t.etag} onBlur={e => { const v = e.target.value.trim().toUpperCase(); if (v !== t.Assignee) patch({ Assignee: v }) }} /></label>)}
@@ -182,11 +203,13 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           <div className="h">Time</div>
           {prop('Estimate', <label className="pv"><input type="number" min={0} step={0.5} style={{ width: 56 }} defaultValue={t.EstimateHours} key={'e' + t.etag}
             onBlur={e => { const v = Number(e.target.value); if (v !== t.EstimateHours) patch({ EstimateHours: v }) }} /><span className="muted">h</span></label>)}
+          </fieldset>
           {prop('Actual', <span className="pv num" style={{ cursor: 'default' }}>{r1(t.LoggedHours)} h<span className="muted" style={{ fontWeight: 400 }}>{t.EstimateHours ? ` · ${Math.round(t.LoggedHours / t.EstimateHours * 100)}%` : ''}</span></span>)}
           <div className="meter"><i style={{ width: `${Math.min(100, t.EstimateHours ? t.LoggedHours / t.EstimateHours * 100 : 0)}%`, ...(t.LoggedHours > t.EstimateHours ? { background: 'var(--urgent)' } : {}) }} /></div>
-          <div style={{ display: 'flex', gap: 6, padding: '10px 8px 0' }}>
-            <button className="btn" style={{ flex: 1 }} onClick={toggleTimer}><Icon name={timerOn ? 'stop' : 'play'} size={13} />{timerOn ? 'Stop & log' : 'Start timer'}</button>
-            <button className="btn" onClick={() => openLog(t.TicketUUID)}>Log…</button></div>
+          {canComment && <div style={{ display: 'flex', gap: 6, padding: '10px 8px 0' }}>
+            {/* the timer is stored on the ticket, so it needs edit access; logging time by hand only comment access */}
+            {canEdit && <button className="btn" style={{ flex: 1 }} onClick={toggleTimer}><Icon name={timerOn ? 'stop' : 'play'} size={13} />{timerOn ? 'Stop & log' : 'Start timer'}</button>}
+            <button className="btn" style={canEdit ? undefined : { flex: 1 }} onClick={() => openLog(t.TicketUUID)}>{canEdit ? 'Log…' : 'Log time…'}</button></div>}
           <div className="h">Details</div>
           {prop('Created', <span className="pv" style={{ cursor: 'default' }}>{fmtDate(t.CreatedAt)} · {t.CreatedBy}</span>)}
           {prop('In status', <span className="pv num" style={{ cursor: 'default' }}>{t.StatusChangedAt ? ago(t.StatusChangedAt).replace(' ago', '') : '–'}</span>)}

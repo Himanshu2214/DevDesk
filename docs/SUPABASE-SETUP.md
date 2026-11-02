@@ -307,3 +307,15 @@ is removed or loses its notification permission drops out of the list by itself.
 **Share** button: enter the other person's SLATE·SPACE email. They see and edit only that ticket (with its time,
 comments, tests, files and transports); only you can delete it or move it to another project. They can remove it from
 their list with the same button. To share many tickets at once, share their project instead (section 13).
+
+## 21. Access levels, change history, lists
+
+**SQL Editor → New query**: run `supabase/migrations/20261112000000_access_and_changes.sql` (after section 20). Then:
+
+- The share dialogs (project and ticket) have a level per person: **Can view** (read only), **Can comment** (also
+  comments and their own time) or **Can edit**. Existing shares stay **Can edit**. The database enforces the level.
+- A ticket's **Changes** tab lists every change to its fields – who, when, old → new – with a filter by person and
+  **Undo**. Tickets someone else changed or commented on since you last opened them get a dot in lists and an entry
+  at the top of the Inbox.
+- **Lists** (user menu, or Ctrl+K → Lists): add, rename, colour, reorder or hide your ticket types, areas / modules, tech
+  and time activities, and rename statuses or set their WIP limits. No SQL needed for this part.

@@ -93,6 +93,10 @@ export interface Ticket {
   SharedBy?: string | null;
   SharedVia?: 'ticket' | 'project' | null;
   Shares?: number;
+  /** your access to it: owner, edit, comment or view (standalone; empty elsewhere = full access) */
+  Access?: 'owner' | 'edit' | 'comment' | 'view' | null;
+  /** someone else changed or commented since you last opened it */
+  ChangedByOthers?: boolean;
   _Acceptance?: Acceptance[];
   _Test?: TestCase[];
   _Checklist?: ChecklistItem[];
@@ -105,7 +109,10 @@ export interface Ticket {
 
 /** SharedBy: set when someone else shared this project with you; Members: how many people you shared it with (standalone only) */
 export interface Project { Project: string; Name: string; Color: string; SortOrder: number; IsActive: boolean; SharedBy?: string | null; Members?: number }
-export interface ProjectMember { member_id: string; email: string; name: string; since: string }
+export type AccessLevel = 'view' | 'comment' | 'edit';
+export interface ProjectMember { member_id: string; email: string; name: string; since: string; access?: AccessLevel }
+/** one recorded change to a ticket field (standalone) */
+export interface TicketChange { ChangeUUID: string; Field: string; OldValue: unknown; NewValue: unknown; ChangedAt: string; By: string; Mine: boolean }
 export interface ValueItem { ListType: string; Code: string; Text: string; SortOrder: number; Color: string; WipLimit: number; IsActive: boolean }
 /** email / photo (Google picture) / avatar (chosen look) are filled in standalone mode */
 export interface User { id: string; fullName: string; email?: string; photo?: string; avatar?: string; onboarded?: boolean }
@@ -141,6 +148,9 @@ export interface Api {
   user(): Promise<User>;
   listProjects(): Promise<Project[]>;
   listValues(): Promise<ValueItem[]>;
+  /** Settings → Lists: add or change one of your own list items (types, areas, tech, activities, status names);
+   *  not in SAP mode, where the lists are maintained in SAP */
+  saveValue?(item: ValueItem): Promise<void>;
   listTickets(): Promise<Ticket[]>;
   /** Tickets changed after the given ISO timestamp (polling) */
   changedSince(iso: string): Promise<Ticket[]>;
@@ -179,12 +189,18 @@ export interface Api {
   subscribe?(onChange: (area: LiveArea) => void, onStatus: (live: boolean) => void): () => void;
 
   /** Teams (standalone only): share one of your projects with another account, list / remove members, leave a shared project */
-  shareProject?(project: string, email: string): Promise<string>;
+  shareProject?(project: string, email: string, access?: AccessLevel): Promise<string>;
+  setProjectAccess?(project: string, memberId: string, access: AccessLevel): Promise<void>;
   projectMembers?(project: string): Promise<ProjectMember[]>;
   unshareProject?(project: string, memberId: string): Promise<void>;
   leaveProject?(project: string): Promise<void>;
   /** Share a single ticket (standalone only): with another account, list / remove them, or leave one shared with you */
-  shareTicket?(ticketUUID: string, email: string): Promise<string>;
+  shareTicket?(ticketUUID: string, email: string, access?: AccessLevel): Promise<string>;
+  setTicketAccess?(ticketUUID: string, memberId: string, access: AccessLevel): Promise<void>;
+  /** change history of a ticket, undoing one change, and marking a ticket as seen (standalone only) */
+  ticketChanges?(ticketUUID: string): Promise<TicketChange[]>;
+  undoTicketChange?(changeUUID: string): Promise<void>;
+  markTicketSeen?(ticketUUID: string): Promise<void>;
   ticketMembers?(ticketUUID: string): Promise<ProjectMember[]>;
   unshareTicket?(ticketUUID: string, memberId: string): Promise<void>;
   leaveTicket?(ticketUUID: string): Promise<void>;
