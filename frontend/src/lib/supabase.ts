@@ -30,3 +30,12 @@ export function sb(): SupabaseClient {
 
 /** Where email links (confirm, reset) and Google send the user back to: this app's own address */
 export const appUrl = () => location.origin + location.pathname;
+
+/** Why a functions.invoke() failed: the HTTP status and the function's own { error } message when it answered at all.
+ *  A network failure or a crashed function gives neither (status undefined). */
+export async function functionError(e: unknown): Promise<{ status?: number; message?: string }> {
+  const ctx = (e as { context?: unknown }).context;
+  if (!(ctx instanceof Response)) return {};
+  const body = await ctx.json().catch(() => null) as { error?: unknown } | null;
+  return { status: ctx.status, message: typeof body?.error === 'string' ? body.error : undefined };
+}

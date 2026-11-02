@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { api } from '../api';
 import { useStore } from '../store';
-import { sb } from '../lib/supabase';
+import { functionError, sb } from '../lib/supabase';
 import { CALENDAR_RESULT, calendarCall, type CalendarStatus, connectGoogleCalendar, takeCalendarResult } from '../lib/calendar';
 import { fmtDate } from '../lib/format';
 import { currentEndpoint, disablePushHere, enablePush, needsHomeScreen, pushCall, pushSupported } from '../lib/push';
@@ -223,8 +223,8 @@ function DailyEmail() {
     const { error } = await sb().functions.invoke('daily-digest', { body: {} });
     setTesting(false);
     if (error) {
-      const ctx = (error as { context?: Response }).context;
-      return s.toast(ctx?.status === 404 ? 'The daily-digest function is not deployed yet (setup guide, step 11).' : (await ctx?.json().catch(() => null))?.error || 'The email could not be sent.', true);
+      const { status, message } = await functionError(error);
+      return s.toast(status === 404 ? 'The daily-digest function is not deployed yet (setup guide, step 11).' : message || 'The email could not be sent.', true);
     }
     s.toast('Test email sent – check your inbox');
   };
@@ -337,9 +337,9 @@ function DangerZone({ email }: { email: string }) {
     setBusy(true);
     const { error } = await sb().functions.invoke('delete-account', { body: {} });
     if (error) {
-      const ctx = (error as { context?: Response }).context;
-      const msg = ctx?.status === 404 ? 'Account deletion is not set up yet: deploy the delete-account function (setup guide).' : (await ctx?.json().catch(() => null))?.error;
-      setBusy(false); return s.toast(msg || `The account could not be deleted (error ${ctx?.status ?? 'network'}). Try again.`, true);
+      const { status, message } = await functionError(error);
+      const msg = status === 404 ? 'Account deletion is not set up yet: deploy the delete-account function (setup guide).' : message;
+      setBusy(false); return s.toast(msg || `The account could not be deleted (error ${status ?? 'network'}). Try again.`, true);
     }
     await sb().auth.signOut({ scope: 'local' });
     location.reload();

@@ -1,5 +1,5 @@
 // Calendar connection (standalone mode): talks to the calendar-feed edge function.
-import { sb } from './supabase';
+import { functionError, sb } from './supabase';
 
 export interface CalendarStatus { google: string | null; googleReady: boolean; ics: boolean }
 
@@ -7,8 +7,8 @@ export interface CalendarStatus { google: string | null; googleReady: boolean; i
 export async function calendarCall<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await sb().functions.invoke('calendar-feed', { body });
   if (error) {
-    const ctx = (error as { context?: Response }).context;
-    throw new Error(ctx?.status === 404 ? 'The calendar connection is not set up yet (setup guide, steps 15–16).' : (await ctx?.json().catch(() => null))?.error || 'The calendar could not be reached.');
+    const { status, message } = await functionError(error);
+    throw new Error(status === 404 ? 'The calendar connection is not set up yet (setup guide, steps 15–16).' : message || 'The calendar could not be reached.');
   }
   return data as T;
 }

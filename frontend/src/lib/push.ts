@@ -1,6 +1,6 @@
 // Phone approval (standalone mode): this device receives sign-in requests as notifications and approves them by
 // tapping the number the new sign-in shows (edge function push-approve, migration 20261110000000_phone_approval).
-import { sb } from './supabase';
+import { functionError, sb } from './supabase';
 
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 /** iPhone/iPad only allow notifications for the app added to the Home Screen */
@@ -10,9 +10,9 @@ export const needsHomeScreen = () => /iPhone|iPad/.test(navigator.userAgent) && 
 export async function pushCall<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await sb().functions.invoke('push-approve', { body: { action, ...body } });
   if (error) {
-    const ctx = (error as { context?: Response }).context;
-    const msg = (await ctx?.json().catch(() => null))?.error as string | undefined;
-    throw new Error(msg || (ctx?.status === 404 ? 'Phone approval is not set up yet (setup guide, step 19).' : 'Phone approval could not be reached.'));
+    const { status, message } = await functionError(error);
+    throw new Error(message || (status === 404 ? 'Phone approval is not set up yet (setup guide, step 19).'
+      : status ? `Phone approval failed (error ${status}).` : 'Phone approval could not be reached. Check your connection; if it keeps failing, look at the push-approve logs in Supabase.'));
   }
   return data as T;
 }

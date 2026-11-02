@@ -5,13 +5,14 @@
 //   pending  – a verified device asks which request is waiting (after tapping the notification)
 //   answer   – a verified device taps a number or Deny; the right number verifies the new session
 //   test     – a verified device sends itself a notification
-// Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:you@example.com). Deploy with --no-verify-jwt is
+// Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, optional VAPID_SUBJECT (mailto:you@… or https://your-site; defaults to APP_URL). Deploy with --no-verify-jwt is
 // not needed: every action checks the caller's token itself.
 import { admin, caller, cors, json } from '../_shared/login-code.ts';
 import { vapidKey, wake } from '../_shared/webpush.ts';
 
 const TTL_S = 120;
-const env = (k: string) => (Deno.env.get(k) ?? '').trim();
+// tolerant of secrets pasted with quotes, brackets or spaces around them
+const env = (k: string) => (Deno.env.get(k) ?? '').trim().replace(/^[<"']+|[>"']+$/g, '').trim();
 
 /** "Chrome on Windows" from the user agent – shown on the phone so you can tell which sign-in it is */
 function agentOf(ua: string): string {
@@ -22,7 +23,15 @@ function agentOf(ua: string): string {
 const shuffle = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [a[i], a[j]] = [a[j], a[i]] } return a };
 const twoDigits = () => 10 + crypto.getRandomValues(new Uint32Array(1))[0] % 90;
 
+// any unexpected failure still answers with CORS headers and the reason, so the app can show it
 Deno.serve(async req => {
+  try { return await handle(req) } catch (e) {
+    console.error('push-approve', (e as Error).message);
+    return json(500, { error: (e as Error).message || 'Phone approval failed. Try again.' });
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
   const who = await caller(req);
@@ -36,8 +45,11 @@ Deno.serve(async req => {
 
   /** wakes devices; drops subscriptions that no longer exist */
   const wakeAll = async (devices: { id: string; endpoint: string }[]) => {
-    const key = await vapidKey(publicKey, env('VAPID_PRIVATE_KEY'));
-    const subject = env('VAPID_SUBJECT') || 'mailto:noreply@example.com';
+    const key = await vapidKey(publicKey, env('VAPID_PRIVATE_KEY')).catch(e => {
+      throw new Error(`The VAPID keys are not valid (${(e as Error).message}). Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY again from "npx web-push generate-vapid-keys" (setup guide, step 19).`);
+    });
+    // the push services' contact for this sender: VAPID_SUBJECT, else the app's address (APP_URL)
+    const subject = env('VAPID_SUBJECT') || (/^https:\/\//.test(env('APP_URL')) ? env('APP_URL') : 'mailto:noreply@example.com');
     const results = await Promise.all(devices.map(d => wake(d.endpoint, publicKey, subject, key)));
     const gone = devices.filter((_, i) => results[i] === 'gone').map(d => d.id);
     if (gone.length) await db.from('push_devices').delete().in('id', gone);
@@ -104,4 +116,4 @@ Deno.serve(async req => {
 
     default: return json(400, { error: 'Unknown action' });
   }
-});
+}
