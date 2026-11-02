@@ -53,8 +53,9 @@ async function handle(req: Request): Promise<Response> {
     const results = await Promise.all(devices.map(d => wake(d.endpoint, publicKey, subject, key)));
     const gone = devices.filter((_, i) => results[i] === 'gone').map(d => d.id);
     if (gone.length) await db.from('push_devices').delete().in('id', gone);
-    return results.filter(r => r === 'sent').length;
+    return { sent: results.filter(r => r === 'sent').length, refused: results.filter(r => r === 'refused').length };
   };
+  const REFUSED = 'The notification service refused the VAPID keys. VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must come from the same run of "npx web-push generate-vapid-keys"; after changing them, remove the phone in Account and turn it on again from the phone.';
 
   switch (body.action) {
     case 'key': return json(200, { publicKey });
@@ -75,7 +76,8 @@ async function handle(req: Request): Promise<Response> {
       const { error } = await db.from('login_approvals').upsert({ session_id: sessionId, user_id: user.id, number, choices: shuffle([...choices]),
         agent: agentOf(req.headers.get('user-agent') ?? ''), status: 'pending', created_at: new Date().toISOString(), expires_at: expiresAt });
       if (error) return json(500, { error: 'Could not create the request. Try again.' });
-      const sent = await wakeAll(devices);
+      const { sent, refused } = await wakeAll(devices);
+      if (refused) console.error('push-approve start', REFUSED);
       return json(200, { devices: devices.length, sent, number, expiresAt });
     }
 
@@ -111,7 +113,10 @@ async function handle(req: Request): Promise<Response> {
     case 'test': {
       if (!(await verified())) return json(403, { error: 'Finish signing in on this device first.' });
       const { data: devices } = await db.from('push_devices').select('id, endpoint').eq('user_id', user.id);
-      return json(200, { sent: await wakeAll(devices ?? []) });
+      if (!devices?.length) return json(400, { error: 'No device is set up yet. Turn it on from your phone first.' });
+      const { sent, refused } = await wakeAll(devices);
+      if (!sent) return json(502, { error: refused ? REFUSED : 'Your devices could not be reached. Check that notifications are still allowed for the app, or remove the device and turn it on again.' });
+      return json(200, { sent, of: devices.length });
     }
 
     default: return json(400, { error: 'Unknown action' });

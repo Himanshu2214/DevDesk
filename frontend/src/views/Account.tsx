@@ -186,7 +186,7 @@ function PhoneApproval() {
         : <div className="acct-actions">
           {!thisOn && <button className="btn primary" disabled={!!busy} aria-busy={busy === 'on'} onClick={() => run('on', enablePush, 'This device now approves your sign-ins')}>
             {busy === 'on' ? <Spinner /> : <Icon name="phone" size={14} />}Use this device to approve sign-ins</button>}
-          {devices.length > 0 && <button className="btn" disabled={!!busy} aria-busy={busy === 'test'} onClick={() => run('test', () => pushCall('test'), 'Test notification sent')}>
+          {devices.length > 0 && <button className="btn" disabled={!!busy} aria-busy={busy === 'test'} onClick={() => run('test', () => pushCall('test'), 'Test notification sent – check your phone')}>
             {busy === 'test' ? <Spinner /> : <Icon name="bell" size={14} />}Send a test notification</button>}
         </div>}
       {devices.length === 0 && pushSupported() && !needsHomeScreen() && <p className="muted acct-note">Turn this on from the phone you always carry – install the app on it first (browser menu → Install app / Add to Home Screen).</p>}

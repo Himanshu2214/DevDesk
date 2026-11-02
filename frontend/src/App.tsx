@@ -27,6 +27,7 @@ const Approve = lazy(() => import('./views/Approve').then(m => ({ default: m.App
 /** placeholder while a lazy page loads (usually a moment, once per visit) */
 const Loading = ({ title }: { title: string }) => <Page crumb={<b>{title}</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>;
 import { api } from './api';
+import { watchForRequests } from './lib/push';
 import { ShortcutHelp } from './components/ShortcutHelp';
 import { BottomNav } from './components/BottomNav';
 import { Onboarding } from './components/Onboarding';
@@ -130,6 +131,8 @@ function Shell() {
     const on = (e: MessageEvent) => { if (e.data?.type === 'approve') location.hash = 'approve' };
     sw.addEventListener('message', on); return () => sw.removeEventListener('message', on);
   }, []);
+  // …and one found when the app is opened or comes back to the front, in case the notification never arrived
+  useEffect(() => api.kind === 'supabase' ? watchForRequests(() => { if (location.hash !== '#approve') location.hash = 'approve' }) : undefined, []);
 
   return (
     <div className={'app' + (navOpen ? ' nav-open' : '')}>

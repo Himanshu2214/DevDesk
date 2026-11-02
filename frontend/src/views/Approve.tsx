@@ -13,7 +13,12 @@ export function Approve() {
   const [req, setReq] = useState<Request | null | undefined>(undefined);   // undefined = loading
   const [busy, setBusy] = useState(false), [result, setResult] = useState<Result>(null), [err, setErr] = useState('');
   const load = () => pushCall<{ request: Request | null }>('pending').then(r => setReq(r.request)).catch(e => { setErr((e as Error).message); setReq(null) });
-  useEffect(() => { load() }, []);
+  useEffect(() => {
+    load();
+    // left open on this screen: coming back to the app looks for a new request
+    const back = () => { if (document.visibilityState === 'visible') { setResult(null); setErr(''); load() } };
+    document.addEventListener('visibilitychange', back); return () => document.removeEventListener('visibilitychange', back);
+  }, []);
   const answer = async (body: { choice?: number; deny?: boolean }) => {
     if (!req) return;
     setBusy(true); setErr('');

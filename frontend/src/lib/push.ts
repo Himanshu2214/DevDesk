@@ -27,7 +27,7 @@ export async function currentEndpoint(): Promise<string | null> {
 /** a readable name for the device list: "iPhone · Safari" */
 export function deviceLabel(): string {
   const ua = navigator.userAgent;
-  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : 'Device';
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : 'Device';
   const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
   return `${os} · ${browser}`;
 }
@@ -45,6 +45,26 @@ export async function enablePush(): Promise<void> {
   const j = sub.toJSON();
   const { error } = await sb().from('push_devices').upsert({ endpoint: sub.endpoint, p256dh: j.keys?.p256dh ?? '', auth: j.keys?.auth ?? '', label: deviceLabel() }, { onConflict: 'endpoint' });
   if (error) throw new Error(error.message);
+}
+
+/** On a device set up for approvals: whenever the app is opened or brought back to the front, a waiting sign-in
+ *  request opens the approve screen – so approving works even when the notification never shows up.
+ *  Other browsers never ask (no push subscription). Returns the clean-up function. */
+export function watchForRequests(open: () => void): () => void {
+  let last = 0, stopped = false;
+  const check = async () => {
+    if (stopped || document.visibilityState !== 'visible' || Date.now() - last < 5000) return;
+    last = Date.now();
+    try {
+      if (!(await currentEndpoint())) return;
+      const { request } = await pushCall<{ request: unknown }>('pending');
+      if (request && !stopped) open();
+    } catch { /* not set up or offline: the notification and the codes still work */ }
+  };
+  check();
+  document.addEventListener('visibilitychange', check);
+  addEventListener('focus', check);
+  return () => { stopped = true; document.removeEventListener('visibilitychange', check); removeEventListener('focus', check) };
 }
 
 /** removes this browser's subscription (the row is removed by the caller) */

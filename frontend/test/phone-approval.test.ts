@@ -53,6 +53,27 @@ describe('VAPID', () => {
     expect(ok).toBe(true);
   });
 
+  it('accepts the private key padded, in standard base64 or a byte short', async () => {
+    for (let i = 0; i < 40; i++) {
+      const pair = await webcrypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+      const pub = b64url(new Uint8Array(await webcrypto.subtle.exportKey('raw', pair.publicKey)));
+      const d = unb64url((await webcrypto.subtle.exportKey('jwk', pair.privateKey)).d!);
+      const std = btoa(String.fromCharCode(...d));                                     // "+", "/" and "=" padding
+      const short = d[0] === 0 ? b64url(d.slice(1)) : b64url(d);                       // leading zero dropped, when there is one
+      for (const variant of [std, short, ` ${b64url(d)}\n`]) {
+        const jwt = await vapidJwt('https://push.example/x', 'mailto:a@b.c', await vapidKey(pub, variant));
+        const [h, p, sig] = jwt.split('.');
+        expect(await webcrypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pair.publicKey, unb64url(sig), new TextEncoder().encode(`${h}.${p}`))).toBe(true);
+      }
+    }
+  });
+
+  it('says when the public key was pasted as the private key', async () => {
+    const pair = await webcrypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+    const pub = b64url(new Uint8Array(await webcrypto.subtle.exportKey('raw', pair.publicKey)));
+    await expect(vapidKey(pub, pub)).rejects.toThrow(/should be 32 bytes, it is 65/);
+  });
+
   it('rejects a key that is not a P-256 public key', async () => {
     await expect(vapidKey(b64url(new Uint8Array(32)), 'x')).rejects.toThrow(/VAPID_PUBLIC_KEY/);
   });
