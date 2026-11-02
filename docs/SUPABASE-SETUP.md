@@ -319,3 +319,30 @@ their list with the same button. To share many tickets at once, share their proj
   at the top of the Inbox.
 - **Lists** (user menu, or Ctrl+K → Lists): add, rename, colour, reorder or hide your ticket types, areas / modules, tech
   and time activities, and rename statuses or set their WIP limits. No SQL needed for this part.
+
+## 22. Send email through Mailjet (to any address, free)
+
+Resend without your own domain only delivers to its account owner. Mailjet's free plan (6,000 emails a month,
+200 a day, no credit card) delivers to anyone once your own address is verified as the sender.
+
+1. Sign up at <https://www.mailjet.com> (free plan).
+2. **Account → Senders & domains → Add a sender address**: your Gmail address. Open the confirmation email Mailjet sends.
+3. **Account → API key management**: copy the **API key** and the **Secret key**.
+4. Save them and the sender (paste the values yourself):
+   ```bash
+   npx supabase secrets set MAILJET_API_KEY=... MAILJET_SECRET_KEY=... "MAIL_FROM=SLATE·SPACE <you@gmail.com>"
+   ```
+5. Redeploy the two functions that send email:
+   ```bash
+   npx supabase functions deploy send-login-code
+   ```
+   ```bash
+   npx supabase functions deploy daily-digest --no-verify-jwt
+   ```
+6. Optional – Supabase's own emails (confirm account, reset password) through Mailjet too: **Authentication → Emails →
+   SMTP Settings**: host `in-v3.mailjet.com`, port `587`, username = the API key, password = the Secret key, sender =
+   the same Gmail address.
+
+With both Mailjet keys set the functions use Mailjet; without them they keep using Resend. Mail sent "from" a Gmail
+address through another service can land in spam at first – mark the first code "Not spam". Your own domain (verified in
+Mailjet) avoids that.

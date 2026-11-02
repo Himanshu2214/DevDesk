@@ -3,9 +3,10 @@
 //  - the scheduled job (every 30 min) with header x-digest-secret = DIGEST_SECRET → every user whose digest hour has come
 //  - a signed-in user (Account → "Send a test email") → that user only, right away
 // Deploy with --no-verify-jwt (the scheduled job has no user token); both paths check access themselves.
-// Secrets: RESEND_API_KEY, MAIL_FROM, DIGEST_SECRET, optional APP_URL (link in the email).
+// Secrets: MAILJET_API_KEY + MAILJET_SECRET_KEY (or RESEND_API_KEY), MAIL_FROM, DIGEST_SECRET, optional APP_URL (link in the email).
 import { admin, caller, cors, json, sameText } from '../_shared/login-code.ts';
 import { type DigestTicket, digestEmail } from '../_shared/digest-email.ts';
+import { sendMail } from '../_shared/mail.ts';
 
 type Db = ReturnType<typeof admin>;
 interface Due { user_id: string; email: string; full_name: string; time_zone: string; local_date: string }
@@ -21,12 +22,8 @@ async function digestFor(db: Db, u: Due) {
   const { subject, text, html } = digestEmail({ firstName: u.full_name.split(' ')[0], today: u.local_date, tickets: (open ?? []) as DigestTicket[],
     hoursYesterday: hours, appUrl: Deno.env.get('APP_URL') ?? '' });
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: Deno.env.get('MAIL_FROM'), to: u.email, subject, text, html }),
-  });
-  if (!res.ok) throw new Error(`Resend ${res.status}`);
+  const sent = await sendMail({ to: u.email, subject, text, html });
+  if (!sent.ok) throw new Error(`${sent.service} ${sent.status}: ${sent.reason}`);
 }
 
 Deno.serve(async req => {
@@ -65,6 +62,6 @@ Deno.serve(async req => {
   const local = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   try {
     await digestFor(db, { user_id: user.id, email: user.email ?? '', full_name: String(user.user_metadata?.full_name ?? ''), time_zone: tz, local_date: local });
-  } catch { return json(502, { error: 'The email could not be sent. Try again in a moment.' }) }
+  } catch (e) { console.error('digest test', (e as Error).message); return json(502, { error: `The email could not be sent (${(e as Error).message}). Try again in a moment.` }) }
   return json(200, { sent: true });
 });

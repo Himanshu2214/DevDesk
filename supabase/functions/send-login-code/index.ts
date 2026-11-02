@@ -1,6 +1,7 @@
-// Sends the 6-digit 2-step code for the caller's current session by email (Resend).
-// Secrets: RESEND_API_KEY, MAIL_FROM (e.g. "SLATE·SPACE <login@yourdomain.com>"), CODE_PEPPER, optional APP_ORIGIN.
+// Sends the 6-digit 2-step code for the caller's current session by email (Mailjet, or Resend – see _shared/mail.ts).
+// Secrets: MAILJET_API_KEY + MAILJET_SECRET_KEY (or RESEND_API_KEY), MAIL_FROM ("SLATE·SPACE <you@gmail.com>"), CODE_PEPPER, optional APP_ORIGIN.
 import { admin, caller, CODE_TTL_MIN, cors, hashCode, json, RESEND_AFTER_S } from '../_shared/login-code.ts';
+import { explainFailure, sendMail } from '../_shared/mail.ts';
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -21,19 +22,20 @@ Deno.serve(async req => {
   });
   if (saveErr) return json(500, { error: 'Could not create a code. Try again.' });
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: Deno.env.get('MAIL_FROM'), to: user.email, subject: `${code} is your SLATE·SPACE sign-in code`,
-      text: `Your SLATE·SPACE sign-in code is ${code}.\nIt expires in ${CODE_TTL_MIN} minutes. If you did not try to sign in, change your password.`,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;padding:24px;color:#0f1218">
-        <p style="font-size:13px;letter-spacing:.09em;font-weight:600;margin:0 0 18px">SLATE<span style="color:#2f5fe0">·</span>SPACE</p>
-        <p style="margin:0 0 8px">Your sign-in code:</p>
-        <p style="font-size:32px;font-weight:700;letter-spacing:.2em;margin:0 0 16px">${code}</p>
-        <p style="color:#626a76;font-size:13px;margin:0">It expires in ${CODE_TTL_MIN} minutes. If you did not try to sign in, change your password.</p></div>`,
-    }),
+  const sent = await sendMail({
+    to: user.email!, subject: `${code} is your SLATE·SPACE sign-in code`,
+    text: `Your SLATE·SPACE sign-in code is ${code}.\nIt expires in ${CODE_TTL_MIN} minutes. If you did not try to sign in, change your password.`,
+    html: `<div style="font-family:system-ui,sans-serif;max-width:420px;margin:auto;padding:24px;color:#0f1218">
+      <p style="font-size:13px;letter-spacing:.09em;font-weight:600;margin:0 0 18px">SLATE<span style="color:#2f5fe0">·</span>SPACE</p>
+      <p style="margin:0 0 8px">Your sign-in code:</p>
+      <p style="font-size:32px;font-weight:700;letter-spacing:.2em;margin:0 0 16px">${code}</p>
+      <p style="color:#626a76;font-size:13px;margin:0">It expires in ${CODE_TTL_MIN} minutes. If you did not try to sign in, change your password.</p></div>`,
   });
-  if (!res.ok) return json(502, { error: 'The email could not be sent. Try again in a moment.' });
+  if (!sent.ok) {
+    // a code that never arrived must not block "Send a new code" for 60 seconds
+    await db.from('login_codes').delete().eq('session_id', sessionId);
+    console.error('send-login-code', sent.service, sent.status, sent.reason);
+    return json(502, { error: explainFailure(sent, user.email ?? 'your address') });
+  }
   return json(200, { sent: true, expiresInMinutes: CODE_TTL_MIN });
 });
