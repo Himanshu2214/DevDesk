@@ -54,7 +54,7 @@ const conflict = () => Object.assign(new Error('Someone (or another tab) changed
 const clean = <T,>(r: Row): T => { const { user_id: _u, ...rest } = r; return { ...rest, ...(rest.LastChangedAt ? { etag: String(rest.LastChangedAt) } : {}) } as T };
 const cleanAll = <T,>(rows: Row[] | null): T[] => (rows ?? []).map(r => clean<T>(r));
 /** Only real columns go to the database: no navigation, derived or bookkeeping fields */
-const DERIVED = new Set(['etag', 'user_id', 'ProjectName', 'LoggedHours', 'IsOverdue', 'Phase', 'TicketNo', 'TicketId', 'ArticleNo', 'ArticleId', 'CreatedAt', 'LastChangedAt']);
+const DERIVED = new Set(['etag', 'user_id', 'ProjectName', 'LoggedHours', 'IsOverdue', 'Phase', 'TicketNo', 'TicketId', 'ArticleNo', 'ArticleId', 'CreatedAt', 'LastChangedAt', 'SharedBy', 'SharedVia', 'Shares']);
 const columns = (p: Row): Row => Object.fromEntries(Object.entries(p).filter(([k, v]) => !k.startsWith('_') && !DERIVED.has(k) && v !== undefined));
 
 let me = '';
@@ -215,6 +215,10 @@ export const supabaseApi: Api = {
   projectMembers: async project => (await run(sb().rpc('project_members', { p_project: project }))) as ProjectMember[],
   async unshareProject(project, memberId) { await run(sb().from('project_shares').delete().eq('Project', project).eq('member_id', memberId)) },
   async leaveProject(project) { await run(sb().rpc('leave_project', { p_key: project })) },
+  shareTicket: async (id, email) => String(await run(sb().rpc('share_ticket', { p_ticket: id, p_email: email }))),
+  ticketMembers: async id => (await run(sb().rpc('ticket_members', { p_ticket: id }))) as ProjectMember[],
+  async unshareTicket(id, memberId) { await run(sb().from('ticket_shares').delete().eq('TicketUUID', id).eq('member_id', memberId)) },
+  async leaveTicket(id) { await run(sb().from('ticket_shares').delete().eq('TicketUUID', id).eq('member_id', await uid())) },
   // before the people migration has run: nobody to show
   async projectPeople(project) { const r = await sb().rpc('project_people', { p_key: project }); return r.error ? [] : (r.data ?? []) },
   // before the planning migration has run there is no table: no dependencies to show

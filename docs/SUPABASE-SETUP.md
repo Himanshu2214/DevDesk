@@ -300,3 +300,10 @@ emailed code stay as backups.
 
 From then on, signing in anywhere else asks your phone first. Tapping a wrong number denies the sign-in. A phone that
 is removed or loses its notification permission drops out of the list by itself.
+
+## 20. Share a single ticket
+
+**SQL Editor → New query**: run `supabase/migrations/20261111000000_ticket_shares.sql`. Then a ticket page has a
+**Share** button: enter the other person's SLATE·SPACE email. They see and edit only that ticket (with its time,
+comments, tests, files and transports); only you can delete it or move it to another project. They can remove it from
+their list with the same button. To share many tickets at once, share their project instead (section 13).

@@ -13,6 +13,7 @@ import { useDialogs } from '../components/Dialogs';
 import { TicketSap } from './TicketSap';
 import { attachFiles, pastedImages } from '../components/p2';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { ShareTicketButton } from '../components/ShareTicket';
 
 type Tab = 'overview' | 'tests' | 'sap' | 'activity';
 const NEXT_RESULT: Record<string, TestCase['TestResult']> = { OPEN: 'PASS', PASS: 'FAIL', FAIL: 'OPEN' };
@@ -110,7 +111,9 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
         {pos >= 0 && <span className="muted num hide-narrow" style={{ fontSize: 12, marginRight: 2 }}>{pos + 1} / {order.length}</span>}
         <button className="ib" title="Previous ticket (K)" aria-label="Previous ticket" disabled={pos <= 0} onClick={() => step(-1)}><Icon name="up" /></button>
         <button className="ib" title="Next ticket (J)" aria-label="Next ticket" disabled={pos < 0 || pos >= order.length - 1} onClick={() => step(1)}><Icon name="down" /></button>
-        <ConfirmButton label="Delete ticket" onConfirm={remove} title={`Delete ${t.TicketId}?`} description="The ticket and its time, notes, tests and files are removed for good."><Icon name="trash" /></ConfirmButton></>}>
+        <ShareTicketButton t={t} />
+        {/* only the owner deletes a ticket; on one shared with you the button would only fail */}
+        {!t.SharedBy && <ConfirmButton label="Delete ticket" onConfirm={remove} title={`Delete ${t.TicketId}?`} description="The ticket and its time, notes, tests and files are removed for good."><Icon name="trash" /></ConfirmButton>}</>}>
       <div className="tp">
         <div className="tp-main">
           <div className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}><ProjectChip code={t.Project} /><TechTag code={t.Tech} /><span className="tag">{s.text('TYPE', t.TicketType)}</span></div>

@@ -88,6 +88,11 @@ export interface Ticket {
   CreatedAt: string | null;
   LastChangedAt: string | null;
   etag?: string;
+  /** standalone only: who shared this ticket with you, and whether by itself or with its project; Shares = how many
+   *  people you shared your ticket with */
+  SharedBy?: string | null;
+  SharedVia?: 'ticket' | 'project' | null;
+  Shares?: number;
   _Acceptance?: Acceptance[];
   _Test?: TestCase[];
   _Checklist?: ChecklistItem[];
@@ -178,6 +183,11 @@ export interface Api {
   projectMembers?(project: string): Promise<ProjectMember[]>;
   unshareProject?(project: string, memberId: string): Promise<void>;
   leaveProject?(project: string): Promise<void>;
+  /** Share a single ticket (standalone only): with another account, list / remove them, or leave one shared with you */
+  shareTicket?(ticketUUID: string, email: string): Promise<string>;
+  ticketMembers?(ticketUUID: string): Promise<ProjectMember[]>;
+  unshareTicket?(ticketUUID: string, memberId: string): Promise<void>;
+  leaveTicket?(ticketUUID: string): Promise<void>;
   /** everyone on a shared project (owner first) – for the avatar group */
   projectPeople?(project: string): Promise<{ name: string; email: string; is_owner: boolean; photo: string }[]>;
 

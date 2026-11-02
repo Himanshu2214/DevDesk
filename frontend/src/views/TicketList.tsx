@@ -13,6 +13,7 @@ import { PRIORITY_NAME } from '../lib/format';
 import AnimatedTags from '../components/smoothui/animated-tags';
 import { type ExportFormat, exportSheets } from '../lib/export';
 import { ShareButton } from '../components/ShareProject';
+import { SharedMark } from '../components/ShareTicket';
 
 // the board (with dnd-kit) loads with the first board view, not with the app
 const Board = lazy(() => import('./Board'));
@@ -166,7 +167,7 @@ export function TicketList({ route }: { route: string }) {
                 <span onClick={e => prioMenu(e, t)} title="Priority"><PriorityIcon priority={t.Priority} /></span>
                 <span className="id num">{t.TicketId}</span>
                 <span data-st onClick={e => statusMenu(e, t)} title={s.text('STATUS', t.Status)}><StatusIcon status={t.Status} /></span>
-                <span className="ttl">{t.Title}<small>{t.Requester}</small></span>
+                <span className="ttl">{t.Title}<SharedMark t={t} /><small>{t.Requester}</small></span>
                 <span style={{ display: 'flex', gap: 6 }}><TechTag code={t.Tech} /><ProjectChip code={t.Project} /></span>
                 <span className="x muted num" style={{ fontSize: 12 }}>{t.LoggedHours ? `${Math.round(t.LoggedHours * 10) / 10}/${t.EstimateHours}h` : ''}</span>
                 <span style={{ textAlign: 'right' }}><Due t={t} short /></span>

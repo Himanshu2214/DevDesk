@@ -9,6 +9,7 @@ import { useStore } from '../store';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
 import { Avatar, Due, TechTag, Tip, useChangeFlash } from '../components/ui';
 import { useDialogs } from '../components/Dialogs';
+import { SharedMark } from '../components/ShareTicket';
 
 export default function Board({ cols, column, project, setStatus, onPrio }: {
   cols: Status[];
@@ -59,7 +60,7 @@ function Column({ status, empty, children }: { status: Status; empty: boolean; c
 
 function CardBody({ t, onPrio }: { t: Ticket; onPrio?: (e: React.MouseEvent, t: Ticket) => void }) {
   return <>
-    <div className="t" style={{ marginTop: 0 }}><span>{t.Title}</span></div>
+    <div className="t" style={{ marginTop: 0 }}><span>{t.Title}<SharedMark t={t} /></span></div>
     <div className="tags"><TechTag code={t.Tech} /><span className="tag">{t.Area}</span>
       {t.TicketType === 'BUG' && <span className="tag" style={{ background: 'rgba(235,87,87,.16)', color: 'var(--danger)' }}>Bug</span>}</div>
     <div className="r3"><span className="muted num" style={{ fontSize: 12 }}>{t.TicketId}</span>
