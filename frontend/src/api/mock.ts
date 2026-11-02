@@ -468,3 +468,6 @@ export const mockApi: Api = {
     Object.assign(r, { Phase: phaseOf(r), LastChangedAt: nowIso(), etag: etag() }); save(); await delay(0);
   },
 };
+
+/** the build picks one backend through the @backend alias (vite.config.ts) */
+export default mockApi;

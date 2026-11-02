@@ -2,7 +2,7 @@
 // The page itself is fetched from the network first (so a new version shows up on the next start) and falls back to the
 // cached copy when offline; the hashed build files never change, so they are served from the cache once loaded.
 // Supabase (data, sign-in) and Cloudflare (bot check) are other origins and are never touched here.
-const CACHE = 'slate-space-v2';
+const CACHE = 'slate-space-v3';
 const SHELL = ['./', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -13,6 +13,29 @@ self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
     .then(names => Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n))))
     .then(() => self.clients.claim()));
+});
+
+// Sign-in approval (edge function push-approve): the push carries no data, it only says "someone is signing in".
+// The notification opens the app's approve screen, which asks the server for the details.
+self.addEventListener('push', e => {
+  e.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    open.forEach(c => c.postMessage({ type: 'approve' }));
+    await self.registration.showNotification('Sign-in request', {
+      body: 'Is this you signing in to SLATE·SPACE? Tap to approve.',
+      icon: './icons/icon-192.png', badge: './icons/icon-192.png', tag: 'sign-in', renotify: true, requireInteraction: true,
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const app = open.find(c => new URL(c.url).origin === self.location.origin);
+    if (app) { await app.focus(); app.postMessage({ type: 'approve' }); return }
+    await self.clients.openWindow(new URL('./#approve', self.registration.scope).href);
+  })());
 });
 
 self.addEventListener('fetch', e => {

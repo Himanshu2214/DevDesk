@@ -273,3 +273,30 @@ Google Cloud → Google Auth Platform → **Branding**: app name `SLATE·SPACE`,
 | Authorized domains | `slatespace-32m.pages.dev` and `supabase.co` |
 
 Leave the logo empty: uploading one makes Google require a full verification. Then **Audience → Publish app**.
+
+## 19. Approve sign-ins on your phone
+
+Like GitHub Mobile: a new sign-in shows a 2-digit number, your phone gets a notification, and you tap the same
+number. It uses free Web Push to the installed app – no extra app or paid service. The authenticator app and the
+emailed code stay as backups.
+
+1. **SQL Editor → New query**: run `supabase/migrations/20261110000000_phone_approval.sql`.
+2. Make a key pair once (free, runs locally):
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+3. Save the two keys and your email as secrets (paste the values from step 2):
+   ```bash
+   npx supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com
+   ```
+4. Deploy the function:
+   ```bash
+   npx supabase functions deploy push-approve
+   ```
+5. On your phone, install the app: Android Chrome → menu → **Install app**; iPhone Safari → Share →
+   **Add to Home Screen** (iOS 16.4 or newer; notifications only work in the installed app on iPhone).
+6. Open the installed app, sign in once with a code, then **Account → Approve sign-ins on your phone → Use this device
+   to approve sign-ins** and allow notifications. **Send a test notification** checks it.
+
+From then on, signing in anywhere else asks your phone first. Tapping a wrong number denies the sign-in. A phone that
+is removed or loses its notification permission drops out of the list by itself.

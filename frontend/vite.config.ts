@@ -20,7 +20,11 @@ export default defineConfig(({ mode }) => {
     base: './',
     plugins: [react(), tailwindcss(), ...(standalone ? [pwa()] : [])],
     publicDir: standalone ? 'public' : false,
-    resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+    resolve: { alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // only the backend this build talks to is bundled (src/api/index.ts)
+      '@backend': fileURLToPath(new URL(`./src/api/${({ sap: 'odata', supabase: 'supabase' } as Record<string, string>)[env.VITE_BACKEND] ?? 'mock'}.ts`, import.meta.url)),
+    } },
     build: { assetsInlineLimit: 200_000, chunkSizeWarningLimit: 1200 },
     server: {
       port: 5181,

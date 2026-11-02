@@ -260,3 +260,6 @@ export const odataApi: Api = {
       { body: { TargetSystem: system, ReturnCode: rc }, etag: t.etag });
   },
 };
+
+/** the build picks one backend through the @backend alias (vite.config.ts) */
+export default odataApi;

@@ -11,7 +11,7 @@ The React app in [frontend/](frontend/) has three backends, chosen at build time
 | Backend | Command | What it is |
 |---|---|---|
 | **Sample data** | `npm run dev` | Runs fully in the browser with generated data. Changes are kept in the browser only. |
-| **Supabase (standalone)** | `npm run dev:cloud` / `npm run build:cloud` | The hosted app: sign-in with an emailed code or Google, your own data, shared projects, daily email, Google Calendar. Setup: [docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md). |
+| **Supabase (standalone)** | `npm run dev:cloud` / `npm run build:cloud` | The hosted app: sign-in with email or Google plus a second step (approve on your phone, authenticator app or emailed code), your own data, shared projects, daily email, Google Calendar. Setup: [docs/SUPABASE-SETUP.md](docs/SUPABASE-SETUP.md). |
 | **SAP** | `npm run dev:sap` / `npm run build` | Talks to the OData V4 service `ZUI_DD_O4` and deploys as BSP `ZDD_APP`. The ABAP sources are in [abap/](abap/); setup: [docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md). Written, not yet activated in a system. |
 
 ```bash
@@ -43,7 +43,7 @@ Keyboard: `Ctrl+K` search and commands, `C` new ticket, `J`/`K` move, `Enter` op
 ## Files
 
 - `frontend/` – React + TypeScript app (see [frontend/README.md](frontend/README.md)); `frontend/test` – tests
-- `supabase/` – database migrations, edge functions (sign-in codes, account deletion, daily email, calendar) and sample data
+- `supabase/` – database migrations, edge functions (sign-in codes, phone approval, account deletion, daily email, calendar) and sample data
 - `abap/` – ABAP sources (tables, CDS, access controls, behaviour, classes, service, reports)
 - `docs/SUPABASE-SETUP.md` – standalone setup, step by step
 - `docs/SETUP-GUIDE.md` – creating all SAP objects, app connection and BSP deployment

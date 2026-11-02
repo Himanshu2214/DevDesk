@@ -1,21 +1,21 @@
 // New ticket, log time and the command palette – opened from anywhere via useDialogs().
-import { createContext, useContext, useEffect, useState } from 'react';
-import { Command } from 'cmdk';
+import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { api } from '../api';
-import type { NewTicket, Status, Ticket } from '../api';
-import { keys, useArticles, useObjects, useStore, useTemplates, useTransports } from '../store';
+import type { NewTicket, Ticket } from '../api';
+import { keys, useStore, useTemplates } from '../store';
 import { useQueryClient } from '@tanstack/react-query';
 import { applyTemplate, STARTER_TEMPLATES, templateFrom } from '../lib/templates';
 import { attachFiles, fmtBytes, pastedImages } from './p2';
-import { recentTickets } from '../lib/recent';
-import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME, STATUS_ORDER } from '../lib/format';
+import { isoDate, isOpen, PRIORITY_NAME, STATUS_NAME } from '../lib/format';
 import { Dot, Icon, PriorityIcon, Spinner, StatusIcon } from './Icons';
 import { go, MenuSelect, menuOpen, useFieldMenus, useMenu } from './ui';
 import { DatePicker, DuePicker } from './DuePicker';
 import { dialogMotion, scrimMotion } from '../lib/motion';
 
 interface Dialogs { openNew(pre?: Partial<NewTicket>): void; openLog(ticketUUID?: string): void; openPalette(): void; openStop(t: Ticket): void }
+// the command palette (cmdk) loads the first time Ctrl+K is pressed
+const Palette = lazy(() => import('./Palette'));
 const Ctx = createContext<Dialogs>({ openNew() {}, openLog() {}, openPalette() {}, openStop() {} });
 export const useDialogs = () => useContext(Ctx);
 
@@ -31,7 +31,7 @@ export function DialogsProvider({ children }: { children: React.ReactNode }) {
       <AnimatePresence>
         {newPre && <NewTicketDialog key="new" pre={newPre} close={() => setNewPre(null)} />}
         {log !== undefined && <LogTimeDialog key="log" ticketUUID={log} close={() => setLog(undefined)} />}
-        {palette && <Palette key="palette" close={() => setPalette(false)} />}
+        {palette && <Suspense key="palette" fallback={null}><Palette close={() => setPalette(false)} /></Suspense>}
         {stop && <StopTimerDialog key="stop" ticket={stop} close={() => setStop(null)} />}
       </AnimatePresence>
     </Ctx.Provider>
@@ -237,67 +237,3 @@ function StopTimerDialog({ ticket, close }: { ticket: Ticket; close(): void }) {
   );
 }
 
-/* ---------- Command palette (cmdk: fuzzy search, keyboard navigation) ---------- */
-function Palette({ close }: { close(): void }) {
-  const s = useStore();
-  const { openNew, openLog, openStop } = useDialogs();
-  const [search, setSearch] = useState('');
-  const objects = useObjects(), articles = useArticles(), transports = useTransports();
-  const route = location.hash.slice(1);
-  const current = route.startsWith('ticket/') ? s.tickets.find(t => t.TicketId === decodeURIComponent(route.slice(7))) : undefined;
-  const recent = recentTickets().map(id => s.tickets.find(t => t.TicketId === id)).filter((t): t is Ticket => !!t);
-  const pick = (fn: () => void) => { close(); fn() };
-  const ticketItem = (t: Ticket, group: string) => (
-    <Command.Item key={group + t.TicketUUID} value={`${group} ${t.TicketId} ${t.Title} ${t.Requester} ${s.project(t.Project)?.Name ?? ''}`} onSelect={() => pick(() => go('ticket/' + t.TicketId))}>
-      <StatusIcon status={t.Status as Status} /><span className="muted num">{t.TicketId}</span><span className="pal-t">{t.Title}</span><span className="pal-k">{s.text('STATUS', t.Status)}</span>
-    </Command.Item>);
-  const action = (label: string, icon: string, fn: () => void, hint = '') => (
-    <Command.Item key={label} value={label} onSelect={() => pick(fn)}><Icon name={icon} size={14} style={{ color: 'var(--muted)' }} /><span>{label}</span><span className="pal-k">{hint}</span></Command.Item>);
-  return (
-    <Modal close={close} width={640} label="Command palette">
-      <Command className="pal" label="Command palette" loop>
-        <Command.Input autoFocus value={search} onValueChange={setSearch} placeholder="Search tickets, or type a command…" />
-        <Command.List className="res">
-          <Command.Empty>No results</Command.Empty>
-          {current && <Command.Group heading={current.TicketId}>
-            {STATUS_ORDER.filter(k => k !== current.Status).map(k => (
-              <Command.Item key={k} value={`set status ${STATUS_NAME[k]}`} onSelect={() => pick(() => s.changeStatus(current, k))}>
-                <StatusIcon status={k} /><span>Set status → {STATUS_NAME[k]}</span></Command.Item>))}
-            {action(current.TimerStartedAt ? 'Stop timer and log time' : 'Start timer', current.TimerStartedAt ? 'stop' : 'play',
-              () => current.TimerStartedAt ? openStop(current) : s.run(() => api.startTimer(current), { uuids: [current.TicketUUID], ok: `Timer started on ${current.TicketId}` }))}
-            {action('Log time on this ticket', 'clock', () => openLog(current.TicketUUID))}
-          </Command.Group>}
-          {!search && recent.length > 0 && <Command.Group heading="Recent">{recent.map(t => ticketItem(t, 'recent'))}</Command.Group>}
-          {search && <Command.Group heading="Tickets">{s.tickets.map(t => ticketItem(t, 'ticket'))}</Command.Group>}
-          {search && <Command.Group heading="Objects">{(objects.data ?? []).map(o =>
-            <Command.Item key={o.ObjectUUID} value={`object ${o.ObjectType} ${o.ObjectName} ${o.Description} ${o.PackageName}`} onSelect={() => pick(() => go('objects/' + o.ObjectUUID))}>
-              <Icon name="cube" size={14} style={{ color: 'var(--muted)' }} /><span className="pal-t mono">{o.ObjectName}</span><span className="pal-k">{o.ObjectType}</span></Command.Item>)}</Command.Group>}
-          {search && <Command.Group heading="Knowledge">{(articles.data ?? []).map(a =>
-            <Command.Item key={a.ArticleUUID} value={`article ${a.ArticleId} ${a.Title} ${a.Tags}`} onSelect={() => pick(() => go('kb/' + a.ArticleUUID))}>
-              <Icon name="book" size={14} style={{ color: 'var(--muted)' }} /><span className="muted num">{a.ArticleId}</span><span className="pal-t">{a.Title}</span></Command.Item>)}</Command.Group>}
-          {search && <Command.Group heading="Transports">{(transports.data ?? []).map(x =>
-            <Command.Item key={x.TransportUUID} value={`transport ${x.TrKorr} ${x.TrText}`} onSelect={() => pick(() => go('transports/' + x.TrKorr))}>
-              <Icon name="truck" size={14} style={{ color: 'var(--muted)' }} /><span className="mono">{x.TrKorr}</span><span className="pal-t">{x.TrText}</span><span className="pal-k">{x.Phase}</span></Command.Item>)}</Command.Group>}
-          <Command.Group heading="Actions">
-            {action('New ticket', 'plus', () => openNew(), 'C')}
-            {action('Log time…', 'clock', () => openLog())}
-            {action('New transport', 'truck', () => go('transports/new'))}
-            {action('Register object', 'cube', () => go('objects/new'))}
-            {action('Reload data', 'refresh', () => s.reload())}
-          </Command.Group>
-          <Command.Group heading="Go to">
-            {action('Home', 'home', () => go('home'))}
-            {action('Inbox', 'inbox', () => go('inbox'))}
-            {action('My tickets', 'my', () => go('list/active'))}
-            {action('Overdue', 'alert', () => go('list/overdue'))}
-            {action('Timesheet', 'clock', () => go('timesheet'))}
-            {action('Calendar', 'cal', () => go('calendar'))}
-            {action('Transports', 'truck', () => go('transports'))}
-            {action('Objects', 'cube', () => go('objects'))}
-            {action('Knowledge', 'book', () => go('kb'))}
-          </Command.Group>
-        </Command.List>
-      </Command>
-    </Modal>
-  );
-}

@@ -12,21 +12,22 @@ import { Home } from './views/Home';
 import { Inbox } from './views/Inbox';
 import { TicketList } from './views/TicketList';
 import { Timesheet } from './views/Timesheet';
-import { Account } from './views/Account';
 import { Placeholder } from './views/Placeholder';
-import { Transports } from './views/Transports';
-import { Objects } from './views/Objects';
-import { Knowledge } from './views/Knowledge';
-// pages with large libraries load only when opened: the editor (ticket page), FullCalendar, the charts and the Gantt
+// pages load when first opened: the large libraries (editor on the ticket page, FullCalendar, charts, Gantt) and the
+// pages that are not used every day stay out of the startup download
 const TicketPage = lazy(() => import('./views/TicketPage').then(m => ({ default: m.TicketPage })));
 const CalendarPage = lazy(() => import('./views/Calendar').then(m => ({ default: m.CalendarPage })));
 const Insights = lazy(() => import('./views/Insights').then(m => ({ default: m.Insights })));
 const Timeline = lazy(() => import('./views/Timeline').then(m => ({ default: m.Timeline })));
+const Transports = lazy(() => import('./views/Transports').then(m => ({ default: m.Transports })));
+const Objects = lazy(() => import('./views/Objects').then(m => ({ default: m.Objects })));
+const Knowledge = lazy(() => import('./views/Knowledge').then(m => ({ default: m.Knowledge })));
+const Account = lazy(() => import('./views/Account').then(m => ({ default: m.Account })));
+const Approve = lazy(() => import('./views/Approve').then(m => ({ default: m.Approve })));
 /** placeholder while a lazy page loads (usually a moment, once per visit) */
 const Loading = ({ title }: { title: string }) => <Page crumb={<b>{title}</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>;
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
-import GravityStars from './components/smoothui/gravity-stars';
 import { BottomNav } from './components/BottomNav';
 import { Onboarding } from './components/Onboarding';
 import { PageTransition, Ripples } from './components/Motion';
@@ -46,10 +47,11 @@ function Router({ route }: { route: string }) {
     case 'ticket': return <Suspense fallback={<Loading title="Ticket" />}><TicketPage ticketId={decodeURIComponent(rest)} /></Suspense>;
     case 'timesheet': return <Timesheet />;
     case 'calendar': return <Suspense fallback={<Loading title="Calendar" />}><CalendarPage /></Suspense>;
-    case 'account': return <Account />;
-    case 'transports': return <Transports route={route} />;
-    case 'objects': return <Objects route={route} />;
-    case 'kb': return <Knowledge route={route} />;
+    case 'account': return <Suspense fallback={<Loading title="Account" />}><Account /></Suspense>;
+    case 'approve': return <Suspense fallback={<Loading title="Sign-in request" />}><Approve /></Suspense>;
+    case 'transports': return <Suspense fallback={<Loading title="Transports" />}><Transports route={route} /></Suspense>;
+    case 'objects': return <Suspense fallback={<Loading title="Objects" />}><Objects route={route} /></Suspense>;
+    case 'kb': return <Suspense fallback={<Loading title="Knowledge" />}><Knowledge route={route} /></Suspense>;
     case 'insights': return <Suspense fallback={<Loading title="Insights" />}><Insights /></Suspense>;
     case 'timeline': return <Suspense fallback={<Loading title="Timeline" />}><Timeline /></Suspense>;
     default: return <Placeholder route={head} />;
@@ -121,11 +123,15 @@ function Shell() {
     return () => { removeEventListener('devdesk-nav', toggle); removeEventListener('devdesk-help', help) };
   }, []);
   useEffect(() => { setNavOpen(false) }, [route]);
+  // a sign-in request arriving while the app is open on this phone goes straight to the approve screen (see sw.js)
+  useEffect(() => {
+    const sw = navigator.serviceWorker;
+    if (!sw) return;
+    const on = (e: MessageEvent) => { if (e.data?.type === 'approve') location.hash = 'approve' };
+    sw.addEventListener('message', on); return () => sw.removeEventListener('message', on);
+  }, []);
 
   return (
-    // SmoothUI Gravity Stars behind the whole app; the stars lean towards the pointer. It pauses while the tab is hidden;
-    // 70 stars keep the per-frame line check (every pair of stars) light on laptop batteries.
-    <GravityStars className="app-sky" color="var(--muted)" count={70} glow={3} gravity={0.6} speed={0.6} tint={0.35} connectDistance={90}>
     <div className={'app' + (navOpen ? ' nav-open' : '')}>
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <Sidebar route={route} />
@@ -141,7 +147,6 @@ function Shell() {
       <AnimatePresence>{help && <ShortcutHelp key="help" close={() => setHelp(false)} />}</AnimatePresence>
       <AnimatePresence>{firstRun && <Onboarding key="setup" close={() => setSetupDone(true)} />}</AnimatePresence>
     </div>
-    </GravityStars>
   );
 }
 

@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { sb } from '../lib/supabase';
 import { CALENDAR_RESULT, calendarCall, type CalendarStatus, connectGoogleCalendar, takeCalendarResult } from '../lib/calendar';
 import { fmtDate } from '../lib/format';
+import { currentEndpoint, disablePushHere, enablePush, needsHomeScreen, pushCall, pushSupported } from '../lib/push';
 import { Icon, Spinner } from '../components/Icons';
 import { Empty, MenuSelect, Page } from '../components/ui';
 import Input from '../components/smoothui/input';
@@ -30,6 +31,7 @@ function CloudAccount() {
         <header className="acct-head"><h2>Account</h2><p className="muted">Your sign-in, sessions and data.</p></header>
         <Profile user={user} providers={providers} onSaved={() => s.reload()} />
         <Password hasPassword={providers.includes('email')} />
+        <PhoneApproval />
         <TwoStep />
         <DailyEmail />
         <GoogleCalendar />
@@ -147,6 +149,47 @@ function TwoStep() {
     </form> : <>
       <p className="acct-status"><span className="acct-pill">Using the emailed code</span></p>
       <button className="btn primary" onClick={start} disabled={busy} aria-busy={busy}>{busy ? <Spinner /> : <Icon name="plus" size={14} />}Set up authenticator app</button>
+    </>}
+  </Section>;
+}
+
+/** Phone approval (like GitHub Mobile): devices that get a notification for every new sign-in and approve it by
+ *  tapping the number shown on the sign-in screen (edge function push-approve) */
+type Device = { id: string; endpoint: string; label: string; created_at: string; last_used_at: string | null };
+function PhoneApproval() {
+  const s = useStore();
+  const [devices, setDevices] = useState<Device[] | null>(null), [here, setHere] = useState<string | null>(null), [busy, setBusy] = useState('');
+  const load = async () => {
+    const [{ data }, ep] = await Promise.all([sb().from('push_devices').select('id, endpoint, label, created_at, last_used_at').order('created_at'), currentEndpoint()]);
+    setDevices((data as Device[] | null) ?? []); setHere(ep);
+  };
+  useEffect(() => { load() }, []);
+  const thisOn = !!here && !!devices?.some(d => d.endpoint === here);
+  const run = async (what: string, f: () => Promise<unknown>, ok: string) => {
+    setBusy(what);
+    try { await f(); s.toast(ok); await load() } catch (e) { s.toast((e as Error).message, true) }
+    setBusy('');
+  };
+  const remove = (d: Device) => run(d.id, async () => {
+    const { error } = await sb().from('push_devices').delete().eq('id', d.id);
+    if (error) throw new Error(error.message);
+    if (d.endpoint === here) await disablePushHere();
+  }, `${d.label} removed`);
+  return <Section title="Approve sign-ins on your phone" sub="Like GitHub Mobile: a new sign-in shows a number, your phone gets a notification, and you tap the same number. Faster than typing a code; the codes stay as a backup.">
+    {devices === null ? <div className="sk" style={{ height: 40 }} /> : <>
+      {devices.length > 0 && <ul className="acct-devices">{devices.map(d =>
+        <li key={d.id}><Icon name="phone" size={16} /><span>{d.label}{d.endpoint === here && <span className="muted"> · this device</span>}</span><span className="sp" />
+          <ConfirmButton className="btn" label={`Remove ${d.label}`} onConfirm={() => remove(d)} description="It will no longer get sign-in requests.">
+            {busy === d.id ? <Spinner /> : <Icon name="trash" size={14} />}Remove</ConfirmButton></li>)}</ul>}
+      {!pushSupported() ? <p className="muted acct-note">This browser cannot receive notifications. Open SLATE·SPACE on your phone to set this up.</p>
+        : needsHomeScreen() ? <p className="muted acct-note">On iPhone, first tap Share → <b>Add to Home Screen</b>, open SLATE·SPACE from there, and come back to this page.</p>
+        : <div className="acct-actions">
+          {!thisOn && <button className="btn primary" disabled={!!busy} aria-busy={busy === 'on'} onClick={() => run('on', enablePush, 'This device now approves your sign-ins')}>
+            {busy === 'on' ? <Spinner /> : <Icon name="phone" size={14} />}Use this device to approve sign-ins</button>}
+          {devices.length > 0 && <button className="btn" disabled={!!busy} aria-busy={busy === 'test'} onClick={() => run('test', () => pushCall('test'), 'Test notification sent')}>
+            {busy === 'test' ? <Spinner /> : <Icon name="bell" size={14} />}Send a test notification</button>}
+        </div>}
+      {devices.length === 0 && pushSupported() && !needsHomeScreen() && <p className="muted acct-note">Turn this on from the phone you always carry – install the app on it first (browser menu → Install app / Add to Home Screen).</p>}
     </>}
   </Section>;
 }
@@ -277,7 +320,7 @@ function Sessions({ user }: { user: User }) {
     setBusy(false);
     if (error) s.toast(error.message, true); else s.toast('Signed out on all other devices');
   };
-  return <Section title="Sessions" sub="Each new sign-in needs the emailed code. Lost a device? Sign it out here.">
+  return <Section title="Sessions" sub="Each new sign-in needs a second step (phone, authenticator app or emailed code). Lost a device? Sign it out here.">
     <div className="acct-actions">
       <button className="btn" onClick={others} disabled={busy} aria-busy={busy}>{busy ? <Spinner /> : <Icon name="logout" size={14} />}Sign out all other devices</button>
       <button className="btn" onClick={async () => { await sb().auth.signOut(); location.reload() }}><Icon name="logout" size={14} />Sign out here</button>

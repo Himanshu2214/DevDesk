@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { m } from 'motion/react';
-import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import type { Status, Ticket } from '../api';
 import { useStore } from '../store';
 import { fmtDate, isOpen, STATUS_ORDER } from '../lib/format';
 import { Icon, PriorityIcon, StatusIcon } from '../components/Icons';
-import { Avatar, Due, Empty, go, isTyping, Page, ProjectChip, TabIndicator, TechTag, Tip, useChangeFlash, useFieldMenus, useMenu, XBtn } from '../components/ui';
+import { Due, Empty, go, isTyping, Page, ProjectChip, TabIndicator, TechTag, useFieldMenus, useMenu, XBtn } from '../components/ui';
 import { VIEWS, type ViewKey } from '../components/Sidebar';
 import { useDialogs } from '../components/Dialogs';
 import { activeFilterCount, applyFilters, EMPTY_PREFS, rememberOrder, sorter, useListPrefs } from '../lib/listPrefs';
@@ -17,6 +14,8 @@ import AnimatedTags from '../components/smoothui/animated-tags';
 import { type ExportFormat, exportSheets } from '../lib/export';
 import { ShareButton } from '../components/ShareProject';
 
+// the board (with dnd-kit) loads with the first board view, not with the app
+const Board = lazy(() => import('./Board'));
 const GROUP_ORDER: Status[] = ['PROG', 'TEST', 'BLOCK', 'TODO', 'BACKLOG', 'DONE'];
 type Layout = 'list' | 'board';
 
@@ -28,9 +27,6 @@ export function TicketList({ route }: { route: string }) {
   const { openNew } = useDialogs();
   const [layout, setLayout] = useState<Layout>(() => { try { return (localStorage.getItem('devdesk-layout') as Layout) || 'board' } catch { return 'board' } });
   const [sel, setSel] = useState(0);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const justDragged = useRef(0);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor));
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const [kind, rest] = [route.split('/')[0], route.split('/').slice(1).join('/')];
@@ -186,63 +182,13 @@ export function TicketList({ route }: { route: string }) {
   // views (overdue, blocked, recently done …): only the columns that hold tickets, so e.g. Done is not pushed off-screen by empty columns
   const used = STATUS_ORDER.filter(k => set.some(t => t.Status === k));
   const cols = view && used.length ? used : STATUS_ORDER.filter(k => (k !== 'DONE' || tab === 'all' || tab === 'done') && (k !== 'BACKLOG' || tab !== 'active'));
-  const dragged = s.tickets.find(t => t.TicketUUID === dragId);
   return (
     <Page crumb={crumb} bar2={bar2} right={p && <ShareButton project={p} />}>
-      <DndContext sensors={sensors} collisionDetection={pointerWithin}
-        onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))}
-        onDragCancel={() => setDragId(null)}
-        onDragEnd={(e: DragEndEvent) => {
-          setDragId(null);
-          justDragged.current = Date.now();
-          const t = s.tickets.find(x => x.TicketUUID === e.active.id), to = e.over?.id as Status | undefined;
-          if (t && to && t.Status !== to) setStatus(t, to);
-        }}>
-        <m.div className="board" layoutScroll>{cols.map(k => {
-          const g = set.filter(t => t.Status === k).sort(sorter(prefs.sort)).slice(0, k === 'DONE' ? 20 : 999);
-          const wip = s.wip(k), over = wip > 0 && g.length > wip;
-          return (
-            <Column key={k} status={k} empty={!g.length}>
-              <div className="col-h"><StatusIcon status={k} />{s.text('STATUS', k)}<span className="c">{g.length}</span><span className="sp" />
-                {wip > 0 && <span className={'wip' + (over ? ' over' : '')} title="Work-in-progress limit">{g.length}/{wip}</span>}
-                <Tip label={'New ticket in ' + s.text('STATUS', k)}><button className="ib" aria-label={'New ticket in ' + s.text('STATUS', k)} onClick={() => openNew({ status: k, ...(project ? { Project: project } : {}) })}><Icon name="plus" /></button></Tip></div>
-              {!g.length && <div className="col-empty">No tickets</div>}
-              {g.map(t => <DraggableCard key={t.TicketUUID} t={t} hidden={dragId === t.TicketUUID} justDragged={justDragged} onPrio={prioMenu} />)}
-            </Column>);
-        })}</m.div>
-        <DragOverlay dropAnimation={null}>{dragged && <div className="card overlay"><CardBody t={dragged} /></div>}</DragOverlay>
-      </DndContext>
+      <Suspense fallback={<div className="board">{cols.map(k => <div key={k} className="col"><div className="sk" style={{ height: 120, margin: 8 }} /></div>)}</div>}>
+        <Board cols={cols} project={project} setStatus={setStatus} onPrio={prioMenu}
+          column={k => set.filter(t => t.Status === k).sort(sorter(prefs.sort)).slice(0, k === 'DONE' ? 20 : 999)} />
+      </Suspense>
     </Page>
   );
 }
 
-const STATUS_VAR: Record<Status, string> = { BACKLOG: 'backlog', TODO: 'todo', PROG: 'prog', TEST: 'test', BLOCK: 'block', DONE: 'done' };
-function Column({ status, empty, children }: { status: Status; empty: boolean; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-  return <div ref={setNodeRef} className={'col' + (isOver ? ' drop' : '') + (empty ? ' is-empty' : '')} style={{ ['--c' as string]: `var(--st-${STATUS_VAR[status]})` }}>{children}</div>;
-}
-
-function CardBody({ t, onPrio }: { t: Ticket; onPrio?: (e: React.MouseEvent, t: Ticket) => void }) {
-  return <>
-    <div className="t" style={{ marginTop: 0 }}><span>{t.Title}</span></div>
-    <div className="tags"><TechTag code={t.Tech} /><span className="tag">{t.Area}</span>
-      {t.TicketType === 'BUG' && <span className="tag" style={{ background: 'rgba(235,87,87,.16)', color: 'var(--danger)' }}>Bug</span>}</div>
-    <div className="r3"><span className="muted num" style={{ fontSize: 12 }}>{t.TicketId}</span>
-      <span onClick={e => onPrio?.(e, t)} onPointerDown={e => e.stopPropagation()}><PriorityIcon priority={t.Priority} /></span><Due t={t} short /><span className="sp" />
-      <span className="muted num" style={{ fontSize: 12 }}>{Math.round(t.LoggedHours * 10) / 10}/{t.EstimateHours}h</span><Avatar name={t.Assignee} size={18} /></div>
-  </>;
-}
-
-/** Card link; a drag starts after 6 px, so a normal click still opens the ticket */
-function DraggableCard({ t, hidden, justDragged, onPrio }: { t: Ticket; hidden: boolean; justDragged: React.MutableRefObject<number>; onPrio: (e: React.MouseEvent, t: Ticket) => void }) {
-  const { setNodeRef, attributes, listeners } = useDraggable({ id: t.TicketUUID });
-  const flash = useChangeFlash<HTMLAnchorElement>(t.Status + t.Priority);
-  const ref = (el: HTMLAnchorElement | null) => { setNodeRef(el); flash.current = el };
-  return (
-    // layout: when the status changes the card glides to its new column instead of jumping
-    <m.a ref={ref} {...attributes} {...listeners} layout="position" layoutId={'card-' + t.TicketUUID} transition={{ type: 'spring', stiffness: 420, damping: 38 }}
-      className={'card' + (hidden ? ' dragging' : '')} href={'#ticket/' + t.TicketId}
-      onClick={e => { if (Date.now() - justDragged.current < 300) e.preventDefault() }}>
-      <CardBody t={t} onPrio={onPrio} />
-    </m.a>);
-}

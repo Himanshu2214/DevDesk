@@ -1,0 +1,53 @@
+// Phone approval (standalone mode): this device receives sign-in requests as notifications and approves them by
+// tapping the number the new sign-in shows (edge function push-approve, migration 20261110000000_phone_approval).
+import { sb } from './supabase';
+
+export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+/** iPhone/iPad only allow notifications for the app added to the Home Screen */
+export const needsHomeScreen = () => /iPhone|iPad/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches;
+
+/** calls push-approve and turns its errors into readable messages */
+export async function pushCall<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await sb().functions.invoke('push-approve', { body: { action, ...body } });
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    const msg = (await ctx?.json().catch(() => null))?.error as string | undefined;
+    throw new Error(msg || (ctx?.status === 404 ? 'Phone approval is not set up yet (setup guide, step 19).' : 'Phone approval could not be reached.'));
+  }
+  return data as T;
+}
+
+const registration = async () => (await navigator.serviceWorker.getRegistration()) ?? null;
+/** this browser's push address, if it has one */
+export async function currentEndpoint(): Promise<string | null> {
+  if (!pushSupported()) return null;
+  return (await (await registration())?.pushManager.getSubscription())?.endpoint ?? null;
+}
+
+/** a readable name for the device list: "iPhone · Safari" */
+export function deviceLabel(): string {
+  const ua = navigator.userAgent;
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : 'Device';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  return `${os} · ${browser}`;
+}
+
+const keyBytes = (k: string) => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((k.length + 3) % 4)), c => c.charCodeAt(0));
+
+/** asks for permission, subscribes this browser and saves it as an approval device */
+export async function enablePush(): Promise<void> {
+  if (!pushSupported()) throw new Error('This browser cannot receive notifications.');
+  const reg = await registration();
+  if (!reg) throw new Error('Open the installed app (not a preview) to turn this on.');
+  if ((await Notification.requestPermission()) !== 'granted') throw new Error('Notifications are blocked. Allow them for this app in the browser or phone settings.');
+  const { publicKey } = await pushCall<{ publicKey: string }>('key');
+  const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
+  const j = sub.toJSON();
+  const { error } = await sb().from('push_devices').upsert({ endpoint: sub.endpoint, p256dh: j.keys?.p256dh ?? '', auth: j.keys?.auth ?? '', label: deviceLabel() }, { onConflict: 'endpoint' });
+  if (error) throw new Error(error.message);
+}
+
+/** removes this browser's subscription (the row is removed by the caller) */
+export async function disablePushHere(): Promise<void> {
+  await (await (await registration())?.pushManager.getSubscription())?.unsubscribe();
+}

@@ -1,6 +1,7 @@
 // Sign-in for the standalone (Supabase) backend: email + password or Google (with an invisible Turnstile bot check),
 // email confirmation, password reset by link, and the second step that unlocks the data for this session:
-// a code from an authenticator app (Supabase MFA, AAL2) or, as fallback, a code sent by email.
+// approval on your phone (tap the number shown, like GitHub Mobile), a code from an authenticator app (Supabase MFA,
+// AAL2) or, as fallback, a code sent by email.
 import { type InputHTMLAttributes, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { appUrl, getRemember, sb, setRemember, supabaseConfigured } from '../lib/supabase';
@@ -8,16 +9,27 @@ import { Icon, LogoMark, Spinner } from './Icons';
 import FloatInput from './smoothui/float-input';
 import { OtpSlots } from './smoothui/otp-slots';
 import { RibbonArt } from './RibbonArt';
-import GravityStars from './smoothui/gravity-stars';
 import { useTurnstile } from './Turnstile';
+import { currentEndpoint, pushCall } from '../lib/push';
 
-type Stage = 'loading' | 'signed-out' | 'recovery' | 'app-code' | 'code' | 'ready';
+type Stage = 'loading' | 'signed-out' | 'recovery' | 'push' | 'app-code' | 'code' | 'ready';
+type PushRequest = { number: number; expiresAt: string };
+
+/** asks the user's phone(s) to approve this session; null when no phone is set up (or the function is not deployed) */
+async function askPhone(): Promise<PushRequest | 'verified' | null> {
+  try {
+    const r = await pushCall<{ verified?: boolean; number?: number; expiresAt?: string; sent?: number }>('start', { exclude: await currentEndpoint() });
+    if (r.verified) return 'verified';
+    return r.number && r.sent ? { number: r.number, expiresAt: r.expiresAt! } : null;
+  } catch { return null }
+}
 type View = 'signin' | 'register' | 'forgot' | 'sent';
 
 /** Shows the app only for a signed-in user whose session has passed the second step */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [stage, setStage] = useState<Stage>('loading');
   const [hasApp, setHasApp] = useState(false);
+  const [push, setPush] = useState<PushRequest | null>(null);
   const decide = async (s: Session | null) => {
     if (!s) return setStage('signed-out');
     const { data } = await sb().rpc('session_verified');
@@ -26,6 +38,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const { data: aal } = await sb().auth.mfa.getAuthenticatorAssuranceLevel();
     const app = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2';
     setHasApp(app);
+    // a phone set up for approvals comes first; the code steps stay as fallbacks
+    const p = await askPhone();
+    if (p === 'verified') return setStage('ready');
+    if (p) { setPush(p); return setStage('push') }
     setStage(app ? 'app-code' : 'code');
   };
   const decideNow = async () => decide((await sb().auth.getSession()).data.session);
@@ -46,6 +62,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (stage === 'ready') return <>{children}</>;
   if (stage === 'loading') return null;
   if (stage === 'recovery') return <NewPassword onDone={decideNow} />;
+  if (stage === 'push' && push) return <PushStep request={push} onVerified={() => setStage('ready')} onAgain={setPush}
+    onUseApp={hasApp ? () => setStage('app-code') : undefined} onUseEmail={() => setStage('code')} />;
   if (stage === 'app-code') return <AppCodeStep onVerified={() => setStage('ready')} onUseEmail={() => setStage('code')} />;
   if (stage === 'code') return <CodeStep onVerified={() => setStage('ready')} onUseApp={hasApp ? () => setStage('app-code') : undefined} />
   return <SignedOut />;
@@ -54,7 +72,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 /** Window shell: a dark rounded window on a graphite backdrop – form on the left, animated ribbon artwork on the right */
 function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNode; children: React.ReactNode }) {
   return <div className="auth-page">
-    <GravityStars className="auth-sky" color="#9aa0aa" count={140} glow={3.5} tint={0.4} />
     <main className="auth-window">
       <span className="auth-dots" aria-hidden="true"><i /><i /><i /></span>
       <div className="auth-card" aria-labelledby="auth-title">
@@ -210,7 +227,53 @@ function NewPassword({ onDone }: { onDone(): void }) {
   </AuthCard>;
 }
 
-/** Second step: a 6-digit code emailed for this session (edge functions send-login-code / verify-login-code) */
+/** Second step on your phone: it gets a notification and you tap the number shown here (edge function push-approve) */
+function PushStep({ request, onVerified, onAgain, onUseApp, onUseEmail }: {
+  request: PushRequest; onVerified(): void; onAgain(r: PushRequest): void; onUseApp?(): void; onUseEmail(): void;
+}) {
+  const secondsLeft = () => Math.max(0, Math.round((Date.parse(request.expiresAt) - Date.now()) / 1000));
+  const [state, setState] = useState<'pending' | 'denied' | 'expired'>('pending'), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
+  const [left, setLeft] = useState(secondsLeft);
+  useEffect(() => { setState('pending'); setErr(''); setLeft(secondsLeft()) }, [request]);
+  // the phone's answer arrives by polling, a few seconds apart and only while this screen is open
+  useEffect(() => {
+    if (state !== 'pending') return;
+    let stop = false, timer = 0;
+    const tick = async () => {
+      try {
+        const { status } = await pushCall<{ status: string }>('status');
+        if (stop) return;
+        if (status === 'approved' && (await sb().rpc('session_verified')).data) return onVerified();
+        if (status === 'denied' || status === 'expired') return setState(status);
+      } catch { /* a missed poll is retried */ }
+      if (!stop) timer = window.setTimeout(tick, 2500);
+    };
+    timer = window.setTimeout(tick, 2500);
+    return () => { stop = true; clearTimeout(timer) };
+  }, [state, request, onVerified]);
+  useEffect(() => { if (state !== 'pending' || left <= 0) return; const id = setTimeout(() => setLeft(l => l - 1), 1000); return () => clearTimeout(id) }, [left, state]);
+  const again = async () => {
+    setBusy(true); setErr('');
+    const r = await askPhone();
+    setBusy(false);
+    if (r === 'verified') return onVerified();
+    if (r) onAgain(r); else setErr('Your phone could not be reached. Use a code instead.');
+  };
+  const sub = state === 'pending' ? 'We sent a notification to your phone. Open it and tap this number:'
+    : state === 'denied' ? 'The request was denied on your phone.' : 'The request expired before it was answered.';
+  const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  return <AuthCard title={state === 'pending' ? 'Approve on your phone' : 'Not approved'} sub={sub}>
+    {state === 'pending' ? <>
+      <div className="push-num" aria-label={'Number to tap on your phone: ' + request.number}>{request.number}</div>
+      <p className="auth-info push-wait" role="status"><Spinner />Waiting for your phone{left > 0 ? ' · ' + clock : ''}</p>
+    </> : <button type="button" className="btn primary auth-wide auth-submit" onClick={again} disabled={busy} aria-busy={busy}>{busy && <Spinner />}Send a new request</button>}
+    <AuthError text={err} />
+    <p className="auth-switch">{onUseApp && <><button type="button" className="auth-link" onClick={onUseApp}>Use your authenticator app</button><span aria-hidden="true"> · </span></>}
+      <button type="button" className="auth-link" onClick={onUseEmail}>Use an emailed code</button>
+      <span aria-hidden="true"> · </span><button type="button" className="auth-link" onClick={() => sb().auth.signOut()}>Use another account</button></p>
+  </AuthCard>;
+}
+
 /** Second step with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, …): raises the session to AAL2 */
 function AppCodeStep({ onVerified, onUseEmail }: { onVerified(): void; onUseEmail(): void }) {
   const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [err, setErr] = useState('');
@@ -235,6 +298,7 @@ function AppCodeStep({ onVerified, onUseEmail }: { onVerified(): void; onUseEmai
   </AuthCard>;
 }
 
+/** Second step: a 6-digit code emailed for this session (edge functions send-login-code / verify-login-code) */
 function CodeStep({ onVerified, onUseApp }: { onVerified(): void; onUseApp?(): void }) {
   const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [err, setErr] = useState(''), [info, setInfo] = useState('');
   const [wait, setWait] = useState(0), [email, setEmail] = useState('');

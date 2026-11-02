@@ -294,3 +294,6 @@ export const supabaseApi: Api = {
     await updateOne('transports', 'TransportUUID', t.TransportUUID, p, t.etag);
   },
 };
+
+/** the build picks one backend through the @backend alias (vite.config.ts) */
+export default supabaseApi;
