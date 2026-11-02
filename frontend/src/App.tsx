@@ -11,17 +11,19 @@ import { Sidebar } from './components/Sidebar';
 import { Home } from './views/Home';
 import { Inbox } from './views/Inbox';
 import { TicketList } from './views/TicketList';
-import { TicketPage } from './views/TicketPage';
 import { Timesheet } from './views/Timesheet';
-import { CalendarPage } from './views/Calendar';
 import { Account } from './views/Account';
 import { Placeholder } from './views/Placeholder';
 import { Transports } from './views/Transports';
 import { Objects } from './views/Objects';
 import { Knowledge } from './views/Knowledge';
-import { Insights } from './views/Insights';
-// the Gantt library (Timeline) loads only when the page is opened
+// pages with large libraries load only when opened: the editor (ticket page), FullCalendar, the charts and the Gantt
+const TicketPage = lazy(() => import('./views/TicketPage').then(m => ({ default: m.TicketPage })));
+const CalendarPage = lazy(() => import('./views/Calendar').then(m => ({ default: m.CalendarPage })));
+const Insights = lazy(() => import('./views/Insights').then(m => ({ default: m.Insights })));
 const Timeline = lazy(() => import('./views/Timeline').then(m => ({ default: m.Timeline })));
+/** placeholder while a lazy page loads (usually a moment, once per visit) */
+const Loading = ({ title }: { title: string }) => <Page crumb={<b>{title}</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>;
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
 import GravityStars from './components/smoothui/gravity-stars';
@@ -41,15 +43,15 @@ function Router({ route }: { route: string }) {
     case 'home': return <Home />;
     case 'inbox': return <Inbox />;
     case 'list': case 'project': return <TicketList route={route} />;
-    case 'ticket': return <TicketPage ticketId={decodeURIComponent(rest)} />;
+    case 'ticket': return <Suspense fallback={<Loading title="Ticket" />}><TicketPage ticketId={decodeURIComponent(rest)} /></Suspense>;
     case 'timesheet': return <Timesheet />;
-    case 'calendar': return <CalendarPage />;
+    case 'calendar': return <Suspense fallback={<Loading title="Calendar" />}><CalendarPage /></Suspense>;
     case 'account': return <Account />;
     case 'transports': return <Transports route={route} />;
     case 'objects': return <Objects route={route} />;
     case 'kb': return <Knowledge route={route} />;
-    case 'insights': return <Insights />;
-    case 'timeline': return <Suspense fallback={<Page crumb={<b>Timeline</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>}><Timeline /></Suspense>;
+    case 'insights': return <Suspense fallback={<Loading title="Insights" />}><Insights /></Suspense>;
+    case 'timeline': return <Suspense fallback={<Loading title="Timeline" />}><Timeline /></Suspense>;
     default: return <Placeholder route={head} />;
   }
 }
@@ -121,8 +123,9 @@ function Shell() {
   useEffect(() => { setNavOpen(false) }, [route]);
 
   return (
-    // SmoothUI Gravity Stars behind the whole app; the stars lean towards the pointer
-    <GravityStars className="app-sky" color="var(--muted)" count={120} glow={3} gravity={0.6} speed={0.6} tint={0.35} connectDistance={90}>
+    // SmoothUI Gravity Stars behind the whole app; the stars lean towards the pointer. It pauses while the tab is hidden;
+    // 70 stars keep the per-frame line check (every pair of stars) light on laptop batteries.
+    <GravityStars className="app-sky" color="var(--muted)" count={70} glow={3} gravity={0.6} speed={0.6} tint={0.35} connectDistance={90}>
     <div className={'app' + (navOpen ? ' nav-open' : '')}>
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
       <Sidebar route={route} />

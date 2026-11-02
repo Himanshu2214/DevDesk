@@ -1,6 +1,6 @@
 # SLATE·SPACE frontend – phase 1 and 2
 
-React 18 + TypeScript + Vite, with the same look as the mockup (Inter font and ECharts bundled, no CDN). It talks to the OData V4 service **`ZUI_DD_O4`**: tickets, acceptance criteria, test cases, checklist, work log, comments and status events.
+React 18 + TypeScript + Vite (fonts and charts bundled, no CDN). It talks to the OData V4 service **`ZUI_DD_O4`**: tickets, acceptance criteria, test cases, checklist, work log, comments and status events.
 
 ## Screens
 
@@ -83,5 +83,5 @@ src/
   store.tsx        data, polling, run(): every change goes through it and refreshes the affected ticket
   components/      icons, menu, page frame, sidebar, dialogs (new ticket, log time, palette), donut
   views/           Home, Inbox, TicketList (list + board), TicketPage, Timesheet, Placeholder
-  styles/          app.css / app2.css from the mockup + react.css
+  styles/          app.css / app2.css (design tokens and components) + react.css, motion.css
 ```

@@ -5,7 +5,7 @@ import type { HighlighterCore } from 'shiki/core';
 
 /** language names and aliases people type after ``` (or in Knowledge → Language) → Shiki grammar */
 const LANG: Record<string, string> = {
-  abap: 'abap', cds: 'abap', json: 'json', sql: 'sql', xml: 'xml', html: 'html', css: 'css', http: 'http', yaml: 'yaml', yml: 'yaml',
+  abap: 'abap', cds: 'abap', json: 'json', sql: 'sql', xml: 'xml', html: 'html', css: 'css', yaml: 'yaml', yml: 'yaml',
   js: 'javascript', javascript: 'javascript', ts: 'typescript', typescript: 'typescript', sh: 'shellscript', bash: 'shellscript',
   shell: 'shellscript', powershell: 'shellscript', md: 'markdown', markdown: 'markdown',
 };
@@ -21,7 +21,7 @@ function loadHighlighter() {
     return createHighlighterCore({
       themes: [import('@shikijs/themes/github-dark-default'), import('@shikijs/themes/github-light-default')],
       langs: [import('@shikijs/langs/abap'), import('@shikijs/langs/json'), import('@shikijs/langs/sql'), import('@shikijs/langs/xml'),
-        import('@shikijs/langs/html'), import('@shikijs/langs/css'), import('@shikijs/langs/http'), import('@shikijs/langs/yaml'),
+        import('@shikijs/langs/html'), import('@shikijs/langs/css'), import('@shikijs/langs/yaml'),
         import('@shikijs/langs/javascript'), import('@shikijs/langs/typescript'), import('@shikijs/langs/shellscript'), import('@shikijs/langs/markdown')],
       engine: createJavaScriptRegexEngine({ forgiving: true }),
     });

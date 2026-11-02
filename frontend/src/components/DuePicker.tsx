@@ -1,13 +1,13 @@
 // Date fields: a compact FullCalendar month in a Base UI popover (plus a typed-date field for keyboard users). The due date adds presets
 // (Today, Tomorrow, End of week, Next Monday, In 2 weeks) in a dropdown, with "Pick a date…" opening the calendar.
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
 import { DAY, fmtDate, isoDate, parseDate, today } from '../lib/format';
 import { Icon } from './Icons';
 import { useMenu } from './ui';
+
+// FullCalendar loads the first time a picker opens, not with the app
+const MiniCal = lazy(() => import('./MiniCal'));
 
 function presets(): { label: string; value: string }[] {
   const t = today(), wd = t.getDay();
@@ -44,12 +44,8 @@ export function DatePicker({ value, onChange, label, placeholder = 'Pick a date'
         <Popover.Positioner anchor={btn} side="bottom" align="start" sideOffset={6} className="cal-pos">
           <Popover.Popup className="cal-pop" aria-label={label}>
             <div className="mini-cal">
-              <FullCalendar plugins={[dayGridPlugin, interactionPlugin]} initialView="dayGridMonth" initialDate={value ?? isoDate(today())}
-                firstDay={1} fixedWeekCount={false} height="auto" headerToolbar={{ left: 'prev', center: 'title', right: 'next' }}
-                titleFormat={{ month: 'long', year: 'numeric' }} dayHeaderFormat={{ weekday: 'narrow' }}
-                validRange={max ? { end: dayAfter(max) } : undefined}
-                dayCellClassNames={a => (isoDate(a.date) === value ? ['is-selected'] : [])}
-                dateClick={a => pick(a.dateStr)} />
+              <Suspense fallback={<div className="sk" style={{ height: 250 }} />}>
+                <MiniCal value={value} end={max ? dayAfter(max) : undefined} onPick={pick} /></Suspense>
             </div>
             <label className="cal-type"><span>Or type a date</span>
               <input type="date" value={value ?? ''} max={max} onChange={e => pick(e.target.value)} /></label>

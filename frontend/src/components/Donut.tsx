@@ -1,25 +1,30 @@
-// Hours-by-activity ring (ECharts, only the parts that are used are bundled).
+// Hours-by-activity ring (ECharts, only the parts that are used are bundled). ECharts loads with the first ring drawn,
+// not with the app, so Home opens faster.
 import { useEffect, useRef, useState } from 'react';
-import * as echarts from 'echarts/core';
-import { PieChart } from 'echarts/charts';
-import { TitleComponent, TooltipComponent } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
+import type { ECharts } from 'echarts/core';
 import { r1 } from '../lib/format';
 
-echarts.use([PieChart, TitleComponent, TooltipComponent, CanvasRenderer]);
+let lib: Promise<typeof import('echarts/core')> | null = null;
+const loadEcharts = () => (lib ??= Promise.all([import('echarts/core'), import('echarts/charts'), import('echarts/components'), import('echarts/renderers')])
+  .then(([core, c, comp, r]) => { core.use([c.PieChart, comp.TitleComponent, comp.TooltipComponent, r.CanvasRenderer]); return core })
+  .catch(e => { lib = null; throw e }));
 const css = (v: string) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 export function Donut({ data, sub, height = 150 }: { data: { name: string; value: number; color: string }[]; sub: string; height?: number }) {
   const el = useRef<HTMLDivElement>(null);
-  const chart = useRef<echarts.ECharts>();
-  const [theme, setTheme] = useState(0);
+  const chart = useRef<ECharts>();
+  const [theme, setTheme] = useState(0), [ready, setReady] = useState(false);
   useEffect(() => { const on = () => setTheme(x => x + 1); addEventListener('devdesk-theme', on); return () => removeEventListener('devdesk-theme', on) }, []);
   useEffect(() => {
-    if (!el.current) return;
-    chart.current = echarts.init(el.current);
-    const ro = new ResizeObserver(() => chart.current?.resize());
-    ro.observe(el.current);
-    return () => { ro.disconnect(); chart.current?.dispose() };
+    let gone = false, ro: ResizeObserver | undefined;
+    loadEcharts().then(echarts => {
+      if (gone || !el.current) return;
+      chart.current = echarts.init(el.current);
+      ro = new ResizeObserver(() => chart.current?.resize());
+      ro.observe(el.current);
+      setReady(true);
+    }).catch(() => {});
+    return () => { gone = true; ro?.disconnect(); chart.current?.dispose(); chart.current = undefined };
   }, []);
   useEffect(() => {
     const total = data.reduce((s, d) => s + d.value, 0);
@@ -33,6 +38,6 @@ export function Donut({ data, sub, height = 150 }: { data: { name: string; value
       series: [{ type: 'pie', radius: ['66%', '88%'], label: { show: false }, padAngle: 2, itemStyle: { borderRadius: 4, borderColor: css('--panel'), borderWidth: 2 },
         data: data.filter(d => d.value > 0).map(d => ({ name: d.name, value: r1(d.value), itemStyle: { color: d.color } })) }],
     }, true);
-  }, [data, sub, theme]);
+  }, [data, sub, theme, ready]);
   return <div ref={el} style={{ width: '100%', height }} />;
 }

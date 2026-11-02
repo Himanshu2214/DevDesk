@@ -17,7 +17,7 @@ const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export const toHtml = (v: string) => (!v ? '' : isHtml(v) ? v : v.split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join(''));
 const clean = (html: string) => DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
 const isEmpty = (e: Editor) => e.isEmpty || e.getText().trim() === '';
-const CODE_LANGS: [string, string][] = [['', 'Plain'], ['abap', 'ABAP'], ['mermaid', 'Mermaid diagram'], ['json', 'JSON'], ['sql', 'SQL'], ['xml', 'XML'], ['javascript', 'JavaScript'], ['typescript', 'TypeScript'], ['http', 'HTTP'], ['yaml', 'YAML'], ['shellscript', 'Shell']];
+const CODE_LANGS: [string, string][] = [['', 'Plain'], ['abap', 'ABAP'], ['mermaid', 'Mermaid diagram'], ['json', 'JSON'], ['sql', 'SQL'], ['xml', 'XML'], ['javascript', 'JavaScript'], ['typescript', 'TypeScript'], ['yaml', 'YAML'], ['shellscript', 'Shell']];
 
 /** Read-only display */
 export function RichView({ value }: { value: string }) {
