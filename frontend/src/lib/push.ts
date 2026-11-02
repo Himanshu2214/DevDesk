@@ -1,6 +1,6 @@
 // Phone approval (standalone mode): this device receives sign-in requests as notifications and approves them by
 // tapping the number the new sign-in shows (edge function push-approve, migration 20261110000000_phone_approval).
-import { functionError, sb } from './supabase';
+import { functionError, keepSignedIn, sb } from './supabase';
 
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 /** iPhone/iPad only allow notifications for the app added to the Home Screen */
@@ -45,6 +45,7 @@ export async function enablePush(): Promise<void> {
   const j = sub.toJSON();
   const { error } = await sb().from('push_devices').upsert({ endpoint: sub.endpoint, p256dh: j.keys?.p256dh ?? '', auth: j.keys?.auth ?? '', label: deviceLabel() }, { onConflict: 'endpoint' });
   if (error) throw new Error(error.message);
+  keepSignedIn();
 }
 
 /** On a device set up for approvals: whenever the app is opened or brought back to the front, a waiting sign-in
@@ -57,6 +58,7 @@ export function watchForRequests(open: () => void): () => void {
     last = Date.now();
     try {
       if (!(await currentEndpoint())) return;
+      keepSignedIn();                       // phones set up before this was automatic stay signed in from now on
       const { request } = await pushCall<{ request: unknown }>('pending');
       if (request && !stopped) open();
     } catch { /* not set up or offline: the notification and the codes still work */ }

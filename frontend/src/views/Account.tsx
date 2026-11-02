@@ -189,7 +189,7 @@ function PhoneApproval() {
           {devices.length > 0 && <button className="btn" disabled={!!busy} aria-busy={busy === 'test'} onClick={() => run('test', () => pushCall('test'), 'Test notification sent – check your phone')}>
             {busy === 'test' ? <Spinner /> : <Icon name="bell" size={14} />}Send a test notification</button>}
         </div>}
-      {devices.length === 0 && pushSupported() && !needsHomeScreen() && <p className="muted acct-note">Turn this on from the phone you always carry – install the app on it first (browser menu → Install app / Add to Home Screen).</p>}
+      {devices.length === 0 && pushSupported() && !needsHomeScreen() && <p className="muted acct-note">Turn this on from the phone you always carry – install the app on it first (browser menu → Install app / Add to Home Screen). That device then stays signed in, so it can approve at any time.</p>}
     </>}
   </Section>;
 }
