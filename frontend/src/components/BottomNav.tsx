@@ -2,7 +2,7 @@
 // tapped item, icons spring on press, the centre button creates a ticket.
 import { m } from 'motion/react';
 import { useStore, useTransports } from '../store';
-import { inboxItems } from '../views/Inbox';
+import { inboxItems, useInboxExtras } from '../views/Inbox';
 import { useDialogs } from './Dialogs';
 import { Icon } from './Icons';
 import CountBadge from './smoothui/count-badge';
@@ -13,7 +13,8 @@ export function BottomNav({ route }: { route: string }) {
   const s = useStore();
   const { openNew } = useDialogs();
   const failed = (useTransports().data ?? []).filter(x => x.Phase === 'FAILED');
-  const unread = inboxItems(s, failed).filter(n => !n.read).length;
+  const extras = useInboxExtras();
+  const unread = inboxItems(s, failed, extras).filter(n => !n.read).length;
   const at = (h: string) => route === h || (h === 'list/active' && /^(list|project|ticket)\b/.test(route));
   return (
     <nav className="bnav" aria-label="Main">

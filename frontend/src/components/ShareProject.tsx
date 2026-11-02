@@ -83,7 +83,12 @@ function ShareDialog({ project, close }: { project: Project; close(): void }) {
     let name = '';
     const ok = await s.run(async () => { name = await api.shareProject!(project.Project, email.trim(), access) });
     setBusy(false);
-    if (ok) { s.toast(`${project.Name} shared with ${name || email.trim()}`); setEmail(''); load() }
+    if (ok) {
+      const to = email.trim();
+      s.toast(name === 'pending' ? `Invitation sent to ${to} – they are outside your organization and accept it first` : `${project.Name} shared with ${to}`);
+      api.notifyEmail?.({ kind: 'project', ref: project.Project, email: to });
+      setEmail(''); load()
+    }
   };
   const remove = async (m: ProjectMember) => {
     if (await s.run(() => api.unshareProject!(project.Project, m.member_id), { ok: `${m.name || m.email} removed` })) load();
@@ -108,7 +113,7 @@ function ShareDialog({ project, close }: { project: Project; close(): void }) {
           {members === null ? <li><div className="sk" style={{ height: 32, width: '100%' }} /></li>
             : members.length === 0 ? <li className="muted">Not shared yet. They need a SLATE·SPACE account first.</li>
             : members.map(m => <li key={m.member_id}><Avatar name={m.name || m.email} size={26} />
-              <span className="share-who"><b>{m.name || m.email}</b><small>{m.email} · since {fmtDate(m.since)}</small></span>
+              <span className="share-who"><b>{m.name || m.email}</b><small>{m.email} · {m.status === 'pending' ? <span className="share-wait">invited · waiting to accept</span> : <>since {fmtDate(m.since)}</>}</small></span>
               {api.setProjectAccess && <AccessSelect value={m.access ?? 'edit'} onChange={v => level(m, v)} label={`Access for ${m.name || m.email}`} />}
               <ConfirmButton className="btn" label={`Remove ${m.name || m.email}`} onConfirm={() => remove(m)}><Icon name="x" size={13} />Remove</ConfirmButton></li>)}
         </ul>

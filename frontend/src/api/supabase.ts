@@ -3,7 +3,7 @@
 // (ticket/article numbers, LastChangedAt, status events, timer rounding, transport phase) – see supabase/migrations.
 // Row level security returns only the signed-in user's rows, and only after the 2-step code.
 import type { PostgrestError } from '@supabase/supabase-js';
-import type { Api, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketChange, TicketLink, TicketTemplate, Transport, ValueItem, Worklog } from './types';
+import type { Api, AppNotification, Invitation, Organization, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketChange, TicketLink, TicketTemplate, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY } from './types';
 import { sb } from '../lib/supabase';
 
@@ -214,6 +214,18 @@ export const supabaseApi: Api = {
   },
   shareProject: async (project, email, access = 'edit') => String(await run(sb().rpc('share_project', { p_project: project, p_email: email, p_access: access }))),
   shareContacts: async () => (await run(sb().rpc('share_contacts'))) as { email: string; name: string }[],
+  myInvitations: async () => (await run(sb().rpc('my_invitations'))) as Invitation[],
+  async answerInvitation(kind, ref, accept) { await run(sb().rpc('answer_invitation', { p_kind: kind, p_ref: ref, p_accept: accept })) },
+  listNotifications: async () => (await run(sb().from('notifications').select('*').order('CreatedAt', { ascending: false }).limit(50))) as AppNotification[],
+  async markNotificationsRead(ids) { if (ids.length) await run(sb().from('notifications').update({ ReadAt: new Date().toISOString() }).in('NotifUUID', ids)) },
+  async notifyEmail(body) { await sb().functions.invoke('notify-email', { body }).catch(() => { /* best effort: the in-app notification is there anyway */ }) },
+  myOrg: async () => ((await run(sb().rpc('my_org'))) ?? null) as Organization | null,
+  async createOrg(name) { await run(sb().rpc('create_org', { p_name: name })) },
+  inviteToOrg: async (email, role) => (await run(sb().rpc('invite_to_org', { p_email: email, p_role: role }))) as 'invited' | 'no-account',
+  async cancelOrgInvite(email) { await run(sb().rpc('cancel_org_invite', { p_email: email })) },
+  async setOrgMember(userId, role) { await run(sb().rpc('set_org_member', { p_user: userId, p_role: role })) },
+  async removeOrgMember(userId) { await run(sb().rpc('remove_org_member', { p_user: userId })) },
+  async setOrgSettings(name, onlyInternal) { await run(sb().rpc('set_org_settings', { p_name: name, p_only_internal: onlyInternal })) },
   async setProjectAccess(project, memberId, access) { await run(sb().from('project_shares').update({ Access: access }).eq('Project', project).eq('member_id', memberId)) },
   projectMembers: async project => (await run(sb().rpc('project_members', { p_project: project }))) as ProjectMember[],
   async unshareProject(project, memberId) { await run(sb().from('project_shares').delete().eq('Project', project).eq('member_id', memberId)) },

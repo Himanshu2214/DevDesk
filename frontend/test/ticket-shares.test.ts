@@ -26,7 +26,8 @@ describe('sharing one ticket', () => {
     await t.as(OWNER, SO);
     await expect(t.db.query('select share_ticket($1, $2)', [shared, 'nobody@test.io'])).rejects.toThrow(/No SLATE·SPACE account/);
     await expect(t.db.query('select share_ticket($1, $2)', [shared, 'owner@test.io'])).rejects.toThrow(/your own account/);
-    expect(await t.one('select share_ticket($1, $2) as name', [shared, ' Member@Test.io '])).toEqual({ name: 'Max Member' });
+    expect(await t.one('select share_ticket($1, $2) as status', [shared, ' Member@Test.io '])).toEqual({ status: 'pending' });   // an invitation until accepted
+    await t.acceptAll(MEMBER, SM); await t.as(OWNER, SO);
     expect(await t.rows('select email, name from ticket_members($1)', [shared])).toEqual([{ email: 'member@test.io', name: 'Max Member' }]);
     expect(await t.one(`select "Shares","SharedBy" from tickets_v where "TicketUUID" = $1`, [shared])).toEqual({ Shares: 1, SharedBy: null });
   });

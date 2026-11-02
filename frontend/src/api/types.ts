@@ -110,7 +110,12 @@ export interface Ticket {
 /** SharedBy: set when someone else shared this project with you; Members: how many people you shared it with (standalone only) */
 export interface Project { Project: string; Name: string; Color: string; SortOrder: number; IsActive: boolean; SharedBy?: string | null; Members?: number }
 export type AccessLevel = 'view' | 'comment' | 'edit';
-export interface ProjectMember { member_id: string; email: string; name: string; since: string; access?: AccessLevel }
+export interface ProjectMember { member_id: string; email: string; name: string; since: string; access?: AccessLevel; status?: 'active' | 'pending' }
+/** an invitation waiting for you: a ticket or project from outside your organization, or an organization to join */
+export interface Invitation { kind: 'ticket' | 'project' | 'org'; ref: string; title: string; detail: string; from_name: string; access: string; since: string }
+export interface AppNotification { NotifUUID: string; Kind: string; Title: string; Body: string; Link: string; CreatedAt: string; ReadAt: string | null }
+export interface OrgMember { userId: string; email: string; name: string; role: 'admin' | 'member'; since: string; me: boolean }
+export interface Organization { id: string; name: string; onlyInternal: boolean; admin: boolean; members: OrgMember[]; invites: { email: string; role: string; since: string }[] }
 /** one recorded change to a ticket field (standalone) */
 export interface TicketChange { ChangeUUID: string; Field: string; OldValue: unknown; NewValue: unknown; ChangedAt: string; By: string; Mine: boolean }
 export interface ValueItem { ListType: string; Code: string; Text: string; SortOrder: number; Color: string; WipLimit: number; IsActive: boolean }
@@ -191,6 +196,21 @@ export interface Api {
   /** Teams (standalone only): share one of your projects with another account, list / remove members, leave a shared project */
   shareProject?(project: string, email: string, access?: AccessLevel): Promise<string>;
   setProjectAccess?(project: string, memberId: string, access: AccessLevel): Promise<void>;
+  /** invitations and notifications (standalone): shares from outside your organization wait for Accept / Decline */
+  myInvitations?(): Promise<Invitation[]>;
+  answerInvitation?(kind: Invitation['kind'], ref: string, accept: boolean): Promise<void>;
+  listNotifications?(): Promise<AppNotification[]>;
+  markNotificationsRead?(ids: string[]): Promise<void>;
+  /** emails the person you just shared with / invited (best effort) */
+  notifyEmail?(body: { kind: 'ticket' | 'project' | 'org'; ref?: string; email: string }): Promise<void>;
+  /** organizations (standalone): one per account */
+  myOrg?(): Promise<Organization | null>;
+  createOrg?(name: string): Promise<void>;
+  inviteToOrg?(email: string, role: 'admin' | 'member'): Promise<'invited' | 'no-account'>;
+  cancelOrgInvite?(email: string): Promise<void>;
+  setOrgMember?(userId: string, role: 'admin' | 'member'): Promise<void>;
+  removeOrgMember?(userId: string): Promise<void>;
+  setOrgSettings?(name: string, onlyInternal: boolean): Promise<void>;
   /** people you already share with (either direction) – suggestions while typing in the share dialogs */
   shareContacts?(): Promise<{ email: string; name: string }[]>;
   projectMembers?(project: string): Promise<ProjectMember[]>;

@@ -28,7 +28,8 @@ describe('sharing a project', () => {
     await t.as(MEMBER, SM);
     await expect(t.db.query(`select share_project('GST', 'out@test.io')`)).rejects.toThrow(/Only your own projects/);
     await t.as(OWNER, SO);
-    expect(await t.one(`select share_project('GST', ' Member@Test.io ') as name`)).toEqual({ name: 'Max Member' });
+    expect(await t.one(`select share_project('GST', ' Member@Test.io ') as status`)).toEqual({ status: 'pending' });   // not in one organization: an invitation
+    await t.acceptAll(MEMBER, SM); await t.as(OWNER, SO);
     expect(await t.rows('select email, name from project_members($1)', ['GST'])).toEqual([{ email: 'member@test.io', name: 'Max Member' }]);
   });
   it('shows the project to the member with a distinct code and who shared it', async () => {

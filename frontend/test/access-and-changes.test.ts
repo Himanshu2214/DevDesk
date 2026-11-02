@@ -20,6 +20,7 @@ beforeAll(async () => {
   await t.db.query('select share_ticket($1, $2, $3)', [ticket, 'viewer@test.io', 'view']);
   await t.db.query('select share_ticket($1, $2, $3)', [ticket, 'comm@test.io', 'comment']);
   await t.db.query('select share_ticket($1, $2)', [ticket, 'editor@test.io']);            // default: edit
+  for (const [u, s] of [[VIEWER, SV], [COMMENTER, SC], [EDITOR, SE]]) await t.acceptAll(u, s);
 }, 60_000);
 
 describe('access levels', () => {

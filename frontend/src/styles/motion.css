@@ -1051,3 +1051,23 @@ pre.shiki,.code-view pre,.code-plain{margin:0;padding:12px 14px;border-radius:10
 .contact-who{display:grid;min-width:0;line-height:1.25}
 .contact-who b{font-weight:600;font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .contact-who small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Invitations in the Inbox preview, waiting shares, Account → Organization */
+.inv-pre{padding:8px 4px;max-width:520px}
+.inv-pre h2{margin:12px 0 8px;font-size:19px;line-height:1.35}
+.inv-pre p{margin:0 0 12px}
+.inv-what{padding:10px 12px;border-radius:10px;background:var(--raised);font-weight:500}
+.share-wait{color:var(--urgent);font-weight:500}
+.org-create{display:flex;gap:8px;flex-wrap:wrap}
+.org-create .ss-input{flex:1;min-width:200px}
+.org-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.org-name{flex:1;max-width:340px;font-weight:600}
+.org-name-ro{font-size:16px}
+.org-switch{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:14px}
+.org-switch.ro{cursor:default}
+.org-switch input{margin-top:3px;accent-color:var(--accent)}
+.org-switch span{display:grid;gap:2px}
+.org-switch small{color:var(--muted);font-size:12.5px}
+.org-h{margin:14px 0 6px;font-size:13px}
+.org-list li .acc-sel{margin-left:auto}
+.org-invite{margin-top:12px}

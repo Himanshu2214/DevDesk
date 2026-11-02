@@ -14,6 +14,7 @@ it('suggests only people connected by a share', async () => {
   const tk = (await t.one<{ TicketUUID: string }>(`insert into tickets ("Title","Project") values ('x','GEN') returning "TicketUUID"`))!.TicketUUID;
   await t.db.query('select share_ticket($1, $2)', [tk, 'max@test.io']);
   await t.db.query(`select share_project('GEN', 'cem@test.io')`);
+  await t.acceptAll(B, SB); await t.as(A, SA);
   expect(await t.rows('select email, name from share_contacts()')).toEqual([{ email: 'cem@test.io', name: 'Cem' }, { email: 'max@test.io', name: 'Max Member' }]);
   await t.as(B, SB);                                                     // the other direction: who shared with me
   expect(await t.rows('select email from share_contacts()')).toEqual([{ email: 'asha@test.io' }]);

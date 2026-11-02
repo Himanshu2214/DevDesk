@@ -12,6 +12,7 @@ import { Empty, MenuSelect, Page } from '../components/ui';
 import Input from '../components/smoothui/input';
 import { OtpSlots } from '../components/smoothui/otp-slots';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { OrganizationSection } from '../components/Organization';
 
 export function Account() {
   if (api.kind !== 'supabase') return <Page crumb={<b>Account</b>}>
@@ -31,6 +32,7 @@ function CloudAccount() {
         <header className="acct-head"><h2>Account</h2><p className="muted">Your sign-in, sessions and data.</p></header>
         <Profile user={user} providers={providers} onSaved={() => s.reload()} />
         <Password hasPassword={providers.includes('email')} />
+        <OrganizationSection Section={Section} />
         <PhoneApproval />
         <TwoStep />
         <DailyEmail />

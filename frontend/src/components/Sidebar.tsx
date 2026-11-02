@@ -7,7 +7,7 @@ import { Tip } from './ui';
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from './smoothui/collapsible';
 import { Icon, LogoMark, StatusIcon } from './Icons';
 import { useDialogs } from './Dialogs';
-import { inboxItems } from '../views/Inbox';
+import { inboxItems, useInboxExtras } from '../views/Inbox';
 import CountBadge from './smoothui/count-badge';
 import ThemeToggle from './smoothui/theme-toggle';
 import { setMode, shownMode } from '../lib/theme';
@@ -56,7 +56,8 @@ export function Sidebar({ route }: { route: string }) {
   const s = useStore();
   const { openNew, openPalette } = useDialogs();
   const failedTr = (useTransports().data ?? []).filter(x => x.Phase === 'FAILED');
-  const unread = inboxItems(s, failedTr).filter(n => !n.read).length;
+  const extras = useInboxExtras();
+  const unread = inboxItems(s, failedTr, extras).filter(n => !n.read).length;
   const ring = useRing(unread);
   const [light, setLight] = useState(() => shownMode() === 'light');
   useEffect(() => { const sync = () => setLight(shownMode() === 'light'); addEventListener('devdesk-theme', sync); return () => removeEventListener('devdesk-theme', sync) }, []);

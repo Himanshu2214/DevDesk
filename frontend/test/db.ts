@@ -43,6 +43,12 @@ export async function freshDb() {
       await db.exec('set role authenticated');
     },
     async asRole(role: 'anon' | 'service_role') { await reset(); await db.exec(`set role ${role}`) },
+    /** the user accepts every invitation waiting for them (shares from outside their organization start as invitations) */
+    async acceptAll(user: string, session: string) {
+      await this.as(user, session);
+      for (const i of (await db.query<{ kind: string; ref: string }>('select kind, ref from my_invitations()')).rows)
+        await db.query('select answer_invitation($1, $2, true)', [i.kind, i.ref]);
+    },
     reset,
     async rows<T = Record<string, unknown>>(sql: string, params?: unknown[]) { return (await db.query<T>(sql, params)).rows },
     async one<T = Record<string, unknown>>(sql: string, params?: unknown[]) { return (await db.query<T>(sql, params)).rows[0] },

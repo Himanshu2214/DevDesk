@@ -352,3 +352,21 @@ Mailjet) avoids that.
 **SQL Editor → New query**: run `supabase/migrations/20261113000000_share_contacts.sql`. While you type a name or email
 in a share dialog, people you already share a project or ticket with (in either direction) are suggested – a fuzzy
 match on any part of their name or email. Other accounts are never suggested; someone new is added by their full email.
+
+## 24. Organizations, share invitations and notifications
+
+1. **SQL Editor → New query**: run `supabase/migrations/20261114000000_orgs_and_invites.sql` (after section 23).
+2. Deploy the function that emails people you share with or invite:
+   ```bash
+   npx supabase functions deploy notify-email
+   ```
+   It uses the same email settings as the sign-in codes (section 22) and `APP_URL` for the link in the email.
+
+Then:
+
+- **Account → Organization**: create one, invite people by email (with or without an account yet – they accept in their
+  Inbox), make members admins, or switch on **Only share inside the organization**.
+- Sharing with someone **in** your organization applies at once. Sharing with someone **outside** starts as an
+  invitation: they see nothing until they press **Accept** in their Inbox (or **Decline**). The share dialog shows
+  "invited · waiting to accept" meanwhile, and you are told when they answer.
+- Everyone gets an Inbox notification and an email when something is shared with them. Existing shares are not changed.
