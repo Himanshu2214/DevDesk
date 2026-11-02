@@ -213,6 +213,7 @@ export const supabaseApi: Api = {
     return () => { onStatus(false); sb().removeChannel(ch) };
   },
   shareProject: async (project, email, access = 'edit') => String(await run(sb().rpc('share_project', { p_project: project, p_email: email, p_access: access }))),
+  shareContacts: async () => (await run(sb().rpc('share_contacts'))) as { email: string; name: string }[],
   async setProjectAccess(project, memberId, access) { await run(sb().from('project_shares').update({ Access: access }).eq('Project', project).eq('member_id', memberId)) },
   projectMembers: async project => (await run(sb().rpc('project_members', { p_project: project }))) as ProjectMember[],
   async unshareProject(project, memberId) { await run(sb().from('project_shares').delete().eq('Project', project).eq('member_id', memberId)) },

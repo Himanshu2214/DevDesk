@@ -191,6 +191,8 @@ export interface Api {
   /** Teams (standalone only): share one of your projects with another account, list / remove members, leave a shared project */
   shareProject?(project: string, email: string, access?: AccessLevel): Promise<string>;
   setProjectAccess?(project: string, memberId: string, access: AccessLevel): Promise<void>;
+  /** people you already share with (either direction) – suggestions while typing in the share dialogs */
+  shareContacts?(): Promise<{ email: string; name: string }[]>;
   projectMembers?(project: string): Promise<ProjectMember[]>;
   unshareProject?(project: string, memberId: string): Promise<void>;
   leaveProject?(project: string): Promise<void>;

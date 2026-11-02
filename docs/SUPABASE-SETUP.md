@@ -346,3 +346,9 @@ Resend without your own domain only delivers to its account owner. Mailjet's fre
 With both Mailjet keys set the functions use Mailjet; without them they keep using Resend. Mail sent "from" a Gmail
 address through another service can land in spam at first – mark the first code "Not spam". Your own domain (verified in
 Mailjet) avoids that.
+
+## 23. Suggestions in the share dialogs
+
+**SQL Editor → New query**: run `supabase/migrations/20261113000000_share_contacts.sql`. While you type a name or email
+in a share dialog, people you already share a project or ticket with (in either direction) are suggested – a fuzzy
+match on any part of their name or email. Other accounts are never suggested; someone new is added by their full email.

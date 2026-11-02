@@ -9,9 +9,8 @@ import { fmtDate } from '../lib/format';
 import { Icon, Spinner } from './Icons';
 import { Avatar, go } from './ui';
 import { Modal } from './Dialogs';
-import Input from './smoothui/input';
 import { ConfirmButton } from './ConfirmButton';
-import { ACCESS_LABEL, AccessSelect } from './ShareProject';
+import { ACCESS_LABEL, AccessSelect, ContactInput } from './ShareProject';
 
 /** Small "shared" icon after a ticket's title in lists and on the board, and a dot when someone else changed it
  *  since you last opened it */
@@ -71,7 +70,7 @@ function ShareTicketDialog({ t, close }: { t: Ticket; close(): void }) {
           <b> Can comment</b> adds comments and their own time, <b>Can view</b> only reads. Only you can delete it or move it to another project.
           Every change is recorded on the <b>Changes</b> tab, where you can undo it.</p>
         <form className="share-add" onSubmit={add}>
-          <Input className="ss-input" type="email" placeholder="Their SLATE·SPACE email" autoFocus value={email} onChange={e => setEmail(e.target.value)} aria-label="Email of the person to share with" />
+          <ContactInput value={email} onChange={setEmail} exclude={(members ?? []).map(m => m.email)} />
           <AccessSelect value={access} onChange={setAccess} label="Access for the new person" />
           <button className="btn primary" disabled={!email.trim() || busy} aria-busy={busy}>{busy ? <Spinner /> : <Icon name="plus" size={14} />}Share</button>
         </form>
