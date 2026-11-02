@@ -3,7 +3,8 @@
 // It only sends for a share or invitation the caller made in the last 10 minutes, so it cannot be used to mail anyone.
 // Secrets: as send-login-code (Mailjet or Resend, MAIL_FROM), APP_URL for the link.
 import { admin, caller, cors, json } from '../_shared/login-code.ts';
-import { sendMail } from '../_shared/mail.ts';
+import { redactAddresses, sendMail } from '../_shared/mail.ts';
+import { releaseMailSlot, takeMailSlot } from '../_shared/limits.ts';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const RECENT_MS = 10 * 60_000;
@@ -63,6 +64,9 @@ Deno.serve(async req => {
     if (!hasAccount) { link = app + '/'; button = 'Create your account' }
   } else return json(400, { error: 'Unknown kind' });
 
+  // budget: 30 share emails per sender a day, 3 to the same person, and never the part kept for sign-in codes
+  const slot = await takeMailSlot(db, 'notify', user.id, email);
+  if (!slot.ok) return json(429, { error: 'Email limit reached – the in-app notification was still delivered.' });
   const sent = await sendMail({
     to: email, subject,
     text: `${subject}\n\n${line}\n${detail}\n\n${button}: ${link}`,
@@ -73,6 +77,10 @@ Deno.serve(async req => {
       <p style="color:#626a76;font-size:14px;margin:12px 0 20px">${esc(detail)}</p>
       ${app ? `<a href="${esc(link)}" style="display:inline-block;padding:10px 16px;border-radius:8px;background:#2f5fe0;color:#fff;text-decoration:none;font-weight:600">${esc(button)}</a>` : ''}</div>`,
   });
-  if (!sent.ok) { console.error('notify-email', sent.service, sent.status, sent.reason); return json(502, { error: 'The notification email could not be sent.' }) }
+  if (!sent.ok) {
+    await releaseMailSlot(db, slot.slot);
+    console.error('notify-email', sent.service, sent.status, redactAddresses(sent.reason));
+    return json(502, { error: 'The notification email could not be sent.' });
+  }
   return json(200, { sent: true });
 });

@@ -6,12 +6,16 @@
 // Secrets: MAILJET_API_KEY + MAILJET_SECRET_KEY (or RESEND_API_KEY), MAIL_FROM, DIGEST_SECRET, optional APP_URL (link in the email).
 import { admin, caller, cors, json, sameText } from '../_shared/login-code.ts';
 import { type DigestTicket, digestEmail } from '../_shared/digest-email.ts';
-import { sendMail } from '../_shared/mail.ts';
+import { redactAddresses, sendMail } from '../_shared/mail.ts';
+import { releaseMailSlot, takeMailSlot } from '../_shared/limits.ts';
 
 type Db = ReturnType<typeof admin>;
 interface Due { user_id: string; email: string; full_name: string; time_zone: string; local_date: string }
 
-async function digestFor(db: Db, u: Due) {
+/** test: "Send a test email now" – counted like a share email, so it never uses up the day's scheduled digest */
+async function digestFor(db: Db, u: Due, test = false) {
+  const slot = await takeMailSlot(db, test ? 'notify' : 'digest', u.user_id, u.email);
+  if (!slot.ok) throw new Error(slot.reason === 'quota' ? 'the daily email budget is used up – it is kept for sign-in codes' : 'too many emails today, try again tomorrow');
   const yesterday = new Date(Date.parse(u.local_date + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10);
   const [{ data: open, error }, { data: logged }] = await Promise.all([
     db.from('tickets_v').select('"TicketId","Title","Status","Priority","DueDate","ProjectName"').eq('user_id', u.user_id).neq('Status', 'DONE').order('Priority').order('DueDate', { nullsFirst: false }),
@@ -23,7 +27,7 @@ async function digestFor(db: Db, u: Due) {
     hoursYesterday: hours, appUrl: Deno.env.get('APP_URL') ?? '' });
 
   const sent = await sendMail({ to: u.email, subject, text, html });
-  if (!sent.ok) throw new Error(`${sent.service} ${sent.status}: ${sent.reason}`);
+  if (!sent.ok) { await releaseMailSlot(db, slot.slot); throw new Error(`${sent.service} ${sent.status}: ${redactAddresses(sent.reason)}`) }
 }
 
 Deno.serve(async req => {
@@ -61,7 +65,7 @@ Deno.serve(async req => {
   const tz = (s as { TimeZone?: string } | null)?.TimeZone ?? 'Asia/Kolkata';
   const local = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   try {
-    await digestFor(db, { user_id: user.id, email: user.email ?? '', full_name: String(user.user_metadata?.full_name ?? ''), time_zone: tz, local_date: local });
+    await digestFor(db, { user_id: user.id, email: user.email ?? '', full_name: String(user.user_metadata?.full_name ?? ''), time_zone: tz, local_date: local }, true);
   } catch (e) { console.error('digest test', (e as Error).message); return json(502, { error: `The email could not be sent (${(e as Error).message}). Try again in a moment.` }) }
   return json(200, { sent: true });
 });

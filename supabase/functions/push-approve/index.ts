@@ -70,6 +70,10 @@ async function handle(req: Request): Promise<Response> {
       // while a request is open (a reload, or the tab regaining focus) the same number stays and no second notification goes out
       if (open?.status === 'pending' && Date.parse(open.expires_at) > Date.now())
         return json(200, { devices: devices.length, sent: devices.length, number: open.number, expiresAt: open.expires_at });
+      // someone who knows the password must not flood the phone: past 10 requests an hour the sign-in uses a code instead
+      const { count } = await db.from('login_approvals').select('session_id', { count: 'exact', head: true })
+        .eq('user_id', user.id).gt('created_at', new Date(Date.now() - 3600_000).toISOString());
+      if ((count ?? 0) >= 10) return json(200, { devices: devices.length, sent: 0, limited: true });
       const number = twoDigits(), choices = new Set([number]);
       while (choices.size < 3) choices.add(twoDigits());
       const expiresAt = new Date(Date.now() + TTL_S * 1000).toISOString();

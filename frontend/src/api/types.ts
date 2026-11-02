@@ -153,6 +153,8 @@ export interface Api {
   user(): Promise<User>;
   listProjects(): Promise<Project[]>;
   listValues(): Promise<ValueItem[]>;
+  /** stores a (cleaned) client error for later review – standalone only; the other backends log to the console */
+  logClientError?(e: { message: string; stack: string; where: string; route: string }): Promise<void>;
   /** Settings → Lists: add or change one of your own list items (types, areas, tech, activities, status names);
    *  not in SAP mode, where the lists are maintained in SAP */
   saveValue?(item: ValueItem): Promise<void>;

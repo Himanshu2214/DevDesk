@@ -108,6 +108,7 @@ export const supabaseApi: Api = {
   },
   listValues: async () => cleanAll<ValueItem>(await run(sb().from('value_items').select('*').order('ListType').order('SortOrder'))),
   async saveValue(v) { await run(sb().from('value_items').upsert({ ListType: v.ListType, Code: v.Code, Text: v.Text, SortOrder: v.SortOrder, Color: v.Color, WipLimit: v.WipLimit, IsActive: v.IsActive }, { onConflict: 'user_id,ListType,Code' })) },
+  async logClientError(e) { await sb().rpc('log_client_error', { p_message: e.message, p_stack: e.stack, p_where: e.where, p_route: e.route, p_agent: navigator.userAgent.slice(0, 200) }) },
   listTickets: async () => cleanAll<Ticket>(await run(sb().from('tickets_v').select('*').order('TicketNo', { ascending: false }))),
   changedSince: async iso => cleanAll<Ticket>(await run(sb().from('tickets_v').select('*').gt('LastChangedAt', iso))),
   async getTicket(id) {

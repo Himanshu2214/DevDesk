@@ -60,8 +60,12 @@ export async function sendMail(mail: Mail, env: Env = env0): Promise<MailResult>
   }
 }
 
+/** for logs and messages: the email service's error text without any email address in it */
+export const redactAddresses = (s: string) => s.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '<email>');
+
 /** a message for the person signing in when the email could not be sent */
-export function explainFailure(r: MailResult, to: string): string {
+export function explainFailure(r0: MailResult, to: string): string {
+  const r = { ...r0, reason: redactAddresses(r0.reason) };
   if (r.service === 'resend' && r.status === 403 && /own email|verify a domain|testing emails/i.test(r.reason))
     return `The email could not be sent to ${to}: Resend only delivers to its owner's address until a domain is verified. Set up Mailjet (setup guide, step 22) or use your authenticator app.`;
   if (r.service === 'mailjet' && /sender|not (been )?validated|unauthorized|not allowed/i.test(r.reason))

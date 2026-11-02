@@ -33,6 +33,7 @@ import { ShortcutHelp } from './components/ShortcutHelp';
 import { BottomNav } from './components/BottomNav';
 import { Onboarding } from './components/Onboarding';
 import { PageTransition, Ripples } from './components/Motion';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 /** what counts as a new page for the transition: a list keeps its key while you switch tabs, every ticket is its own page */
 const pageKey = (route: string) => {
@@ -144,7 +145,7 @@ function Shell() {
         ? <Page crumb={<b>SLATE·SPACE</b>}><Empty error icon="alert" title="Could not load data" action={<button className="btn primary" onClick={() => s.reload()}><Icon name="refresh" size={14} />Try again</button>}>
             <span className="t2" style={{ whiteSpace: 'pre-wrap', display: 'block', marginBottom: 6 }}>{s.error}</span>
             {api.kind === 'sap' ? 'Check that service ZUI_DD_O4 is published, that you are logged on to SAP (sap-client in the URL), and that ZDD_SETUP has run.' : api.kind === 'supabase' ? 'Check your internet connection. If it keeps failing, sign out and sign in again.' : 'The mock backend failed – try clearing site data.'}</Empty></Page>
-        : <PageTransition id={pageKey(route)}><Router route={route} /></PageTransition>}
+        : <PageTransition id={pageKey(route)}><ErrorBoundary resetKey={route}><Router route={route} /></ErrorBoundary></PageTransition>}
       <Ripples />
       <BottomNav route={route} />
       <ToastStack />

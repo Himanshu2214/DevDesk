@@ -12,6 +12,10 @@ Deno.serve(async req => {
   if (code.length !== 6) return json(400, { error: 'Enter the 6-digit code from the email.' });
 
   const db = admin();
+  // many wrong codes for this account (across sessions) pause code sign-in for 15 minutes; a missing function
+  // (migration not run yet) answers with an error and does not pause anything
+  const { data: paused } = await db.rpc('login_paused', { p_user: user.id });
+  if (paused === true) return json(429, { error: 'Too many wrong codes for this account. Wait 15 minutes, or sign in with your authenticator app or phone approval.' });
   const { data: row } = await db.from('login_codes').select('*').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle();
   if (!row || Date.parse(row.expires_at) < Date.now()) return json(400, { error: 'This code has expired. Send a new one.' });
   if (row.attempts >= MAX_ATTEMPTS) {
@@ -20,11 +24,13 @@ Deno.serve(async req => {
   }
   if (!sameText(await hashCode(code, sessionId), row.code_hash)) {
     await db.from('login_codes').update({ attempts: row.attempts + 1 }).eq('session_id', sessionId);
+    await db.rpc('record_login_failure', { p_user: user.id });
     const left = MAX_ATTEMPTS - row.attempts - 1;
     return json(400, { error: left > 0 ? `That code is not right. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong codes. Send a new one.' });
   }
   const { error } = await db.from('verified_sessions').upsert({ session_id: sessionId, user_id: user.id });
   if (error) return json(500, { error: 'Could not finish sign-in. Try again.' });
   await db.from('login_codes').delete().eq('session_id', sessionId);
+  await db.rpc('clear_login_failures', { p_user: user.id });
   return json(200, { verified: true });
 });

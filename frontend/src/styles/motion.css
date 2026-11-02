@@ -1071,3 +1071,11 @@ pre.shiki,.code-view pre,.code-plain{margin:0;padding:12px 14px;border-radius:10
 .org-h{margin:14px 0 6px;font-size:13px}
 .org-list li .acc-sel{margin-left:auto}
 .org-invite{margin-top:12px}
+
+/* Crash protection (ErrorBoundary): shown instead of a page that failed */
+.crash{display:grid;place-items:center;padding:48px 20px;min-height:50vh}
+.crash-full{min-height:100vh;background:var(--bg)}
+.crash-box{max-width:440px;text-align:center}
+.crash-box h2{margin:0 0 8px;font-size:20px}
+.crash-box p{margin:0 0 18px}
+.crash-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}

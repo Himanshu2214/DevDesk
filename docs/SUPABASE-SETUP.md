@@ -370,3 +370,38 @@ Then:
   invitation: they see nothing until they press **Accept** in their Inbox (or **Decline**). The share dialog shows
   "invited · waiting to accept" meanwhile, and you are told when they answer.
 - Everyone gets an Inbox notification and an email when something is shared with them. Existing shares are not changed.
+
+## 25. Error log, email and sign-in limits, organization integrity
+
+1. **SQL Editor → New query**, in this order:
+   `supabase/migrations/20261115000000_client_errors.sql`, `20261116000000_auth_limits.sql`, `20261117000000_org_integrity.sql`.
+2. Redeploy the functions that changed:
+   ```bash
+   npx supabase functions deploy send-login-code
+   ```
+   ```bash
+   npx supabase functions deploy verify-login-code
+   ```
+   ```bash
+   npx supabase functions deploy notify-email
+   ```
+   ```bash
+   npx supabase functions deploy push-approve
+   ```
+   ```bash
+   npx supabase functions deploy daily-digest --no-verify-jwt
+   ```
+3. Optional secrets: `MAIL_DAILY_LIMIT` (default 200, Mailjet free) and `MAIL_RESERVE` (default 60 – kept for sign-in codes).
+
+What it does:
+
+- **Crashes**: a page that fails shows "Something went wrong here" with Try again / Reload instead of a blank app; after a
+  new deployment an old open page offers "Reload". Errors are stored cleaned (no emails, tokens, keys or query values)
+  in `client_errors` – at most 30 per user an hour, kept 30 days – visible only in the Supabase **Table editor**.
+- **Limits**: sign-in codes at most 8 an hour / 20 a day per account; 10 wrong codes in 15 minutes pause code sign-in
+  for 15 minutes (authenticator app, phone approval and password reset still work); phone prompts at most 10 an hour;
+  share emails 30 a day per sender and 3 to the same person; share and daily emails stop before the part of the daily
+  email budget kept for sign-in codes. Addresses are stored only as salted hashes and never written to the logs.
+- **Organizations**: leaving or being removed unshares only what was shared *because of* the organization (direct and
+  outside shares stay); deleting the only admin's account makes the longest-standing member admin; two admins cannot
+  remove each other's admin role at the same moment.
