@@ -11,14 +11,6 @@ const REMEMBER = 'slate-remember';
 const safe = <T,>(fn: () => T, fallback: T): T => { try { return fn() } catch { return fallback } };
 export const getRemember = () => safe(() => localStorage.getItem(REMEMBER) !== '0', true);
 export const setRemember = (on: boolean) => safe(() => localStorage.setItem(REMEMBER, on ? '1' : '0'), undefined);
-/** Switches this browser to "remember me" and moves the current session over, so closing the app keeps it signed in
- *  (a phone that approves sign-ins must not lose its own sign-in) */
-export function keepSignedIn() {
-  safe(() => {
-    setRemember(true);
-    for (const k of Object.keys(sessionStorage)) if (k.startsWith('sb-')) { localStorage.setItem(k, sessionStorage.getItem(k)!); sessionStorage.removeItem(k) }
-  }, undefined);
-}
 const sessionStore = {
   getItem: (k: string) => safe(() => sessionStorage.getItem(k) ?? localStorage.getItem(k), null),
   setItem: (k: string, v: string) => safe(() => {

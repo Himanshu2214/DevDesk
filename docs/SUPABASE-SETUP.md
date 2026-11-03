@@ -274,32 +274,26 @@ Google Cloud → Google Auth Platform → **Branding**: app name `SLATE·SPACE`,
 
 Leave the logo empty: uploading one makes Google require a full verification. Then **Audience → Publish app**.
 
-## 19. Approve sign-ins on your phone
+## 19. Second step: trusted browser for 24 hours (phone approval removed)
 
-Like GitHub Mobile: a new sign-in shows a 2-digit number, your phone gets a notification, and you tap the same
-number. It uses free Web Push to the installed app – no extra app or paid service. The authenticator app and the
-emailed code stay as backups.
+Phone approval was removed. The second step is the emailed code or an authenticator app; after either, the browser is
+**trusted for 24 hours** – signing out and in again there (email or Google) needs no code that day. Another browser still
+asks, and **Account → Sessions → Sign out all other devices** ends every other browser's trust.
 
-1. **SQL Editor → New query**: run `supabase/migrations/20261110000000_phone_approval.sql`.
-2. Make a key pair once (free, runs locally):
+1. **SQL Editor → New query**: run `supabase/migrations/20261118000000_trusted_browsers.sql` (it also removes the phone
+   approval tables).
+2. Redeploy the function and remove the old one:
    ```bash
-   npx web-push generate-vapid-keys
+   npx supabase functions deploy verify-login-code
    ```
-3. Save the two keys and your email as secrets (paste the values from step 2):
    ```bash
-   npx supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com
+   npx supabase functions deploy send-login-code
    ```
-4. Deploy the function:
    ```bash
-   npx supabase functions deploy push-approve
+   npx supabase functions delete push-approve
    ```
-5. On your phone, install the app: Android Chrome → menu → **Install app**; iPhone Safari → Share →
-   **Add to Home Screen** (iOS 16.4 or newer; notifications only work in the installed app on iPhone).
-6. Open the installed app, sign in once with a code, then **Account → Approve sign-ins on your phone → Use this device
-   to approve sign-ins** and allow notifications. **Send a test notification** checks it.
-
-From then on, signing in anywhere else asks your phone first. Tapping a wrong number denies the sign-in. A phone that
-is removed or loses its notification permission drops out of the list by itself.
+3. Optional: the `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` secrets are no longer used and can be deleted
+   (Edge Functions → Secrets).
 
 ## 20. Share a single ticket
 
@@ -386,9 +380,6 @@ Then:
    npx supabase functions deploy notify-email
    ```
    ```bash
-   npx supabase functions deploy push-approve
-   ```
-   ```bash
    npx supabase functions deploy daily-digest --no-verify-jwt
    ```
 3. Optional secrets: `MAIL_DAILY_LIMIT` (default 200, Mailjet free) and `MAIL_RESERVE` (default 60 – kept for sign-in codes).
@@ -399,7 +390,7 @@ What it does:
   new deployment an old open page offers "Reload". Errors are stored cleaned (no emails, tokens, keys or query values)
   in `client_errors` – at most 30 per user an hour, kept 30 days – visible only in the Supabase **Table editor**.
 - **Limits**: sign-in codes at most 8 an hour / 20 a day per account; 10 wrong codes in 15 minutes pause code sign-in
-  for 15 minutes (authenticator app, phone approval and password reset still work); phone prompts at most 10 an hour;
+  for 15 minutes (the authenticator app and password reset still work);
   share emails 30 a day per sender and 3 to the same person; share and daily emails stop before the part of the daily
   email budget kept for sign-in codes. Addresses are stored only as salted hashes and never written to the logs.
 - **Organizations**: leaving or being removed unshares only what was shared *because of* the organization (direct and

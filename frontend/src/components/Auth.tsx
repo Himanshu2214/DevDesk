@@ -1,47 +1,34 @@
 // Sign-in for the standalone (Supabase) backend: email + password or Google (with an invisible Turnstile bot check),
-// email confirmation, password reset by link, and the second step that unlocks the data for this session:
-// approval on your phone (tap the number shown, like GitHub Mobile), a code from an authenticator app (Supabase MFA,
-// AAL2) or, as fallback, a code sent by email.
+// email confirmation, password reset by link, and the second step that unlocks the data for this session: a code from
+// an authenticator app (Supabase MFA, AAL2) or a code sent by email. After either, the browser is trusted for 24 hours
+// (lib/trust.ts): signing in again there that day needs no code.
 import { type InputHTMLAttributes, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { appUrl, getRemember, sb, setRemember, supabaseConfigured } from '../lib/supabase';
+import { applyTrust, saveTrust, trustAfterApp } from '../lib/trust';
 import { Icon, LogoMark, Spinner } from './Icons';
 import FloatInput from './smoothui/float-input';
 import { OtpSlots } from './smoothui/otp-slots';
 import { RibbonArt } from './RibbonArt';
 import { useTurnstile } from './Turnstile';
-import { currentEndpoint, pushCall } from '../lib/push';
 
-type Stage = 'loading' | 'signed-out' | 'recovery' | 'push' | 'app-code' | 'code' | 'ready';
-type PushRequest = { number: number; expiresAt: string };
-
-/** asks the user's phone(s) to approve this session; null when no phone is set up (or the function is not deployed) */
-async function askPhone(): Promise<PushRequest | 'verified' | null> {
-  try {
-    const r = await pushCall<{ verified?: boolean; number?: number; expiresAt?: string; sent?: number }>('start', { exclude: await currentEndpoint() });
-    if (r.verified) return 'verified';
-    return r.number && r.sent ? { number: r.number, expiresAt: r.expiresAt! } : null;
-  } catch { return null }
-}
+type Stage = 'loading' | 'signed-out' | 'recovery' | 'app-code' | 'code' | 'ready';
 type View = 'signin' | 'register' | 'forgot' | 'sent';
 
 /** Shows the app only for a signed-in user whose session has passed the second step */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [stage, setStage] = useState<Stage>('loading');
   const [hasApp, setHasApp] = useState(false);
-  const [push, setPush] = useState<PushRequest | null>(null);
   const decide = async (s: Session | null) => {
     if (!s) return setStage('signed-out');
     const { data } = await sb().rpc('session_verified');
     if (data) return setStage('ready');
+    // a browser this account trusted in the last 24 hours skips the code
+    if (await applyTrust(s.user.id) && (await sb().rpc('session_verified')).data) return setStage('ready');
     // an enrolled authenticator app means the session can be raised to AAL2: ask for its code first
     const { data: aal } = await sb().auth.mfa.getAuthenticatorAssuranceLevel();
     const app = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2';
     setHasApp(app);
-    // a phone set up for approvals comes first; the code steps stay as fallbacks
-    const p = await askPhone();
-    if (p === 'verified') return setStage('ready');
-    if (p) { setPush(p); return setStage('push') }
     setStage(app ? 'app-code' : 'code');
   };
   const decideNow = async () => decide((await sb().auth.getSession()).data.session);
@@ -62,8 +49,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (stage === 'ready') return <>{children}</>;
   if (stage === 'loading') return null;
   if (stage === 'recovery') return <NewPassword onDone={decideNow} />;
-  if (stage === 'push' && push) return <PushStep request={push} onVerified={() => setStage('ready')} onAgain={setPush}
-    onUseApp={hasApp ? () => setStage('app-code') : undefined} onUseEmail={() => setStage('code')} />;
   if (stage === 'app-code') return <AppCodeStep onVerified={() => setStage('ready')} onUseEmail={() => setStage('code')} />;
   if (stage === 'code') return <CodeStep onVerified={() => setStage('ready')} onUseApp={hasApp ? () => setStage('app-code') : undefined} />
   return <SignedOut />;
@@ -131,11 +116,13 @@ async function googleEnabled(): Promise<boolean> {
   } catch { return true }   // if the check itself fails, let Supabase answer
 }
 
-function GoogleButton() {
+/** remember: the "Remember me" box – saved before leaving for Google, so the session is kept (or not) like a password sign-in */
+function GoogleButton({ remember }: { remember?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const go = async () => {
     setBusy(true); setErr('');
+    if (remember !== undefined) setRemember(remember);
     // ask Supabase first, so a disabled provider shows a message here instead of Supabase's raw error page
     if (!(await googleEnabled())) { setErr('Google sign-in is not switched on for this workspace yet. Use email and password for now.'); setBusy(false); return }
     const { error } = await sb().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl() } });
@@ -198,7 +185,7 @@ function SignedOut() {
       <button className="btn primary auth-wide auth-submit" disabled={busy || !email || (view !== 'forgot' && !pw)} aria-busy={busy}>
         {busy && <Spinner />}{action}{!busy && <Icon name="move" size={15} />}</button>
     </form>
-    {view !== 'forgot' && <><div className="auth-or"><span>or</span></div><GoogleButton /></>}
+    {view !== 'forgot' && <><div className="auth-or"><span>or</span></div><GoogleButton remember={view === 'signin' ? remember : undefined} /></>}
     <p className="auth-switch">{view === 'signin'
       ? <>New here? <button type="button" className="auth-link" onClick={() => to('register')}>Create an account</button></>
       : <>Have an account? <button type="button" className="auth-link" onClick={() => to('signin')}>Sign in</button></>}</p>
@@ -227,53 +214,6 @@ function NewPassword({ onDone }: { onDone(): void }) {
   </AuthCard>;
 }
 
-/** Second step on your phone: it gets a notification and you tap the number shown here (edge function push-approve) */
-function PushStep({ request, onVerified, onAgain, onUseApp, onUseEmail }: {
-  request: PushRequest; onVerified(): void; onAgain(r: PushRequest): void; onUseApp?(): void; onUseEmail(): void;
-}) {
-  const secondsLeft = () => Math.max(0, Math.round((Date.parse(request.expiresAt) - Date.now()) / 1000));
-  const [state, setState] = useState<'pending' | 'denied' | 'expired'>('pending'), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
-  const [left, setLeft] = useState(secondsLeft);
-  useEffect(() => { setState('pending'); setErr(''); setLeft(secondsLeft()) }, [request]);
-  // the phone's answer arrives by polling, a few seconds apart and only while this screen is open
-  useEffect(() => {
-    if (state !== 'pending') return;
-    let stop = false, timer = 0;
-    const tick = async () => {
-      try {
-        const { status } = await pushCall<{ status: string }>('status');
-        if (stop) return;
-        if (status === 'approved' && (await sb().rpc('session_verified')).data) return onVerified();
-        if (status === 'denied' || status === 'expired') return setState(status);
-      } catch { /* a missed poll is retried */ }
-      if (!stop) timer = window.setTimeout(tick, 2500);
-    };
-    timer = window.setTimeout(tick, 2500);
-    return () => { stop = true; clearTimeout(timer) };
-  }, [state, request, onVerified]);
-  useEffect(() => { if (state !== 'pending' || left <= 0) return; const id = setTimeout(() => setLeft(l => l - 1), 1000); return () => clearTimeout(id) }, [left, state]);
-  const again = async () => {
-    setBusy(true); setErr('');
-    const r = await askPhone();
-    setBusy(false);
-    if (r === 'verified') return onVerified();
-    if (r) onAgain(r); else setErr('Your phone could not be reached. Use a code instead.');
-  };
-  const sub = state === 'pending' ? 'We sent a notification to your phone. Open it and tap this number:'
-    : state === 'denied' ? 'The request was denied on your phone.' : 'The request expired before it was answered.';
-  const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-  return <AuthCard title={state === 'pending' ? 'Approve on your phone' : 'Not approved'} sub={sub}>
-    {state === 'pending' ? <>
-      <div className="push-num" aria-label={'Number to tap on your phone: ' + request.number}>{request.number}</div>
-      <p className="auth-info push-wait" role="status"><Spinner />Waiting for your phone{left > 0 ? ' · ' + clock : ''}</p>
-    </> : <button type="button" className="btn primary auth-wide auth-submit" onClick={again} disabled={busy} aria-busy={busy}>{busy && <Spinner />}Send a new request</button>}
-    <AuthError text={err} />
-    <p className="auth-switch">{onUseApp && <><button type="button" className="auth-link" onClick={onUseApp}>Use your authenticator app</button><span aria-hidden="true"> · </span></>}
-      <button type="button" className="auth-link" onClick={onUseEmail}>Use an emailed code</button>
-      <span aria-hidden="true"> · </span><button type="button" className="auth-link" onClick={() => sb().auth.signOut()}>Use another account</button></p>
-  </AuthCard>;
-}
-
 /** Second step with an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, …): raises the session to AAL2 */
 function AppCodeStep({ onVerified, onUseEmail }: { onVerified(): void; onUseEmail(): void }) {
   const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [err, setErr] = useState('');
@@ -285,6 +225,8 @@ function AppCodeStep({ onVerified, onUseEmail }: { onVerified(): void; onUseEmai
     const { error } = await sb().auth.mfa.challengeAndVerify({ factorId: factor.id, code });
     setBusy(false);
     if (error) { setErr(/invalid|expired/i.test(error.message) ? 'That code is not right or has expired. Use the current code from the app.' : say(error)); setCode(''); return }
+    const { data: u } = await sb().auth.getUser();
+    if (u.user) await trustAfterApp(u.user.id);                   // this browser needs no code for 24 hours
     onVerified();
   };
   return <AuthCard title="Enter the code from your app" sub="Open your authenticator app and type the 6-digit code for SLATE·SPACE.">
@@ -322,9 +264,11 @@ function CodeStep({ onVerified, onUseApp }: { onVerified(): void; onUseApp?(): v
   const verify = async (e: React.FormEvent) => {
     e.preventDefault(); setErr('');
     setBusy(true);
-    const { error } = await sb().functions.invoke('verify-login-code', { body: { code } });
+    const { data, error } = await sb().functions.invoke('verify-login-code', { body: { code } });
     setBusy(false);
     if (error) { setErr((await errorOf(error)) || 'That did not work. Try again.'); return }
+    const { data: u } = await sb().auth.getUser();
+    if (u.user) saveTrust(u.user.id, data);                        // this browser needs no code for 24 hours
     onVerified();
   };
   return <AuthCard title="Enter your sign-in code" sub={<>Second step for <b>{email || 'your account'}</b>. Check your inbox (and spam).</>}>

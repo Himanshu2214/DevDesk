@@ -962,23 +962,8 @@ pre.shiki,.code-view pre,.code-plain{margin:0;padding:12px 14px;border-radius:10
 .wb-open{height:22px;padding:0 8px;font-size:11.5px;gap:4px}
 .wb-top .sp{flex:1}
 
-/* Phone approval: the number to tap (sign-in screen) and the number buttons on the phone (#approve) */
-.push-num{margin:8px 0 4px;padding:18px 0;text-align:center;font-size:64px;font-weight:700;line-height:1;letter-spacing:.06em;color:var(--text);
-  border:1px solid var(--border-2);border-radius:16px;background:var(--raised);font-variant-numeric:tabular-nums}
-.push-wait{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px}
-.approve{max-width:420px;margin:48px auto;padding:0 20px;text-align:center}
-.approve h2{margin:14px 0 6px;font-size:22px}
-.approve-who{margin:0 0 24px;color:var(--muted);font-size:var(--fs-sm)}
-.approve-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
-.approve-nums button{height:84px;font-size:34px;font-weight:700;border-radius:16px;border:1px solid var(--border-2);background:var(--raised);color:var(--text);cursor:pointer;font-variant-numeric:tabular-nums}
-.approve-nums button:hover,.approve-nums button:focus-visible{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
-.approve-nums button:disabled{opacity:.5;cursor:default}
+/* Icon tile of the invitation preview in the Inbox */
 .approve-icon{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:16px;background:var(--accent-soft);color:var(--accent)}
-.approve-icon.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
-.approve-icon.no{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
-.acct-devices{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.acct-devices li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
-.acct-devices li .sp{flex:1}
 
 /* Single shared tickets: the small icon after the title (lists, board) */
 .shared-mark{display:inline-flex;vertical-align:-1px;margin-left:6px;color:var(--muted)}

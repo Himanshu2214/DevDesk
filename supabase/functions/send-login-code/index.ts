@@ -16,11 +16,11 @@ Deno.serve(async req => {
   if (last && Date.now() - Date.parse(last.sent_at) < RESEND_AFTER_S * 1000)
     return json(429, { error: `A code was just sent. You can ask for a new one in ${RESEND_AFTER_S} seconds.` });
 
-  // email budget: at most 8 codes an hour and 20 a day per account; the authenticator app and phone approval stay open
+  // email budget: at most 8 codes an hour and 20 a day per account; the authenticator app stays open
   const slot = await takeMailSlot(db, 'code', user.id, user.email ?? '');
   if (!slot.ok) return json(429, { error: slot.reason === 'quota'
-    ? 'The email service has reached its daily limit. Use your authenticator app or phone approval, or try again later.'
-    : `You asked for many codes in the last ${slot.reason === 'user-hour' ? 'hour' : '24 hours'}. Use the latest code we sent, your authenticator app or phone approval – or try again later.` });
+    ? 'The email service has reached its daily limit. Use your authenticator app, or try again later.'
+    : `You asked for many codes in the last ${slot.reason === 'user-hour' ? 'hour' : '24 hours'}. Use the latest code we sent or your authenticator app – or try again later.` });
 
   const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0');
   const { error: saveErr } = await db.from('login_codes').upsert({

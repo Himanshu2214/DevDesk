@@ -23,12 +23,10 @@ const Transports = lazy(() => import('./views/Transports').then(m => ({ default:
 const Objects = lazy(() => import('./views/Objects').then(m => ({ default: m.Objects })));
 const Knowledge = lazy(() => import('./views/Knowledge').then(m => ({ default: m.Knowledge })));
 const Account = lazy(() => import('./views/Account').then(m => ({ default: m.Account })));
-const Approve = lazy(() => import('./views/Approve').then(m => ({ default: m.Approve })));
 const Lists = lazy(() => import('./views/Lists').then(m => ({ default: m.Lists })));
 /** placeholder while a lazy page loads (usually a moment, once per visit) */
 const Loading = ({ title }: { title: string }) => <Page crumb={<b>{title}</b>}><div className="sk" style={{ margin: 24, height: 320 }} /></Page>;
 import { api } from './api';
-import { watchForRequests } from './lib/push';
 import { ShortcutHelp } from './components/ShortcutHelp';
 import { BottomNav } from './components/BottomNav';
 import { Onboarding } from './components/Onboarding';
@@ -52,7 +50,6 @@ function Router({ route }: { route: string }) {
     case 'calendar': return <Suspense fallback={<Loading title="Calendar" />}><CalendarPage /></Suspense>;
     case 'account': return <Suspense fallback={<Loading title="Account" />}><Account /></Suspense>;
     case 'lists': return <Suspense fallback={<Loading title="Lists" />}><Lists /></Suspense>;
-    case 'approve': return <Suspense fallback={<Loading title="Sign-in request" />}><Approve /></Suspense>;
     case 'transports': return <Suspense fallback={<Loading title="Transports" />}><Transports route={route} /></Suspense>;
     case 'objects': return <Suspense fallback={<Loading title="Objects" />}><Objects route={route} /></Suspense>;
     case 'kb': return <Suspense fallback={<Loading title="Knowledge" />}><Knowledge route={route} /></Suspense>;
@@ -127,15 +124,6 @@ function Shell() {
     return () => { removeEventListener('devdesk-nav', toggle); removeEventListener('devdesk-help', help) };
   }, []);
   useEffect(() => { setNavOpen(false) }, [route]);
-  // a sign-in request arriving while the app is open on this phone goes straight to the approve screen (see sw.js)
-  useEffect(() => {
-    const sw = navigator.serviceWorker;
-    if (!sw) return;
-    const on = (e: MessageEvent) => { if (e.data?.type === 'approve') location.hash = 'approve' };
-    sw.addEventListener('message', on); return () => sw.removeEventListener('message', on);
-  }, []);
-  // …and one found when the app is opened or comes back to the front, in case the notification never arrived
-  useEffect(() => api.kind === 'supabase' ? watchForRequests(() => { if (location.hash !== '#approve') location.hash = 'approve' }) : undefined, []);
 
   return (
     <div className={'app' + (navOpen ? ' nav-open' : '')}>
