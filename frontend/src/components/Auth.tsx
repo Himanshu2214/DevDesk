@@ -62,6 +62,8 @@ function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNo
       <div className="auth-card" aria-labelledby="auth-title">
         <div className="auth-brand"><span className="auth-mark"><LogoMark size={20} /></span><span className="auth-word">SLATE<span className="brand-dot">·</span>SPACE</span></div>
         <h1 id="auth-title">{title}</h1>{sub && <p className="auth-sub">{sub}</p>}{children}
+        {/* public pages Google's app review (and people) look for next to the sign-in */}
+        <p className="auth-legal"><a href="./about.html">About</a><span aria-hidden="true"> · </span><a href="./privacy.html">Privacy</a><span aria-hidden="true"> · </span><a href="./terms.html">Terms</a></p>
       </div>
       <aside className="auth-art" aria-hidden="true"><RibbonArt /><span className="auth-art-tag">Work. Without friction.</span></aside>
     </main>

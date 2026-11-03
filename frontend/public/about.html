@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SLATE·SPACE – a workspace for SAP development work</title>
+  <meta name="description" content="SLATE·SPACE is a personal and team workspace for SAP developers: tickets with acceptance criteria and tests, the objects and transports behind each change, time tracking, planning and a knowledge base.">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <style>
+    :root{color-scheme:dark light;--bg:#0e1014;--text:#e6e9ee;--muted:#8b919b;--accent:#6b93ff;--line:#23272e;--card:#15181e}
+    @media (prefers-color-scheme:light){:root{--bg:#f6f7f9;--text:#0f1218;--muted:#626a76;--accent:#2f5fe0;--line:#e4e7eb;--card:#fff}}
+    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{max-width:760px;margin:0 auto;padding:48px 20px 64px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+    header img{width:36px;height:36px}
+    header a{color:var(--text);text-decoration:none;font-weight:700;letter-spacing:.12em;font-size:13px}
+    h1{font-size:32px;line-height:1.2;margin:0 0 10px}
+    h2{font-size:18px;margin:32px 0 8px}
+    .lead{font-size:17px;color:var(--muted);margin:0 0 22px}
+    .cta{display:inline-block;padding:10px 18px;border-radius:9px;background:var(--accent);color:#fff;text-decoration:none;font-weight:600}
+    ul.features{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    ul.features li{padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+    ul.features b{display:block;margin-bottom:2px}
+    .muted{color:var(--muted)}
+    a{color:var(--accent)}
+    footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);font-size:13px}
+  </style>
+</head>
+<body>
+<main>
+  <header><img src="./icons/icon.svg" alt=""><a href="./">SLATE·SPACE</a></header>
+  <h1>A workspace for SAP development work</h1>
+  <p class="lead">SLATE·SPACE keeps everything about a change in one place: the ticket with its acceptance criteria and
+    tests, the SAP objects and transports behind it, the time spent, the plan and the knowledge you gained on the way.</p>
+  <p><a class="cta" href="./">Open SLATE·SPACE</a></p>
+
+  <h2>What it does</h2>
+  <ul class="features">
+    <li><b>Tickets and projects</b>A list and a board with drag and drop, acceptance criteria, test cases, a release checklist, comments, files and screenshots.</li>
+    <li><b>Transports and objects</b>Track each transport from development to production and see which objects a change touches.</li>
+    <li><b>Time and insights</b>Timer and week timesheet, estimate against actual, progress and hours charts.</li>
+    <li><b>Calendar and timeline</b>Due dates, meetings and a Gantt timeline with planned starts and dependencies.</li>
+    <li><b>Knowledge base</b>Snippets, error fixes, API examples and design decisions, linked to tickets and objects.</li>
+    <li><b>Teams</b>Organizations, sharing of single tickets or whole projects with view, comment or edit access, and a history of every change.</li>
+  </ul>
+
+  <h2>Google sign-in and Google Calendar</h2>
+  <p>You can sign in with your Google account; SLATE·SPACE then receives your name, email address and profile picture.</p>
+  <p>Connecting Google Calendar is optional. When you connect it, SLATE·SPACE uses Google's permission to <b>show your
+    calendar events</b> next to your ticket due dates on the Calendar page, and to <b>create meetings you add</b> in
+    SLATE·SPACE in your Google Calendar. It does not change or delete existing events and does not store your events. You
+    can disconnect at any time in Account → Calendar or in your Google account settings.</p>
+  <p>SLATE·SPACE's use of information received from Google APIs adheres to the
+    <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+    including the Limited Use requirements. Details: <a href="./privacy.html">privacy policy</a>.</p>
+
+  <h2>Your data</h2>
+  <p>Each account sees only its own data and what others explicitly share with it. Sign-in has a second step (an emailed
+    code or an authenticator app). You can delete your account and all its data at any time in Account.</p>
+
+  <footer class="muted"><a href="./privacy.html">Privacy policy</a> · <a href="./terms.html">Terms of use</a> · <a href="./">Sign in</a></footer>
+</main>
+</body>
+</html>
