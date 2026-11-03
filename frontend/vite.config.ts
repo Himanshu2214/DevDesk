@@ -7,7 +7,9 @@ import { fileURLToPath, URL } from 'node:url';
 const pwa = (): Plugin => ({
   name: 'slate-space-pwa',
   transformIndexHtml: html => html.replace('</title>', ['</title>', '<link rel="manifest" href="./manifest.webmanifest">', '<meta name="theme-color" content="#13161b">',
-    '<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">'].join('\n  ')),
+    '<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">',
+    // Google Search Console: proves ownership of slatespace-32m.pages.dev (needed for the Google app verification)
+    '<meta name="google-site-verification" content="1PHWb4tuw9JLFPRWXc8r6IR28G0-D7vtb2Tu-JBoYBE" />'].join('\n  ')),
 });
 
 // base './' so the build works from the BSP path /sap/bc/ui5_ui5/sap/zdd_app/.
