@@ -17,7 +17,9 @@ type Db = ReturnType<typeof admin>;
 interface NewMeeting { title?: string; start?: string; end?: string; allDay?: boolean; description?: string; location?: string; attendees?: string[]; meet?: boolean; timeZone?: string }
 const MAX_BYTES = 8 * 1024 * 1024;
 // read and create events: meetings created in SLATE·SPACE land in the real Google Calendar
-const SCOPE = 'openid email https://www.googleapis.com/auth/calendar.events';
+// calendar.events.owned: read and add events on the user's own calendars only – the app only uses the primary calendar,
+// so this is the narrowest scope that fits (it is the one registered for Google's app verification)
+const SCOPE = 'openid email https://www.googleapis.com/auth/calendar.events.owned';
 /** a secret, forgiving stray spaces, quotes or <angle brackets> pasted around the value */
 const env = (k: string) => (Deno.env.get(k) ?? '').trim().replace(/^[<"']+|[>"']+$/g, '').trim();
 const STATE_TTL_MS = 15 * 60_000;

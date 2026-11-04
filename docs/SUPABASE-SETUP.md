@@ -239,7 +239,7 @@ Reuses the Google OAuth client from step 4.
 2. **APIs & Services → Credentials** → your **Web application** OAuth client → **Authorized redirect URIs** → add
    `https://<ref>.supabase.co/functions/v1/calendar-feed` → **Save**.
 3. **OAuth consent screen → Data access** (or *Scopes*) → **Add or remove scopes** → tick
-   `.../auth/calendar.events` (see and edit events) → **Update** → **Save**.
+   `.../auth/calendar.events.owned` (events on calendars you own – the narrowest scope that fits) → **Update** → **Save**.
 4. **OAuth consent screen → Audience**: **Publish app** (status *In production*). In *Testing* status Google ends the
    calendar permission after 7 days. Until Google has reviewed the app, the consent screen says "Google hasn't verified
    this app" – choose **Advanced → Go to SLATE·SPACE**. (Verification is only needed for more than 100 users.)
