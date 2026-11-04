@@ -1067,3 +1067,12 @@ pre.shiki,.code-view pre,.code-plain{margin:0;padding:12px 14px;border-radius:10
 .crash-box h2{margin:0 0 8px;font-size:20px}
 .crash-box p{margin:0 0 18px}
 .crash-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+/* Phones: tap targets at least 28 px (found by the E2E mobile audit). Icon buttons no longer shrink in a crowded top bar,
+   the small Remove buttons grow to the normal icon-button size, and inputs fill the row/field that already surrounds them
+   (the visible size is unchanged). */
+@media (max-width:760px){
+  .ib{flex:none;min-width:28px;min-height:28px}
+  .pv input{align-self:stretch}
+  .kbsearch input,.sub .add input{align-self:stretch}
+}

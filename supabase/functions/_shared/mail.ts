@@ -48,6 +48,13 @@ export function failureReason(service: MailResult['service'], body: unknown): st
 const env0: Env = k => (Deno.env.get(k) ?? '').trim();
 
 export async function sendMail(mail: Mail, env: Env = env0): Promise<MailResult> {
+  // TEST projects only (secret MAIL_SINK=table, never set in production): store the email in the mail_sink table
+  // (supabase/tests/mail_sink.sql) instead of sending it, so end-to-end tests can read sign-in codes without real email
+  if (env('MAIL_SINK') === 'table') {
+    const { admin } = await import('./login-code.ts');
+    const { error } = await admin().from('mail_sink').insert({ to_address: mail.to.toLowerCase(), subject: mail.subject, body: mail.text });
+    return { ok: !error, service: 'resend', status: error ? 500 : 200, reason: error?.message ?? '' };
+  }
   const { service, url, init } = buildRequest(mail, env);
   try {
     const res = await fetch(url, init);

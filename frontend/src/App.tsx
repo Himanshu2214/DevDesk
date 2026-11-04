@@ -39,6 +39,8 @@ const pageKey = (route: string) => {
   return head === 'ticket' ? route : head === 'project' ? 'project/' + rest.split('?')[0] : head;
 };
 
+function DevCrash(): never { throw new Error('E2E simulated render error') }
+
 function Router({ route }: { route: string }) {
   const [head, rest] = [route.split('/')[0], route.split('/').slice(1).join('/')];
   switch (head) {
@@ -55,6 +57,9 @@ function Router({ route }: { route: string }) {
     case 'kb': return <Suspense fallback={<Loading title="Knowledge" />}><Knowledge route={route} /></Suspense>;
     case 'insights': return <Suspense fallback={<Loading title="Insights" />}><Insights /></Suspense>;
     case 'timeline': return <Suspense fallback={<Loading title="Timeline" />}><Timeline /></Suspense>;
+    // sample-data mode only (dev server and the end-to-end test build – never the SAP or cloud builds): a page that
+    // throws, so the end-to-end tests can check the fallback
+    case '__crash': if (import.meta.env.MODE === 'development') return <DevCrash />; return <Placeholder route={head} />;
     default: return <Placeholder route={head} />;
   }
 }

@@ -4,7 +4,7 @@ import type { ChildNav, ChildSet, Status, TestCase, Ticket } from '../api';
 import { useStore, useTicketDetail } from '../store';
 import { rememberTicket } from '../lib/recent';
 import { RichEditor, RichView } from '../components/RichText';
-import { DuePicker } from '../components/DuePicker';
+import { DatePicker, DuePicker } from '../components/DuePicker';
 import { lastOrder } from '../lib/listPrefs';
 import { ago, fmtDate, PRIORITY_NAME, r1 } from '../lib/format';
 import { Dot, Icon, PriorityIcon, StatusIcon } from '../components/Icons';
@@ -148,7 +148,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           {!detail.isLoading && tab === 'overview' && <>
             <div className="tp-sec" style={{ marginTop: 6 }}><h4>Acceptance criteria<span className="c">{acc.length}</span></h4>
               <div className="sub">{acc.map(a => <div className="it" key={a.AccUUID}><Icon name="check" size={14} style={{ color: 'var(--muted)' }} /><span className="lbl">{a.Text}</span><span className="sp" />
-                {canEdit && <button className="ib" style={{ width: 22, height: 22 }} title="Remove" onClick={() => del('Acceptance', a as never)}><Icon name="x" size={12} /></button>}</div>)}
+                {canEdit && <button className="ib" style={{ width: 22, height: 22 }} title="Remove" aria-label="Remove criterion" onClick={() => del('Acceptance', a as never)}><Icon name="x" size={12} /></button>}</div>)}
                 {canEdit && <AddLine placeholder="Add acceptance criterion and press Enter (also adds a test case)" onAdd={async v => {
                   await add('_Acceptance', { SortOrder: acc.length + 1, Text: v });
                   await add('_Test', { SortOrder: tests.length + 1, TestName: v, Expected: v });
@@ -190,7 +190,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
           {prop('Status', <button className="pv" data-f="status" onClick={e => menu(e.currentTarget, menus.status(t), v => setStatus(v as Status))}><StatusIcon status={t.Status} />{s.text('STATUS', t.Status)}</button>)}
           {prop('Priority', <button className="pv" data-f="Priority" onClick={field('Priority')}><PriorityIcon priority={t.Priority} />{PRIORITY_NAME[t.Priority]}</button>)}
           {prop('Assignee', <label className="pv"><Avatar name={t.Assignee} size={18} /><input defaultValue={t.Assignee} key={'a' + t.etag} onBlur={e => { const v = e.target.value.trim().toUpperCase(); if (v !== t.Assignee) patch({ Assignee: v }) }} /></label>)}
-          {api.listTicketLinks && prop('Planned start', <DuePicker value={t.PlannedStart ?? null} onChange={v => patch({ PlannedStart: v })} />)}
+          {api.listTicketLinks && prop('Planned start', <DatePicker label="Planned start" placeholder="Set start date" withPresets value={t.PlannedStart ?? null} onChange={v => patch({ PlannedStart: v })} />)}
           {prop('Due date', <DuePicker value={t.DueDate} onChange={v => patch({ DueDate: v })} />)}
           {prop('', <span style={{ paddingLeft: 8 }}><Due t={t} /></span>)}
           <div className="h">Classification</div>

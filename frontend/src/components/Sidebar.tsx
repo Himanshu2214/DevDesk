@@ -36,8 +36,9 @@ function NavItem({ href, active, label, icon, count, alert, style }: {
   href: string; active: boolean; collapsed: boolean; label: string; icon: React.ReactNode; count?: number | string; alert?: boolean; style?: React.CSSProperties;
 }) {
   const n = typeof count === 'number' ? count : 0;
+  // the label is hidden while the sidebar is a collapsed icon rail, so the link carries its name itself (screen readers)
   return <Tip label={label} side="right" disabled>
-    <a className={'ni' + (active ? ' active' : '')} href={href} style={style} aria-current={active ? 'page' : undefined} aria-label={alert && n ? `${label}, ${n} new` : undefined}>
+    <a className={'ni' + (active ? ' active' : '')} href={href} style={style} aria-current={active ? 'page' : undefined} aria-label={alert && n ? `${label}, ${n} new` : count ? `${label}, ${count}` : label}>
       {active && <m.span layoutId="nav-active" className="ni-bg" transition={indicatorTransition} />}
       <span className="ni-ic">{alert && n ? <CountBadge variant="count" count={n} max={99} className="ni-badge">{icon}</CountBadge> : icon}</span>
       <span className="lbl">{label}</span>

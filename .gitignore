@@ -10,3 +10,9 @@ frontend/node_modules/
 
 # Supabase CLI cache (project ref, versions)
 supabase/.temp/
+
+# Playwright output
+e2e-results/
+e2e-report/
+e2e-dist/
+e2e-dist-cloud/
