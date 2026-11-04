@@ -382,7 +382,8 @@ Then:
    ```bash
    npx supabase functions deploy daily-digest --no-verify-jwt
    ```
-3. Optional secrets: `MAIL_DAILY_LIMIT` (default 200, Mailjet free) and `MAIL_RESERVE` (default 60 – kept for sign-in codes).
+3. Optional secrets: `MAIL_DAILY_LIMIT` (default 170 – Mailjet's free 200 minus 30 for Supabase's own emails) and
+   `MAIL_RESERVE` (default 60 – kept for sign-in codes).
 
 What it does:
 
@@ -396,3 +397,24 @@ What it does:
 - **Organizations**: leaving or being removed unshares only what was shared *because of* the organization (direct and
   outside shares stay); deleting the only admin's account makes the longest-standing member admin; two admins cannot
   remove each other's admin role at the same moment.
+
+## 26. Hardening
+
+1. **SQL Editor → New query**: run `supabase/migrations/20261119000000_hardening.sql` (after section 25).
+2. Redeploy the three functions that send email (their budget default changed):
+   ```bash
+   npx supabase functions deploy send-login-code
+   ```
+   ```bash
+   npx supabase functions deploy notify-email
+   ```
+   ```bash
+   npx supabase functions deploy daily-digest --no-verify-jwt
+   ```
+3. If Supabase's own emails (confirm account, reset password) go through Mailjet SMTP: **Authentication → Rate Limits →
+   Rate limit for sending emails** – set it to about **5 per hour**. Together with the app's own budget (170 a day) that
+   stays inside Mailjet's free 200.
+
+What it does: the database refuses any change that would leave an organization with members but no admin (even two
+admins demoting each other at the same moment); errors on the sign-in screen are logged too (at most 100 an hour from
+all visitors together, still readable only in the Table editor).

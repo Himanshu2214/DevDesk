@@ -1,5 +1,6 @@
 // Email budget and sign-in limits for the edge functions (database side: migration 20261116000000_auth_limits).
-// MAIL_DAILY_LIMIT (default 200 = Mailjet free) and MAIL_RESERVE (default 60, kept for sign-in codes) are optional secrets.
+// MAIL_DAILY_LIMIT (default 170: Mailjet's free 200 a day minus 30 left for Supabase's own account emails – confirm account,
+// reset password – when they also go through Mailjet SMTP) and MAIL_RESERVE (default 60, kept for sign-in codes) are optional secrets.
 import type { admin } from './login-code.ts';
 
 type Db = ReturnType<typeof admin>;
@@ -16,7 +17,7 @@ export async function hashAddress(email: string): Promise<string> {
  *  everything while the migration is not installed yet (PGRST202), so nothing stops working before it is run */
 export async function takeMailSlot(db: Db, kind: MailKind, userId: string, to: string): Promise<{ ok: boolean; reason: string; slot: string | null }> {
   const { data, error } = await db.rpc('take_mail_slot', { p_kind: kind, p_user: userId, p_to_hash: await hashAddress(to),
-    p_daily_limit: num('MAIL_DAILY_LIMIT', 200), p_reserve: num('MAIL_RESERVE', 60) });
+    p_daily_limit: num('MAIL_DAILY_LIMIT', 170), p_reserve: num('MAIL_RESERVE', 60) });
   if (error) {
     console.error('mail slot', kind, error.code ?? 'error');
     return { ok: kind === 'code' || error.code === 'PGRST202', reason: 'unavailable', slot: null };

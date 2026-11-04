@@ -18,5 +18,9 @@ it('stores at most 30 errors per user per hour and hides them from users', async
   await t.db.exec('reset role');
   await t.db.query(`select set_config('request.jwt.claim.sub', '', false)`);
   await t.db.exec('set role anon');
-  await expect(t.db.query(`select log_client_error('x','','','','')`)).rejects.toThrow(/permission denied/);
+  // before sign-in: allowed, but at most 100 an hour for all visitors together – and still unreadable
+  for (let i = 0; i < 105; i++) await t.db.query(`select log_client_error($1, '', 'app', '#', 'test')`, [`Sign-in page error ${i}`]);
+  await expect(t.db.query('select * from client_errors')).rejects.toThrow(/permission denied/);
+  await t.asRole('service_role');
+  expect(await t.one('select count(*)::int n from client_errors where user_id is null')).toEqual({ n: 100 });
 }, 60_000);
