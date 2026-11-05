@@ -321,7 +321,8 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 /* =====================================================================
    Home: service-dashboard layout (header, overview cards, focus table)
    ===================================================================== */
-.hx{max-width:1360px}
+/* Home fills the page like every other view (a cap left empty space on the right of wide windows) */
+.hx{max-width:none}
 .hx-head{display:flex;align-items:center;gap:16px;margin-bottom:26px}
 .hx-mark{width:52px;height:52px;flex:none;display:grid;place-items:center;border-radius:14px;background:var(--lg-tile);
   border:1px solid var(--border-2);box-shadow:var(--shadow-sm)}
@@ -767,6 +768,10 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 .um-env{font-size:10.5px;letter-spacing:.08em;font-weight:600;color:var(--muted);padding:3px 7px;border-radius:6px;background:var(--hover)}
 .um-sec{padding:12px 8px 4px;display:grid;gap:8px}
 .um-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.um-theme [role=radiogroup]{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+/* the theme toggle's segments (menu, first-run setup): no browser button look */
+.tt-pill>[role=radio]{border:0;background:transparent;font:inherit;font-size:13px;font-weight:500;white-space:nowrap;padding:7px 10px}
+.um-theme [role=radio]{min-width:0;padding-inline:6px}
 .um-avs{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;justify-items:center}
 .um-av{padding:2px;border-radius:50%;border:2px solid transparent;background:transparent;cursor:pointer;display:grid}
 .um-av:hover{border-color:var(--border-2)}

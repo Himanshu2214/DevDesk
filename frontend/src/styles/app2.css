@@ -78,7 +78,7 @@
 .gnode.me rect.b{stroke:var(--accent);stroke-width:1.8}
 
 /* Knowledge */
-.kbw{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;padding:20px 24px 40px;max-width:1400px}
+.kbw{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;padding:20px 24px 40px}
 .kbsearch{display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;border:1.5px solid var(--accent);border-radius:12px;background:var(--raised);box-shadow:0 0 0 4px var(--accent-soft)}
 .kbsearch input{flex:1;border:0;background:transparent;outline:none;font-size:15px}
 .kbbar{display:flex;align-items:center;gap:10px;margin:16px 0 12px}

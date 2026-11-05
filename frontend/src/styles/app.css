@@ -195,7 +195,7 @@ kbd{font-family:inherit;font-size:11px;padding:0 5px;border-radius:4px;border:1p
 .inbox .pre{overflow:auto;padding:36px 48px}
 
 /* ---------- Insights ---------- */
-.ins{padding:24px 28px 40px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;max-width:1400px}
+.ins{padding:24px 28px 40px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px}
 .panel{border:1px solid var(--border);border-radius:10px;background:var(--panel)}
 .panel .ph{display:flex;align-items:center;gap:8px;padding:14px 16px 0;font-weight:500;color:var(--text-2)}
 .panel .ph .sp{flex:1}

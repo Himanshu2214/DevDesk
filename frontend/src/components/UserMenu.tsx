@@ -49,7 +49,8 @@ export function UserMenu() {
             <div className="um-who"><b>{name}</b><small>{s.user.email || (api.kind === 'sap' ? 'SAP user ' + s.user.id : 'Sample data in this browser')}</small></div>
             <span className="um-env">{api.kind === 'supabase' ? 'CLOUD' : api.kind === 'sap' ? 'SAP' : 'MOCK'}</span></div>
 
-          <div className="um-sec um-row"><span className="um-lbl">Appearance</span>
+          {/* label above, the three choices sharing the full width – side by side they did not fit the menu */}
+          <div className="um-sec um-theme"><span className="um-lbl">Appearance</span>
             <ThemeToggle variant="pill" size="sm" showSystem theme={mode} onThemeChange={setMode} /></div>
 
           <div className="um-sec"><span className="um-lbl">Avatar</span>

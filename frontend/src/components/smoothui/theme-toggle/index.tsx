@@ -288,7 +288,7 @@ const PillToggle = ({
 }: PillToggleProps) => (
   <div
     aria-label={groupLabel}
-    className="relative inline-flex items-center gap-1 rounded-full border border-border bg-muted p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]"
+    className="tt-pill relative inline-flex items-center gap-1 rounded-full border border-border bg-muted p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]"
     role="radiogroup"
   >
     {options.map((option, index) => {
