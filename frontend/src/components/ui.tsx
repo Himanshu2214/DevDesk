@@ -85,7 +85,8 @@ export function useFieldMenus() {
 }
 
 /* ---------- Page frame: header bars + scrolling body ---------- */
-export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.ReactNode; bar2?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; bodyRef?: React.Ref<HTMLDivElement> }) {
+/** `back`: a detail page – on phones its header shows a back arrow (to the previous screen, or to `back`) instead of the menu button */
+export function Page({ crumb, bar2, right, children, bodyRef, back }: { crumb: React.ReactNode; bar2?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; bodyRef?: React.Ref<HTMLDivElement>; back?: string }) {
   const body = useRef<HTMLDivElement>(null);
   const setBody = (el: HTMLDivElement | null) => {
     (body as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -95,11 +96,12 @@ export function Page({ crumb, bar2, right, children, bodyRef }: { crumb: React.R
     <section className="main">
       <header className="bar1">
         <button className="ib nav-btn" aria-label="Open navigation" onClick={() => dispatchEvent(new Event('devdesk-nav'))}><Icon name="list" /></button>
+        {back && <button className="ib back-btn" aria-label="Back" onClick={() => { if (history.length > 1) history.back(); else location.hash = back }}><Icon name="left" /></button>}
         <div className="crumb">{crumb}</div><span className="sp" />
         <SyncBadge />
         {right}
         <UserMenu />
-        <button className="ib" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
+        <button className="ib help-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => dispatchEvent(new Event('devdesk-help'))}><span style={{ fontWeight: 600 }}>?</span></button>
       </header>
       {bar2 && <div className="bar2">{bar2}</div>}
       <ScrollProgress target={body} />

@@ -1,5 +1,11 @@
 // Supabase client for the standalone (cloud) backend. Created on first use, so the SAP and mock builds never start it.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+
+/** running as the standalone Android app (Capacitor: the app is bundled into the APK), not in a browser */
+export const isNativeApp = () => Capacitor.isNativePlatform();
+/** the public web address – used for links in emails, which open in the phone's browser, never the app's internal address */
+const PUBLIC_URL = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) || 'https://slatespace-32m.pages.dev/';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -40,7 +46,7 @@ export async function downloadPrivate(bucket: string, path: string): Promise<Blo
 }
 
 /** Where email links (confirm, reset) and Google send the user back to: this app's own address */
-export const appUrl = () => location.origin + location.pathname;
+export const appUrl = () => (isNativeApp() ? PUBLIC_URL : location.origin + location.pathname);
 
 /** Why a functions.invoke() failed: the HTTP status and the function's own { error } message when it answered at all.
  *  A network failure or a crashed function gives neither (status undefined). */

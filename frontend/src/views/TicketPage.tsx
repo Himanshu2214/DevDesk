@@ -120,7 +120,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
   const prop = (label: string, child: React.ReactNode) => <div className="prop"><span>{label}</span>{child}</div>;
   const p = s.project(t.Project);
   return (
-    <Page crumb={<><a href="#list/active">My tickets</a><span className="sepr">›</span><b>{t.TicketId}</b><span className="muted" style={{ fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.Title}</span></>}
+    <Page back="#list/active" crumb={<><a href="#list/active">My tickets</a><span className="sepr">›</span><b>{t.TicketId}</b><span className="muted" style={{ fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.Title}</span></>}
       right={<>
         {pos >= 0 && <span className="muted num hide-narrow" style={{ fontSize: 12, marginRight: 2 }}>{pos + 1} / {order.length}</span>}
         <button className="ib" title="Previous ticket (K)" aria-label="Previous ticket" disabled={pos <= 0} onClick={() => step(-1)}><Icon name="up" /></button>

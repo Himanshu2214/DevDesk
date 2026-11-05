@@ -19,6 +19,8 @@ import { SharedMark } from '../components/ShareTicket';
 const Board = lazy(() => import('./Board'));
 const GROUP_ORDER: Status[] = ['PROG', 'TEST', 'BLOCK', 'TODO', 'BACKLOG', 'DONE'];
 type Layout = 'list' | 'board';
+/** until you pick one: the list on a phone (a board scrolls sideways there), the board on wider screens */
+const PHONE_DEFAULT = (): Layout => (typeof matchMedia === 'function' && matchMedia('(max-width:760px)').matches ? 'list' : 'board');
 
 /** route: list/<tab|view> or project/<KEY>?<tab> */
 export function TicketList({ route }: { route: string }) {
@@ -26,7 +28,7 @@ export function TicketList({ route }: { route: string }) {
   const menu = useMenu();
   const menus = useFieldMenus();
   const { openNew } = useDialogs();
-  const [layout, setLayout] = useState<Layout>(() => { try { return (localStorage.getItem('devdesk-layout') as Layout) || 'board' } catch { return 'board' } });
+  const [layout, setLayout] = useState<Layout>(() => { try { return (localStorage.getItem('devdesk-layout') as Layout) || PHONE_DEFAULT() } catch { return PHONE_DEFAULT() } });
   const [sel, setSel] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
 

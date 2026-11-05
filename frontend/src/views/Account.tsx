@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { api } from '../api';
 import { useStore } from '../store';
-import { functionError, sb } from '../lib/supabase';
+import { functionError, isNativeApp, sb } from '../lib/supabase';
 import { revokeOtherTrust } from '../lib/trust';
 import { CALENDAR_RESULT, calendarCall, type CalendarStatus, connectGoogleCalendar, takeCalendarResult } from '../lib/calendar';
 import { fmtDate } from '../lib/format';
@@ -258,7 +258,9 @@ function GoogleCalendar() {
         <span className="gcal-who"><b>Google Calendar connected</b><small>{st.google || 'Your Google account'}</small></span>
         <ConfirmButton className="btn" label="Disconnect Google Calendar" onConfirm={disconnect} confirmLabel="Disconnect" description="Meetings stop showing in Calendar and SLATE·SPACE loses access to your Google Calendar. Your meetings in Google stay as they are."><Icon name="x" size={14} />Disconnect</ConfirmButton>
       </div> : <div className="gcal-off">
-        <button className="btn gcal-connect" onClick={connect} disabled={!!busy} aria-busy={busy === 'connect'}>{busy === 'connect' ? <Spinner /> : <GoogleG />}Connect Google Calendar</button>
+        {/* Google does not allow its sign-in page inside apps: connect once on the website, it then works here too */}
+        {isNativeApp() ? <p className="muted acct-note">To connect Google Calendar, open SLATE·SPACE on the website once and connect it there – it then shows here too.</p>
+          : <button className="btn gcal-connect" onClick={connect} disabled={!!busy} aria-busy={busy === 'connect'}>{busy === 'connect' ? <Spinner /> : <GoogleG />}Connect Google Calendar</button>}
         <p className="muted acct-note">Google asks once for permission to see your events and add new ones. If it shows “Google hasn't verified this app”, choose <b>Advanced → Go to SLATE·SPACE</b> – the app is yours.</p>
       </div>}
 

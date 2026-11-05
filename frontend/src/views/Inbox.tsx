@@ -126,7 +126,7 @@ export function Inbox() {
             <span className="chip"><PriorityIcon priority={t.Priority} />{PRIORITY_NAME[t.Priority]}</span>
             <ProjectChip code={t.Project} /><TechTag code={t.Tech} /><span className="chip"><Icon name="cal" size={13} /><Due t={t} /></span></div>
           <div className="kv" style={{ maxWidth: 420 }}><span>Requester</span><span>{t.Requester || '–'}</span><span>Estimate / logged</span><span className="num">{t.EstimateHours} h / {Math.round(t.LoggedHours * 10) / 10} h</span></div>
-          <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
+          <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <a className="btn primary" href={'#ticket/' + t.TicketId}>Open ticket</a>
             <button className="btn" onClick={e => menu(e.currentTarget, menus.status(t), v => s.changeStatus(t, v as Status))}><StatusIcon status={t.Status} /> Change status</button>
             <button className="btn" onClick={() => openLog(t.TicketUUID)}><Icon name="clock" size={14} />Log time</button></div>

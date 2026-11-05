@@ -4,7 +4,7 @@
 // (lib/trust.ts): signing in again there that day needs no code.
 import { type InputHTMLAttributes, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { appUrl, getRemember, sb, setRemember, supabaseConfigured } from '../lib/supabase';
+import { appUrl, getRemember, isNativeApp, sb, setRemember, supabaseConfigured } from '../lib/supabase';
 import { applyTrust, saveTrust, trustAfterApp } from '../lib/trust';
 import { Icon, LogoMark, Spinner } from './Icons';
 import FloatInput from './smoothui/float-input';
@@ -189,7 +189,8 @@ function SignedOut() {
       <button className="btn primary auth-wide auth-submit" disabled={busy || !email || (view !== 'forgot' && !pw)} aria-busy={busy}>
         {busy && <Spinner />}{action}{!busy && <Icon name="move" size={15} />}</button>
     </form>
-    {view !== 'forgot' && <><div className="auth-or"><span>or</span></div><GoogleButton remember={view === 'signin' ? remember : undefined} /></>}
+    {/* Google does not allow its sign-in page inside apps: the Android app signs in with email, password and the code */}
+    {view !== 'forgot' && !isNativeApp() && <><div className="auth-or"><span>or</span></div><GoogleButton remember={view === 'signin' ? remember : undefined} /></>}
     <p className="auth-switch">{view === 'signin'
       ? <>New here? <button type="button" className="auth-link" onClick={() => to('register')}>Create an account</button></>
       : <>Have an account? <button type="button" className="auth-link" onClick={() => to('signin')}>Sign in</button></>}</p>

@@ -2,7 +2,6 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { AnimatePresence, LazyMotion, MotionConfig, domMax, m } from 'motion/react';
 import { toastMotion } from './lib/motion';
 import { Icon } from './components/Icons';
-import PagePreloader from './components/smoothui/page-preloader';
 import { AuthGate } from './components/Auth';
 import { StoreProvider, useStore } from './store';
 import { Empty, isTyping, MenuProvider, Page, useHash } from './components/ui';
@@ -89,18 +88,24 @@ function ToastStack() {
   );
 }
 
-/** SmoothUI page preloader: takes over from the static #boot screen in index.html and stays until the data has loaded
- *  (at least ~0.9 s from page open, so a fast load does not flash) */
+/** The splash (logo and loading bar, #boot in index.html – what the Android app shows after its own launch screen) stays
+ *  until the data has loaded, at least ~0.9 s from page open so a fast load does not flash, then fades out */
 function Preloader() {
   const s = useStore();
   const [minDone, setMinDone] = useState(false);
   useEffect(() => {
-    document.getElementById('boot')?.remove();
     const id = setTimeout(() => setMinDone(true), Math.max(0, 900 - performance.now()));
     return () => clearTimeout(id);
   }, []);
-  return <PagePreloader variant="words" active={!(s.ready && minDone) && !s.error} background="bg-background"
-    words={['Loading', 'Fetching your work', 'Almost ready']} />;
+  const done = (s.ready && minDone) || !!s.error;
+  useEffect(() => {
+    const boot = document.getElementById('boot');
+    if (!done || !boot) return;
+    boot.style.transition = 'opacity 220ms ease';
+    boot.style.opacity = '0';
+    setTimeout(() => boot.remove(), 240);              // not cleared on unmount: the splash must never stay over the app
+  }, [done]);
+  return null;
 }
 
 function Shell() {

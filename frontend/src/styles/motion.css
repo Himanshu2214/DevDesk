@@ -1076,3 +1076,76 @@ pre.shiki,.code-view pre,.code-plain{margin:0;padding:12px 14px;border-radius:10
   .pv input{align-self:stretch}
   .kbsearch input,.sub .add input{align-self:stretch}
 }
+
+/* narrow windows (the 5-column list row): only the parts that fit – the tags, logged time and created date would wrap
+   into a second line of a 40 px row and overlap the next one */
+@media (max-width:1000px){.row>:nth-child(5),.row>:nth-child(8){display:none!important}}
+
+/* ---------- App feel on phones and in the Android app (Trusted Web Activity) ----------
+   What gave the app away as a website: Chrome's pull-to-refresh and overscroll glow, the grey flash on every tap,
+   long-press selecting button text, desktop scrollbars, the page zooming into small inputs, hover styles that stick
+   after a tap, and a header with desktop-only items. */
+html{-webkit-tap-highlight-color:transparent}
+.back-btn{display:none}
+@media (max-width:1000px),(pointer:coarse){
+  html,body{overscroll-behavior:none;overflow-x:clip}               /* no pull-to-refresh / bounce glow, no sideways wobble */
+  .body,.board,.col,.side,.modal,.inbox>*{overscroll-behavior:contain}
+  button,a,label,.bnav,.bar1,.bar2,.side,.tp-tabs,.xseg,.seg,.hx-card,.hx-tr,.row,.card,.ni,.chip,.pill,.pv{
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  /* a detail page: back arrow instead of the menu button */
+  .bar1:has(.back-btn) .nav-btn{display:none}
+  .back-btn{display:grid}
+}
+@media (pointer:coarse){                                               /* touch: scroll without visible bars */
+  *{scrollbar-width:none}
+  ::-webkit-scrollbar{width:0!important;height:0!important}
+}
+@media (hover:none){                                                   /* a press, not a hover */
+  .btn,.ib,.bnav-i,.bnav-new,.hx-card,.hx-tr,.row,.ni,.xb,.tp-tabs button,.card{transition:transform 120ms var(--ease-out),background-color 120ms}
+  .btn:active,.ib:active,.bnav-i:active,.hx-tr:active,.row:active,.ni:active,.xb:active,.tp-tabs button:active{transform:scale(.96)}
+  .bnav-new:active{transform:scale(.92)}
+  .hx-card:active,.card:active{transform:scale(.98)}
+  .hx-card:hover{transform:none}
+}
+@media (max-width:760px){
+  /* 16 px text in fields: phones do not zoom the page when a field is focused */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),textarea,select{font-size:16px}
+  /* header: only what a phone needs – title, account; no sync pill, no keyboard help, no previous/next */
+  .bar1{height:54px;padding:0 10px;gap:6px;background:var(--app)}
+  .bar1 .live,.bar1 .help-btn,.bar1 [aria-label="Previous ticket"],.bar1 [aria-label="Next ticket"]{display:none}
+  .bar1 .crumb{font-size:17px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap}
+  .bar1 .crumb>a,.bar1 .crumb .sepr,.bar1 .crumb .muted{display:none}
+  .bar1 .ib{min-width:40px;min-height:40px;border-radius:12px}
+  /* the ticket page column may shrink to the screen; wide content (tabs, toolbars) scrolls inside it */
+  .tp{grid-template-columns:minmax(0,1fr)}
+  .tp-main{min-width:0;padding:18px 16px}
+  /* ticket tabs on one line that scrolls sideways */
+  .tp-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:20px -4px 12px;padding:0 4px}
+  .tp-tabs button{white-space:nowrap;flex:none;padding:10px 12px}
+  /* home: the overview as a 2 × 2 grid of compact tiles; the whole tile is the link */
+  .hx-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .hx-card{min-height:0;padding:14px 14px 12px;gap:6px;border-radius:16px}
+  .hx-badge,.hx-info,.hx-go{display:none}
+  .hx-title{font-size:13px}
+  .hx-val{font-size:28px}
+  .hx-mark{width:44px;height:44px;border-radius:12px}
+  .hx-hello h2{font-size:21px}
+  .hx-sec-row a{display:inline-flex;align-items:center;min-height:36px;padding:0 4px}
+  /* focus rows: the title gets the whole first line, status and due date share the second */
+  .hx-tr{grid-template-columns:minmax(0,1fr) auto;row-gap:8px;padding:12px 14px}
+  .hx-tr .hx-name{grid-column:1/-1}
+  .hx-tr .hx-name b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .hx-tr .hx-st{justify-self:start}
+  /* ticket list: each ticket as a two-line row – status and title, then priority, number and due date */
+  .row{grid-template-columns:20px minmax(0,1fr) auto;grid-template-areas:"st ttl ttl" "pri id due";height:auto;min-height:64px;row-gap:4px;column-gap:10px;padding:10px 16px}
+  .row>:nth-child(1){grid-area:pri;display:grid;place-items:center}
+  .row>:nth-child(2){grid-area:id}
+  .row>:nth-child(3){grid-area:st;display:grid;place-items:center}
+  .row>:nth-child(4){grid-area:ttl;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.35}
+  .row>:nth-child(4) small{display:none}
+  .row>:nth-child(7){grid-area:due}
+  .row>:nth-child(5),.row>:nth-child(6),.row>:nth-child(8){display:none!important}             /* 5 has an inline display */
+  /* comfortable touch targets */
+  .btn{min-height:40px;white-space:nowrap}
+  .ni{min-height:44px}
+}
