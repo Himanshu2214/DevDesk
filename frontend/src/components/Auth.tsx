@@ -124,11 +124,22 @@ async function googleEnabled(): Promise<boolean> {
 function GoogleButton({ remember }: { remember?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // in the Android app: Google's sign-in opens in the phone's browser and comes back through an app link (lib/nativeAuth)
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    import('../lib/nativeAuth').then(n => { n.onNativeSignInError(m => { setErr(m); setBusy(false) }); n.listenForNativeSignIn() });
+  }, []);
   const go = async () => {
     setBusy(true); setErr('');
     if (remember !== undefined) setRemember(remember);
     // ask Supabase first, so a disabled provider shows a message here instead of Supabase's raw error page
     if (!(await googleEnabled())) { setErr('Google sign-in is not switched on for this workspace yet. Use email and password for now.'); setBusy(false); return }
+    if (isNativeApp()) {
+      const problem = await (await import('../lib/nativeAuth')).googleSignInNative();
+      if (problem) setErr(problem);
+      setBusy(false);
+      return;
+    }
     const { error } = await sb().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl() } });
     if (error) { setErr(say(error)); setBusy(false) }
   };
@@ -189,8 +200,7 @@ function SignedOut() {
       <button className="btn primary auth-wide auth-submit" disabled={busy || !email || (view !== 'forgot' && !pw)} aria-busy={busy}>
         {busy && <Spinner />}{action}{!busy && <Icon name="move" size={15} />}</button>
     </form>
-    {/* Google does not allow its sign-in page inside apps: the Android app signs in with email, password and the code */}
-    {view !== 'forgot' && !isNativeApp() && <><div className="auth-or"><span>or</span></div><GoogleButton remember={view === 'signin' ? remember : undefined} /></>}
+    {view !== 'forgot' && <><div className="auth-or"><span>or</span></div><GoogleButton remember={view === 'signin' ? remember : undefined} /></>}
     <p className="auth-switch">{view === 'signin'
       ? <>New here? <button type="button" className="auth-link" onClick={() => to('register')}>Create an account</button></>
       : <>Have an account? <button type="button" className="auth-link" onClick={() => to('signin')}>Sign in</button></>}</p>
