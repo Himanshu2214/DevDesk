@@ -30,6 +30,8 @@ export function Home() {
   const live = forgotten ? 0 : elapsed;
   const hours = week.reduce((a, w) => a + w.Hours, 0) + live;
   const open = s.tickets.filter(isOpen), over = open.filter(isOverdue), testing = open.filter(t => t.Status === 'TEST');
+  // the Open tickets tile counts what its link shows: the Active list (open, not in the backlog)
+  const active = open.filter(t => t.Status !== 'BACKLOG');
   const focus = s.tickets.filter(t => t.Status === 'TODO' || t.Status === 'PROG' || t.Status === 'TEST').sort(urgency).slice(0, 7);
   const attention: { t: Ticket; icon: React.ReactNode; why: string }[] = [
     ...over.map(t => ({ t, icon: <span style={{ color: 'var(--danger)', display: 'grid' }}><Icon name="alert" size={14} /></span>, why: `${Math.ceil((today().getTime() - Date.parse(t.DueDate + 'T00:00:00')) / DAY)}d overdue` })),
@@ -74,8 +76,8 @@ export function Home() {
 
         <h3 className="hx-sec">Overview</h3>
         <div className="hx-cards">
-          {card('#list/active', 'var(--accent)', <><Icon name="my" size={15} />Open tickets</>, `${new Set(open.map(t => t.Project)).size} projects`,
-            <>{byStatus('PROG')} in progress · {byStatus('TODO')} to do</>, <CountUp value={open.length} />)}
+          {card('#list/active', 'var(--accent)', <><Icon name="my" size={15} />Open tickets</>, `${new Set(active.map(t => t.Project)).size} projects`,
+            <>{byStatus('PROG')} in progress · {byStatus('TODO')} to do</>, <CountUp value={active.length} />)}
           {card('#list/overdue', over.length ? 'var(--danger)' : 'var(--ok)', <><Icon name="alert" size={15} />Overdue</>, over.length ? 'Needs attention' : 'All on track',
             oldest ? <>Oldest: {oldest.TicketId} · <Due t={oldest} short /></> : 'Nothing is late', <CountUp value={over.length} />, over.length ? ' bad' : ' good')}
           {card('#timesheet', 'var(--ok)', <><Icon name="clock" size={15} />Hours this week</>, 'Target 40 h',
