@@ -2,7 +2,7 @@
 // Body: { kind: 'ticket', ref: <TicketUUID>, email } | { kind: 'project', ref: <project code>, email } | { kind: 'org', email }.
 // It only sends for a share or invitation the caller made in the last 10 minutes, so it cannot be used to mail anyone.
 // Secrets: as send-login-code (Mailjet or Resend, MAIL_FROM), APP_URL for the link.
-import { admin, caller, cors, json } from '../_shared/login-code.ts';
+import { admin, caller, cors, json, sessionOk } from '../_shared/login-code.ts';
 import { redactAddresses, sendMail } from '../_shared/mail.ts';
 import { releaseMailSlot, takeMailSlot } from '../_shared/limits.ts';
 
@@ -16,7 +16,7 @@ Deno.serve(async req => {
   if (who instanceof Response) return who;
   const { user, sessionId, aal } = who;
   const db = admin();
-  if (aal !== 'aal2' && !(await db.from('verified_sessions').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()).data)
+  if (!(await sessionOk(db, user.id, sessionId, aal)))
     return json(403, { error: 'Finish the 2-step sign-in first.' });
 
   const body = await req.json().catch(() => ({})) as { kind?: string; ref?: string; email?: string };

@@ -28,6 +28,17 @@ export function sb(): SupabaseClient {
   }));
 }
 
+/** A private file through /object/authenticated/…, which Storage checks against the access rules on every request.
+ *  (supabase-js download() uses /object/…, which the CDN may answer from its cache – even for someone whose access was
+ *  removed after they had opened the file once: security audit finding F12.) */
+export async function downloadPrivate(bucket: string, path: string): Promise<Blob> {
+  const { data } = await sb().auth.getSession();
+  const res = await fetch(`${url!.replace(/\/+$/, '')}/storage/v1/object/authenticated/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`, {
+    headers: { apikey: anonKey!, Authorization: `Bearer ${data.session?.access_token ?? anonKey}` }, cache: 'no-store' });
+  if (!res.ok) throw new Error('The file could not be downloaded');
+  return res.blob();
+}
+
 /** Where email links (confirm, reset) and Google send the user back to: this app's own address */
 export const appUrl = () => location.origin + location.pathname;
 

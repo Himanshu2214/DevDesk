@@ -1,11 +1,11 @@
 // Journeys 1 and 3 (cloud) – sign-in with the emailed code, wrong code, sign-out, the 24-hour trusted browser, and a new
 // account's first-run setup creating its first project.
 import { expect, test } from '@playwright/test';
-import { admin, createUser, latestCode, removeUser, signIn, signOut, type TestUser } from './cloud';
+import { admin, codeMark, createUser, latestCode, removeUsers, signIn, signOut, type TestUser } from './cloud';
 
 let u: TestUser, fresh: TestUser;
 test.beforeAll(async () => { u = await createUser('signin'); fresh = await createUser('newbie', { onboarded: false }) });
-test.afterAll(async () => { await removeUser(u); await removeUser(fresh) });
+test.afterAll(async () => { await removeUsers(u, fresh) });
 
 test('sign in with the emailed code, sign out, sign in again without a code (trusted browser)', async ({ page }) => {
   await signIn(page, u);
@@ -20,13 +20,16 @@ test('a wrong code is refused with the tries left, a right one then works', asyn
   const page = await (await browser.newContext()).newPage();             // a browser that is not trusted yet
   await page.goto('/');
   await page.getByLabel('Email').fill(u.email);
-  await page.getByLabel('Password').fill(u.password);
+  await page.getByLabel('Password', { exact: true }).fill(u.password);
+  const mark = await codeMark(u);                                        // the code of THIS sign-in, not the last test's
   await page.getByRole('button', { name: /^Sign in/ }).click();
   await expect(page.getByRole('heading', { name: 'Enter your sign-in code' })).toBeVisible();
-  const right = await latestCode(u);
+  const right = await latestCode(u, mark);
   const wrong = right === '000000' ? '111111' : '000000';
   await page.locator('.otp input').first().fill(wrong);
   await expect(page.getByRole('alert')).toContainText(/not right\. 4 tries left/);
+  // a person clears the wrong digits and types the right ones; the last digit submits (as with the first code)
+  await page.locator('.otp input').first().fill('');
   await page.locator('.otp input').first().fill(right);
   await expect(page.locator('.side')).toBeVisible({ timeout: 20_000 });
 });
@@ -35,7 +38,7 @@ test('a wrong password is refused', async ({ browser }) => {
   const page = await (await browser.newContext()).newPage();
   await page.goto('/');
   await page.getByLabel('Email').fill(u.email);
-  await page.getByLabel('Password').fill('not-the-password');
+  await page.getByLabel('Password', { exact: true }).fill('not-the-password');
   await page.getByRole('button', { name: /^Sign in/ }).click();
   await expect(page.getByRole('alert')).toContainText('Email or password is not right');
 });

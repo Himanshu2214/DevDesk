@@ -118,8 +118,15 @@ function TwoStep() {
     if (!setup) return;
     setBusy(true);
     const { error } = await sb().auth.mfa.challengeAndVerify({ factorId: setup.id, code });
+    if (error) { setBusy(false); setCode(''); return s.toast('That code is not right. Type the current code from the app.', true) }
+    // the server counts the app as a second step only once this verified session confirms it (migration 20261120)
+    const { error: approveErr } = await sb().rpc('approve_app_factor', { p_factor: setup.id });
     setBusy(false);
-    if (error) { setCode(''); return s.toast('That code is not right. Type the current code from the app.', true) }
+    if (approveErr) {
+      await sb().auth.mfa.unenroll({ factorId: setup.id });
+      setSetup(null); setCode(''); load();
+      return s.toast(`The authenticator app could not be turned on (${approveErr.message}). Try again.`, true);
+    }
     setSetup(null); setCode(''); s.toast('Authenticator app is on – sign-ins now ask for its code'); load();
   };
   const remove = async () => {

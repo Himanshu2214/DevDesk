@@ -5,7 +5,7 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import type { Api, AppNotification, Invitation, Organization, Article, Attachment, ChildNav, ChildSet, LiveArea, NewTicket, Project, ProjectMember, RootSet, SubSet, TechObject, Ticket, TicketEvent, TicketChange, TicketLink, TicketTemplate, Transport, ValueItem, Worklog } from './types';
 import { CHILD_KEY, ROOT_KEY, SUB_KEY } from './types';
-import { sb } from '../lib/supabase';
+import { downloadPrivate, sb } from '../lib/supabase';
 
 type Row = Record<string, unknown>;
 const CHILD_TABLE: Record<ChildSet, string> = {
@@ -199,9 +199,7 @@ export const supabaseApi: Api = {
     return cleanAll<Worklog>(rows as Row[]).map(w => ({ ...w, _Ticket: heads.get(w.TicketUUID) }));
   },
   async downloadAttachment(a) {
-    const { data, error } = await sb().storage.from(BUCKET).download(`${a.Uploader ?? await uid()}/${a.AttUUID}`);
-    if (error || !data) throw new Error('The file could not be downloaded');
-    return data;
+    return downloadPrivate(BUCKET, `${a.Uploader ?? await uid()}/${a.AttUUID}`);
   },
   listObjectLinks: async () => cleanAll(await run(sb().from('object_links').select('*'))),
   // Changes to children (work log, notes, tests, …) and to dependencies/links also touch their parent row

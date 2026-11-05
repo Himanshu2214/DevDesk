@@ -8,11 +8,16 @@ import { existsSync } from 'node:fs';
 
 const SAMPLE_PORT = 5191, CLOUD_PORT = 5193;
 const cloud = existsSync('.env.e2e.local');
+// one id per test run, shared with the workers: test accounts carry it, so the clean-up finds this run's accounts
+process.env.E2E_RUN ??= Date.now().toString(36);
 
 export default defineConfig({
   testDir: './e2e',
   outputDir: './e2e-results',
   timeout: 45_000,
+  // a whole run stops after an hour; the cloud clean-up relies on this to tell abandoned test accounts from those of a
+  // run still going (RUN_LIMIT_MS in e2e/cloud/safety.ts)
+  globalTimeout: 60 * 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
   workers: process.env.CI ? 2 : 3,              // more parallel browsers than this overload a laptop and make waits flaky
@@ -26,8 +31,13 @@ export default defineConfig({
     { name: 'sample', testMatch: /sample\/.*\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, baseURL: `http://localhost:${SAMPLE_PORT}` } },
     // the audit saves its own screenshot of every screen; the automatic one on failure can hang on emulated phones
     { name: 'mobile', testMatch: /mobile\/.*\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${SAMPLE_PORT}`, screenshot: 'off', trace: 'off' } },
-    ...(cloud ? [{ name: 'cloud', testMatch: /cloud\/.*\.spec\.ts/, workers: 1,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, baseURL: `http://localhost:${CLOUD_PORT}` } }] : []),
+    // cloud-setup (safety checks, abandoned accounts) runs first; cloud-teardown removes leftovers afterwards, also after failures
+    ...(cloud ? [
+      { name: 'cloud-setup', testMatch: /cloud\/setup\.ts/, teardown: 'cloud-teardown' },
+      { name: 'cloud-teardown', testMatch: /cloud\/teardown\.ts/ },
+      { name: 'cloud', testMatch: /cloud\/.*\.spec\.ts/, workers: 1, dependencies: ['cloud-setup'],
+        use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, baseURL: `http://localhost:${CLOUD_PORT}` } },
+    ] : []),
   ],
   webServer: [
     // a built copy (fast and stable under parallel tests): sample-data mode, served by vite preview

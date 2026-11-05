@@ -9,7 +9,7 @@
 // GET ?code&state – Google's redirect after consent (no user token; the state value ties it to the user).
 // Deploy with --no-verify-jwt (the Google redirect carries no token); every path checks access itself.
 // Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (the Web OAuth client), CODE_PEPPER (token encryption), APP_URL.
-import { admin, caller, cors, json } from '../_shared/login-code.ts';
+import { admin, caller, cors, json, sessionOk } from '../_shared/login-code.ts';
 import { type CalEvent, eventsBetween } from '../_shared/ics.ts';
 import { fromGoogle, type GEvent } from '../_shared/gcal.ts';
 
@@ -137,10 +137,7 @@ Deno.serve(async req => {
   if (who instanceof Response) return who;
   const { user, sessionId, aal } = who;
   const db = admin();
-  if (aal !== 'aal2') {
-    const { data: v } = await db.from('verified_sessions').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle();
-    if (!v) return json(403, { error: 'Finish the 2-step sign-in first.' });
-  }
+  if (!(await sessionOk(db, user.id, sessionId, aal))) return json(403, { error: 'Finish the 2-step sign-in first.' });
   const body = await req.json().catch(() => ({})) as { action?: string; from?: string; to?: string; test?: string; meeting?: NewMeeting };
   const [{ data: tok }, { data: set }] = await Promise.all([
     db.from('calendar_tokens').select('google_email, refresh_token').eq('user_id', user.id).maybeSingle(),

@@ -5,7 +5,7 @@
 //   { issueTrust: true }     after the authenticator app (the session is AAL2 already): a token for this browser
 //   { revokeTrust: true, keep } "Sign out all other devices": every trust of the account but this browser's ends
 // Tokens are random; only their salted hash is stored (trusted_browsers, migration 20261118000000).
-import { admin, caller, cors, hashCode, json, MAX_ATTEMPTS, sameText } from '../_shared/login-code.ts';
+import { admin, caller, cors, hashCode, json, MAX_ATTEMPTS, sameText, sessionOk } from '../_shared/login-code.ts';
 
 const TRUST_HOURS = 24;
 const b64url = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -37,13 +37,13 @@ Deno.serve(async req => {
   }
 
   if (body.issueTrust === true) {
-    if (aal !== 'aal2') return json(403, { error: 'Finish the 2-step sign-in first.' });
+    // after the authenticator app: only an app confirmed from a verified session (aal2 alone is not enough – F1)
+    if (!(await sessionOk(db, user.id, sessionId, aal))) return json(403, { error: 'Finish the 2-step sign-in first.' });
     return json(200, await newTrust());
   }
 
   if (body.revokeTrust === true) {
-    const verified = aal === 'aal2' || !!(await db.from('verified_sessions').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle()).data;
-    if (!verified) return json(403, { error: 'Finish the 2-step sign-in first.' });
+    if (!(await sessionOk(db, user.id, sessionId, aal))) return json(403, { error: 'Finish the 2-step sign-in first.' });
     let q = db.from('trusted_browsers').delete().eq('user_id', user.id);
     if (typeof body.keep === 'string' && body.keep) q = q.neq('token_hash', await trustHash(body.keep));
     await q;

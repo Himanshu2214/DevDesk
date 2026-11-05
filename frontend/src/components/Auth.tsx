@@ -49,7 +49,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (stage === 'ready') return <>{children}</>;
   if (stage === 'loading') return null;
   if (stage === 'recovery') return <NewPassword onDone={decideNow} />;
-  if (stage === 'app-code') return <AppCodeStep onVerified={() => setStage('ready')} onUseEmail={() => setStage('code')} />;
+  // after the app code the server decides: an app that was never confirmed from a verified session does not count (it
+  // falls through to the emailed code)
+  if (stage === 'app-code') return <AppCodeStep onVerified={decideNow} onUseEmail={() => setStage('code')} />;
   if (stage === 'code') return <CodeStep onVerified={() => setStage('ready')} onUseApp={hasApp ? () => setStage('app-code') : undefined} />
   return <SignedOut />;
 }

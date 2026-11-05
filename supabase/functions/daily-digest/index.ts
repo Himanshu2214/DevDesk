@@ -4,7 +4,7 @@
 //  - a signed-in user (Account → "Send a test email") → that user only, right away
 // Deploy with --no-verify-jwt (the scheduled job has no user token); both paths check access themselves.
 // Secrets: MAILJET_API_KEY + MAILJET_SECRET_KEY (or RESEND_API_KEY), MAIL_FROM, DIGEST_SECRET, optional APP_URL (link in the email).
-import { admin, caller, cors, json, sameText } from '../_shared/login-code.ts';
+import { admin, caller, cors, json, sameText, sessionOk } from '../_shared/login-code.ts';
 import { type DigestTicket, digestEmail } from '../_shared/digest-email.ts';
 import { redactAddresses, sendMail } from '../_shared/mail.ts';
 import { releaseMailSlot, takeMailSlot } from '../_shared/limits.ts';
@@ -57,10 +57,7 @@ Deno.serve(async req => {
   const who = await caller(req);
   if (who instanceof Response) return who;
   const { user, sessionId, aal } = who;
-  if (aal !== 'aal2') {
-    const { data: v } = await db.from('verified_sessions').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle();
-    if (!v) return json(403, { error: 'Finish the 2-step sign-in first.' });
-  }
+  if (!(await sessionOk(db, user.id, sessionId, aal))) return json(403, { error: 'Finish the 2-step sign-in first.' });
   const { data: s } = await db.from('user_settings').select('"TimeZone"').eq('user_id', user.id).maybeSingle();
   const tz = (s as { TimeZone?: string } | null)?.TimeZone ?? 'Asia/Kolkata';
   const local = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());

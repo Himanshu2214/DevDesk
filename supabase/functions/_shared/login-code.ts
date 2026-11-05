@@ -28,6 +28,14 @@ export async function caller(req: Request): Promise<{ user: User; sessionId: str
   return { user: data.user, sessionId, aal };
 }
 
+/** Has this session passed the second step? The database's own rule (session_ok, migration 20261120): an emailed code,
+ *  a trusted browser, or an authenticator app that was confirmed from a verified session – never aal2 alone. */
+export async function sessionOk(db: ReturnType<typeof admin>, userId: string, sessionId: string, aal: string): Promise<boolean> {
+  const { data, error } = await db.rpc('session_ok', { p_user: userId, p_session: sessionId, p_aal: aal });
+  if (error) throw new Error(`session check failed: ${error.message}`);
+  return data === true;
+}
+
 /** SHA-256 of code + session + server secret, so a leaked table row does not reveal the code */
 export async function hashCode(code: string, sessionId: string): Promise<string> {
   const data = new TextEncoder().encode(`${code}:${sessionId}:${Deno.env.get('CODE_PEPPER') ?? ''}`);

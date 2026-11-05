@@ -121,8 +121,15 @@ describe('2-step lock', () => {
     expect(await t.rows('select 1 from tickets_v')).toEqual([]);
     await expect(t.db.query(`insert into tickets ("Title") values ('x')`)).rejects.toThrow(/row-level security/);
   });
-  it('unlocks a session verified with the authenticator app (aal2)', async () => {
+  it('unlocks a session verified with an approved authenticator app (aal2)', async () => {
+    // an app counts only once it was confirmed from a verified session (approve_app_factor, migration 20261120)
+    await t.reset();
+    await t.db.query(`insert into auth.mfa_factors (id, user_id, status) values ('f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0', $1, 'verified')`, [A]);
+    await t.db.query(`insert into app_factors (factor_id, user_id) values ('f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0', $1)`, [A]);
     await t.as(A, 'dddddddd-dddd-dddd-dddd-dddddddddddd', { aal: 'aal2' });
     expect((await t.rows('select 1 from tickets_v')).length).toBe(1);
+    await t.reset();
+    await t.db.query(`delete from app_factors where user_id = $1`, [A]);
+    await t.db.query(`delete from auth.mfa_factors where user_id = $1`, [A]);
   });
 });

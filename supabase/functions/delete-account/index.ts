@@ -1,7 +1,7 @@
 // Deletes the caller's account: their attachment files, their rows (delete_user_data), then the auth user.
 // Every row also references auth.users with "on delete cascade", so nothing is left behind either way.
 // Only a session that has passed the second step (emailed code or authenticator app) may do this.
-import { admin, caller, cors, json } from '../_shared/login-code.ts';
+import { admin, caller, cors, json, sessionOk } from '../_shared/login-code.ts';
 
 const BUCKET = 'attachments';
 
@@ -13,8 +13,7 @@ Deno.serve(async req => {
   const { user, sessionId, aal } = who;
   const db = admin();
 
-  const { data: verified } = await db.from('verified_sessions').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle();
-  if (!verified && aal !== 'aal2') return json(403, { error: 'Sign in again with your code before deleting the account.' });
+  if (!(await sessionOk(db, user.id, sessionId, aal))) return json(403, { error: 'Sign in again with your code before deleting the account.' });
 
   // files first: storage is not covered by the database cascade
   for (;;) {
