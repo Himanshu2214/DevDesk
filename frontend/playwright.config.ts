@@ -17,6 +17,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.CI ? 2 : 3,              // more parallel browsers than this overload a laptop and make waits flaky
   retries: process.env.CI ? 1 : 0,
+  forbidOnly: !!process.env.CI,                 // a test.only left in by mistake fails CI instead of silently skipping the rest
   reporter: [['list'], ['html', { outputFolder: './e2e-report', open: 'never' }]],
   // locally the installed Chrome (no browser download needed); CI installs Playwright's own Chromium
   use: { channel: process.env.CI ? undefined : (process.env.PW_CHANNEL ?? 'chrome'), trace: 'retain-on-failure', screenshot: 'only-on-failure',

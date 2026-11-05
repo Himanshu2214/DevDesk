@@ -1,9 +1,14 @@
-# Runs on every push and pull request: tests and builds the frontend (SAP and standalone builds) and checks the ABAP sources with abaplint.
+# Runs on every push and pull request: tests and builds the frontend (SAP and standalone builds), runs the end-to-end
+# tests (sample data and mobile layout) and checks the ABAP sources with abaplint.
 name: CI
 
 on:
   push:
   pull_request:
+
+# the jobs only read the repository (checkout); caches and artifact uploads don't use this token
+permissions:
+  contents: read
 
 jobs:
   frontend:
@@ -24,6 +29,33 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run build:cloud
+
+  e2e:
+    name: End-to-end tests (sample data and mobile layout)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Playwright's own Chromium (locally the installed Chrome is used). The cloud tests need a test Supabase project
+      # and its keys, so they stay local (they only run when frontend/.env.e2e.local exists).
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      # the HTML report with every screen's screenshot, kept for a week
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-report
+          path: frontend/e2e-report
+          retention-days: 7
 
   abaplint:
     name: ABAP lint
