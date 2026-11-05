@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.slatespace.app",
+      "sha256_cert_fingerprints": ["64:DE:B4:1F:B7:6F:9E:52:9F:F4:1A:68:2D:4B:01:D3:2D:BE:B9:64:D2:12:74:52:F8:F8:CB:D0:8C:C9:E9:0D"]
+    }
+  }
+]
