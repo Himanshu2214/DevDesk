@@ -8,6 +8,13 @@ export async function open(page: Page, route = 'home') {
   await expect(page.locator('.crumb').first()).toBeVisible();
   // the preloader (role=status, "Loading") covers the app until the data is in
   await expect(page.locator('[role=status]').filter({ hasText: /^Loading/ })).toHaveCount(0, { timeout: 15_000 });
+  // The sidebar rail slides open over the left edge of the page while the pointer is on it or focus is inside it. On
+  // GitHub's Linux runner it was open after loading and blocked clicks there. Start every test like a user whose
+  // pointer and focus are on the page itself: mouse away from the rail, no focus in the sidebar, sidebar closed.
+  const vp = page.viewportSize();
+  if (vp) await page.mouse.move(Math.round(vp.width * 0.6), vp.height - 4);
+  await page.evaluate(() => { const a = document.activeElement; if (a instanceof HTMLElement && a.closest('.side')) a.blur() });
+  await expect(page.locator('.side[data-peek]')).toHaveCount(0);
 }
 
 /** a unique, recognisable title for data a test creates */
