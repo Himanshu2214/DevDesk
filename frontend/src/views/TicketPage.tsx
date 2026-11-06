@@ -16,6 +16,7 @@ import { ImageStrip, isImage } from '../components/FilePreview';
 import { TicketChanges } from '../components/TicketChanges';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { ShareTicketButton } from '../components/ShareTicket';
+import { RepeatButton } from '../components/Recurring';
 
 type Tab = 'overview' | 'tests' | 'sap' | 'activity' | 'changes';
 const NEXT_RESULT: Record<string, TestCase['TestResult']> = { OPEN: 'PASS', PASS: 'FAIL', FAIL: 'OPEN' };
@@ -125,6 +126,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
         {pos >= 0 && <span className="muted num hide-narrow" style={{ fontSize: 12, marginRight: 2 }}>{pos + 1} / {order.length}</span>}
         <button className="ib" title="Previous ticket (K)" aria-label="Previous ticket" disabled={pos <= 0} onClick={() => step(-1)}><Icon name="up" /></button>
         <button className="ib" title="Next ticket (J)" aria-label="Next ticket" disabled={pos < 0 || pos >= order.length - 1} onClick={() => step(1)}><Icon name="down" /></button>
+        <RepeatButton t={t} />
         <ShareTicketButton t={t} />
         {/* only the owner deletes a ticket; on one shared with you the button would only fail */}
         {!t.SharedBy && <ConfirmButton label="Delete ticket" onConfirm={remove} title={`Delete ${t.TicketId}?`} description="The ticket and its time, notes, tests and files are removed for good."><Icon name="trash" /></ConfirmButton>}</>}>
@@ -177,7 +179,7 @@ export function TicketPage({ ticketId }: { ticketId: string }) {
               ? <li className="note" key={i}><div className="h"><Avatar name={a.note.CreatedBy} size={18} /><b style={{ color: 'var(--text-2)' }}>{a.note.CreatedBy}</b><span>{ago(a.note.CreatedAt)}</span><span className="sp" style={{ flex: 1 }} />
                   {canEdit && <button className="ib" style={{ width: 22, height: 22 }} title="Delete comment" onClick={() => del('Note', a.note as never)}><Icon name="x" size={12} /></button>}</div><RichView value={a.note.Text} /></li>
               : <li key={i} style={{ display: 'flex', alignItems: 'center' }}>{'node' in a && a.node}</li>)}</ul>
-            {canComment && <div style={{ marginTop: 14 }}><RichEditor key={'c' + t.TicketUUID} value="" placeholder="Leave a comment… (Ctrl+Enter to send)" onSubmit={v => add('_Note', { Text: v })} /></div>}
+            {canComment && <div style={{ marginTop: 14 }}><RichEditor key={'c' + t.TicketUUID} value="" placeholder={t.SharedBy || t.Shares ? 'Leave a comment… @name notifies someone on this ticket (Ctrl+Enter to send)' : 'Leave a comment… (Ctrl+Enter to send)'} onSubmit={v => add('_Note', { Text: v })} /></div>}
           </>}
 
           {!detail.isLoading && tab === 'sap' && <TicketSap t={t} readOnly={!canEdit} />}

@@ -2,15 +2,32 @@
 // and `run` for every change – optimistic update first, then the backend call, then refresh (rollback on error).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { api } from './api';
 import type { LiveArea, Project, Status, Ticket, TicketEvent, User, ValueItem, Worklog } from './api';
 import { DAY, isoDate, STATUS_NAME, today } from './lib/format';
 import { localAvatar } from './lib/avatar';
 
 const POLL_MS = 30_000;
+
+/* Offline (cloud build): the last data that loaded is kept on this device for up to 7 days, so the app opens without a
+   connection and shows it (marked Offline). On the website only with "Remember me" ticked – nothing stays behind on a
+   shared computer; always in the Android app. Signing out deletes it. */
+const OFFLINE_KEY = 'slate-offline';
+const isNative = () => !!(globalThis as { Capacitor?: { isNativePlatform?(): boolean } }).Capacitor?.isNativePlatform?.();
+const rememberOn = () => { try { return localStorage.getItem('slate-remember') !== '0' } catch { return false } };
+const keepOffline = typeof window !== 'undefined' && api.kind === 'supabase' && (isNative() || rememberOn());
+const persister = keepOffline ? createSyncStoragePersister({ storage: window.localStorage, key: OFFLINE_KEY, throttleTime: 2000 }) : null;
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: true } },
+  defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: true, ...(persister ? { gcTime: 7 * DAY } : {}) } },
 });
+/** deletes the offline copy (sign-out, an expired session) */
+export function clearOfflineCopy() {
+  queryClient.clear();
+  try { localStorage.removeItem(OFFLINE_KEY) } catch { /* private mode */ }
+}
+if (typeof window !== 'undefined') addEventListener('slate-signed-out', clearOfflineCopy);
 
 export const keys = {
   tickets: ['tickets'] as const,
@@ -83,7 +100,11 @@ export function useWeekWorklog(from: string, to: string) {
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={queryClient}><StoreInner>{children}</StoreInner></QueryClientProvider>;
+  if (!persister) return <QueryClientProvider client={queryClient}><StoreInner>{children}</StoreInner></QueryClientProvider>;
+  // the saved copy is only a starting point: right after it is restored everything counts as outdated and is fetched again
+  // (when online) – otherwise a copy saved seconds ago would hide new data such as an invitation until the next poll
+  return <PersistQueryClientProvider client={queryClient} onSuccess={() => { void queryClient.invalidateQueries() }} persistOptions={{ persister, maxAge: 7 * DAY, buster: 'v1',
+    dehydrateOptions: { shouldDehydrateQuery: q => q.state.status === 'success' } }}><StoreInner>{children}</StoreInner></PersistQueryClientProvider>;
 }
 
 function StoreInner({ children }: { children: React.ReactNode }) {
@@ -138,7 +159,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       ok = false;
       qc.setQueryData(keys.tickets, prevList);
       prevDetails.forEach(([u, d]) => qc.setQueryData<Ticket>(keys.ticket(u), d));
-      toast((e as Error).message, true);
+      toast(typeof navigator !== 'undefined' && !navigator.onLine ? 'You are offline – this change was not saved. Try again when you are back online.' : (e as Error).message, true);
     }
     if (opts.removed) {
       qc.setQueryData<Ticket[]>(keys.tickets, l => l?.filter(t => t.TicketUUID !== opts.removed));

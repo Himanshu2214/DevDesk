@@ -11,9 +11,14 @@ import FloatInput from './smoothui/float-input';
 import { OtpSlots } from './smoothui/otp-slots';
 import { RibbonArt } from './RibbonArt';
 import { useTurnstile } from './Turnstile';
+import { AndroidAppLink } from './AndroidApp';
 
 type Stage = 'loading' | 'signed-out' | 'recovery' | 'app-code' | 'code' | 'ready';
 type View = 'signin' | 'register' | 'forgot' | 'sent';
+
+/** the request failed for want of a connection (not because the server said no) */
+const offline = (e: { message?: string }) => (typeof navigator !== 'undefined' && !navigator.onLine) || /failed to fetch|network|load failed/i.test(e.message ?? '');
+const hasOfflineCopy = () => { try { return !!localStorage.getItem('slate-offline') } catch { return false } };
 
 /** Shows the app only for a signed-in user whose session has passed the second step */
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -21,8 +26,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [hasApp, setHasApp] = useState(false);
   const decide = async (s: Session | null) => {
     if (!s) return setStage('signed-out');
-    const { data } = await sb().rpc('session_verified');
+    const { data, error } = await sb().rpc('session_verified');
     if (data) return setStage('ready');
+    // no connection: open with the copy saved on this device after an earlier verified sign-in (offline mode). The server
+    // still checks everything – nothing can be read or changed there without the second step; online again, this re-runs.
+    if (error && offline(error) && hasOfflineCopy()) return setStage('ready');
     // a browser this account trusted in the last 24 hours skips the code
     if (await applyTrust(s.user.id) && (await sb().rpc('session_verified')).data) return setStage('ready');
     // an enrolled authenticator app means the session can be raised to AAL2: ask for its code first
@@ -35,13 +43,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabaseConfigured) return;
     sb().auth.getSession().then(({ data }) => decide(data.session));
+    addEventListener('online', decideNow);
     const { data: sub } = sb().auth.onAuthStateChange((event, s) => {
       if (event === 'PASSWORD_RECOVERY') return setStage('recovery');
-      if (event === 'SIGNED_OUT') return setStage('signed-out');
+      if (event === 'SIGNED_OUT') { dispatchEvent(new Event('slate-signed-out')); return setStage('signed-out') }   // also deletes the offline copy
       if (event === 'SIGNED_IN') decide(s);
     });
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    return () => { sub.subscription.unsubscribe(); removeEventListener('online', decideNow) };
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   // the static boot screen in index.html stays until we know what to show; the app's own preloader removes it otherwise
   useEffect(() => { if (stage !== 'loading' && stage !== 'ready') document.getElementById('boot')?.remove() }, [stage]);
 
@@ -65,7 +74,7 @@ function AuthCard({ title, sub, children }: { title: string; sub?: React.ReactNo
         <div className="auth-brand"><span className="auth-mark"><LogoMark size={20} /></span><span className="auth-word">SLATE<span className="brand-dot">·</span>SPACE</span></div>
         <h1 id="auth-title">{title}</h1>{sub && <p className="auth-sub">{sub}</p>}{children}
         {/* public pages Google's app review (and people) look for next to the sign-in */}
-        <p className="auth-legal"><a href="./about.html">About</a><span aria-hidden="true"> · </span><a href="./privacy.html">Privacy</a><span aria-hidden="true"> · </span><a href="./terms.html">Terms</a></p>
+        <p className="auth-legal"><a href="./about.html">About</a><span aria-hidden="true"> · </span><a href="./privacy.html">Privacy</a><span aria-hidden="true"> · </span><a href="./terms.html">Terms</a><AndroidAppLink /></p>
       </div>
       <aside className="auth-art" aria-hidden="true"><RibbonArt /><span className="auth-art-tag">Work. Without friction.</span></aside>
     </main>

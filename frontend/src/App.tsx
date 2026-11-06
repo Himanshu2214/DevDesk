@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { AnimatePresence, LazyMotion, MotionConfig, domMax, m } from 'motion/react';
 import { toastMotion } from './lib/motion';
 import { Icon } from './components/Icons';
@@ -28,6 +29,8 @@ const Loading = ({ title }: { title: string }) => <Page crumb={<b>{title}</b>}><
 import { api } from './api';
 import { ShortcutHelp } from './components/ShortcutHelp';
 import { BottomNav } from './components/BottomNav';
+import { AndroidAppBanner } from './components/AndroidApp';
+import { AppLock } from './components/AppLock';
 import { Onboarding } from './components/Onboarding';
 import { PageTransition, Ripples } from './components/Motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -116,6 +119,29 @@ function Shell() {
   const [help, setHelp] = useState(false);
   // first run (standalone): a new account without tickets gets the setup steps once
   const [setupDone, setSetupDone] = useState(false);
+  // Android app: phone reminders follow the tickets and time entries (lib/reminders); notification permission is asked once
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !s.ready) return;
+    const run = () => { import('./lib/reminders').then(r => r.scheduleReminders(s.tickets, s.recentWork)).catch(() => { /* reminders are a nicety */ }) };
+    const id = setTimeout(run, 1500);
+    addEventListener('slate-reminders', run);
+    return () => { clearTimeout(id); removeEventListener('slate-reminders', run) };
+  }, [s.ready, s.tickets, s.recentWork]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !s.ready) return;
+    try { if (localStorage.getItem('slate-notify-asked')) return; localStorage.setItem('slate-notify-asked', '1') } catch { return }
+    import('./lib/reminders').then(r => r.notificationsAllowed(true)).then(ok => { if (ok) dispatchEvent(new Event('slate-reminders')) }).catch(() => {});
+  }, [s.ready]);
+  // recurring tickets (cloud): due rules create their tickets when the app opens
+  useEffect(() => {
+    if (api.kind !== 'supabase' || !s.ready) return;
+    import('./components/Recurring').then(r => r.runRecurring()).then(n => { if (n) { s.toast(`${n} recurring ticket${n > 1 ? 's' : ''} created`); s.reload() } }).catch(() => {});
+  }, [s.ready]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Android app: "Share → SLATE·SPACE" from another app opens a new ticket with the shared text (lib/share)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !s.ready) return;
+    import('./lib/share').then(sh => sh.listenForShares(pre => openNew(pre))).catch(() => { /* sharing is optional */ });
+  }, [s.ready]);   // eslint-disable-line react-hooks/exhaustive-deps
   const firstRun = api.kind === 'supabase' && s.ready && !s.error && s.user.onboarded === false && !s.tickets.length && !setupDone;
 
   useEffect(() => {
@@ -146,6 +172,8 @@ function Shell() {
         : <PageTransition id={pageKey(route)}><ErrorBoundary resetKey={route}><Router route={route} /></ErrorBoundary></PageTransition>}
       <Ripples />
       <BottomNav route={route} />
+      <AndroidAppBanner />
+      <AppLock />
       <ToastStack />
       <Preloader />
       <AnimatePresence>{help && <ShortcutHelp key="help" close={() => setHelp(false)} />}</AnimatePresence>

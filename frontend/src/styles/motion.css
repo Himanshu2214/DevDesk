@@ -422,6 +422,7 @@ svg.i>*{transition:transform var(--dur-menu) var(--ease-out),opacity var(--dur-m
 .sync-processing{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
 .sync-success{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 35%,var(--border))}
 .sync-error{color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent);border-color:color-mix(in srgb,var(--danger) 35%,var(--border))}
+.sync-offline{color:var(--urgent,#d98b1f);background:color-mix(in srgb,var(--urgent,#d98b1f) 12%,transparent);border-color:color-mix(in srgb,var(--urgent,#d98b1f) 35%,var(--border))}
 
 /* Notification stack */
 .toast-stack{position:fixed;right:18px;bottom:18px;z-index:95;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
@@ -1117,7 +1118,7 @@ html{-webkit-tap-highlight-color:transparent}
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),textarea,select{font-size:16px}
   /* header: only what a phone needs – title, account; no sync pill, no keyboard help, no previous/next */
   .bar1{height:54px;padding:0 10px;gap:6px;background:var(--app)}
-  .bar1 .live,.bar1 .help-btn,.bar1 [aria-label="Previous ticket"],.bar1 [aria-label="Next ticket"]{display:none}
+  .bar1 .live:not(.sync-offline),.bar1 .help-btn,.bar1 [aria-label="Previous ticket"],.bar1 [aria-label="Next ticket"]{display:none}
   .bar1 .crumb{font-size:17px;font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap}
   .bar1 .crumb>a,.bar1 .crumb .sepr,.bar1 .crumb .muted{display:none}
   .bar1 .ib{min-width:40px;min-height:40px;border-radius:12px}
@@ -1154,3 +1155,37 @@ html{-webkit-tap-highlight-color:transparent}
   .btn{min-height:40px;white-space:nowrap}
   .ni{min-height:44px}
 }
+
+/* Android app: download section (Account) and the one-time banner on Android phones' browsers */
+.apk-get{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--hover);border:1px solid var(--border)}
+.apk-get img{border-radius:12px;flex:none}
+.apk-get span{flex:1;min-width:0;display:grid}
+.apk-get small,.apk-banner small{color:var(--muted);font-size:12px}
+.apk-steps{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;font-size:var(--fs-sm);line-height:1.5}
+.apk-banner{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:44;display:flex;align-items:center;gap:10px;
+  padding:10px 10px 10px 12px;border-radius:16px;background:var(--menu);border:1px solid var(--border-2);box-shadow:var(--shadow)}
+.apk-banner img{border-radius:9px;flex:none}
+.apk-banner span{flex:1;min-width:0;display:grid}
+.apk-banner b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (min-width:1001px){.apk-banner{display:none}}
+
+/* App lock (Android app): covers everything until fingerprint, face or the screen lock confirms it is you */
+.app-lock{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;
+  background:var(--app);color:var(--text);text-align:center}
+.app-lock img{border-radius:18px;margin-bottom:8px}
+.app-lock b{font-size:18px;font-weight:600}
+.app-lock p{margin:0 0 12px;color:var(--text-2)}
+.app-lock .btn{min-width:200px;justify-content:center}
+
+/* Recurring tickets: the Repeat dialog and the list in Account */
+.rep-form{display:grid;gap:12px;padding:14px 18px 18px}
+.rep-form p{margin:0}
+.rep-form label{display:grid;gap:6px;font-size:var(--fs-sm);color:var(--text-2)}
+.rep-form select,.rep-form input{height:38px;padding:0 10px;border-radius:var(--r-sm);border:1px solid var(--border-2);background:var(--raised);color:var(--text);font:inherit}
+.rep-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.rep-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.rep-list li{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:var(--hover);border:1px solid var(--border)}
+.rep-list li span{flex:1;min-width:0;display:grid}
+.rep-list li b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rep-list li small{color:var(--muted);font-size:12px}
+.rep-list li.off{opacity:.6}

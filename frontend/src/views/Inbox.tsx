@@ -47,7 +47,7 @@ export function inboxItems(s: ReturnType<typeof useStore>, failedTransports: Tra
   const events = s.events.map(e => ({ key: e.EventUUID, ticket: e.TicketUUID, at: e.EventAt ?? '', icon: <StatusIcon status={e.StatusTo as Status} />, read: e.IsRead, event: e,
     title: `${e._Ticket?.TicketId ?? ''} ${e._Ticket?.Title ?? ''}`, text: <>Moved to {s.text('STATUS', e.StatusTo)} by {e.EventBy}</> }));
   const notes: InboxItem[] = (extras?.notifications ?? []).map(n => ({ key: 'nt' + n.NotifUUID, ticket: n.Link.startsWith('ticket/') ? s.tickets.find(t => t.TicketId === n.Link.slice(7))?.TicketUUID ?? '' : '',
-    at: n.CreatedAt, icon: accent(n.Kind === 'declined' ? 'x' : n.Kind === 'accepted' || n.Kind === 'org-joined' ? 'check' : 'users'), title: n.Title, text: n.Body || ' ', read: !!n.ReadAt, notif: n }));
+    at: n.CreatedAt, icon: accent(n.Kind === 'declined' ? 'x' : n.Kind === 'accepted' || n.Kind === 'org-joined' ? 'check' : n.Kind === 'mention' ? 'chat' : 'users'), title: n.Title, text: n.Body || ' ', read: !!n.ReadAt, notif: n }));
   return [...pinned, ...[...notes, ...events].sort((a, b) => b.at.localeCompare(a.at))];
 }
 

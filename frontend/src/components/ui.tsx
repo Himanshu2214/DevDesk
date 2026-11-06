@@ -251,7 +251,14 @@ export function SyncBadge() {
   const [, tick] = useState(0);
   useEffect(() => { const id = setInterval(() => tick(x => x + 1), 15000); return () => clearInterval(id) }, []);
   const age = (Date.now() - lastSync) / 1000;
-  const state = manual !== 'idle' ? manual : fetching ? 'processing' : 'idle';
+  // no connection: say so (the saved copy is shown, changes cannot be saved)
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true), off = () => setOnline(false);
+    addEventListener('online', on); addEventListener('offline', off);
+    return () => { removeEventListener('online', on); removeEventListener('offline', off) };
+  }, []);
+  const state = !online ? 'offline' : manual !== 'idle' ? manual : fetching ? 'processing' : 'idle';
   const refresh = async () => {
     if (manual === 'processing') return;
     setManual('processing');
@@ -265,6 +272,7 @@ export function SyncBadge() {
     processing: { icon: <Icon name="refresh" size={12} className="spin" />, text: 'Syncing…' },
     success: { icon: <Icon name="check" size={12} />, text: 'Synced' },
     error: { icon: <Icon name="alert" size={12} />, text: 'Sync failed – retry' },
+    offline: { icon: <Icon name="alert" size={12} />, text: 'Offline – saved copy' },
   }[state];
   return <m.button layout className={'live sync-' + state} onClick={refresh} aria-live="polite"
     title="Changes are fetched every 30 seconds – click to refresh now" transition={{ type: 'spring', stiffness: 500, damping: 38 }}>

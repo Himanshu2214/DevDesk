@@ -17,7 +17,8 @@ const pwa = (): Plugin => ({
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const standalone = mode === 'supabase';
+  // the cloud E2E tests (mode e2e) build exactly like the cloud app: service worker, manifest, icons, downloads
+  const standalone = mode === 'supabase' || mode === 'e2e';
   return {
     base: './',
     plugins: [react(), tailwindcss(), ...(standalone ? [pwa()] : [])],

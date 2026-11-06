@@ -13,6 +13,10 @@ import Input from '../components/smoothui/input';
 import { OtpSlots } from '../components/smoothui/otp-slots';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { OrganizationSection } from '../components/Organization';
+import { AndroidAppSection } from '../components/AndroidApp';
+import { RecurringSection } from '../components/Recurring';
+import { loadPrefs, notificationsAllowed, savePrefs, type ReminderPrefs } from '../lib/reminders';
+import { appLockOn, setAppLockOn } from '../components/AppLock';
 
 export function Account() {
   if (api.kind !== 'supabase') return <Page crumb={<b>Account</b>}>
@@ -37,6 +41,10 @@ function CloudAccount() {
         <DailyEmail />
         <GoogleCalendar />
         <Sessions user={user} />
+        <RecurringSection Section={Section} />
+        <AndroidAppSection Section={Section} />
+        {isNativeApp() && <Reminders />}
+        {isNativeApp() && <AppLockSection />}
         <DangerZone email={user.email ?? ''} />
       </div>
     </Page>
@@ -321,5 +329,42 @@ function DangerZone({ email }: { email: string }) {
       ? <ConfirmButton className="btn danger-btn" label="Delete my account" onConfirm={remove} title="Delete your account?" confirmLabel="Delete everything"
         description="Your account and everything in it – tickets, time, transports, objects, articles and files – are removed for good. Projects you shared stop being shared.">{busy ? <Spinner /> : <Icon name="trash" size={14} />}Delete my account</ConfirmButton>
       : <button className="btn" disabled><Icon name="trash" size={14} />Delete my account</button>}
+  </Section>;
+}
+
+/** Android app: reminders on this phone (lib/reminders) – each kind can be switched off; Android asks once to allow them */
+function Reminders() {
+  const s = useStore();
+  const [prefs, setPrefs] = useState(loadPrefs);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => { notificationsAllowed(false).then(setAllowed).catch(() => setAllowed(false)) }, []);
+  const set = (k: keyof ReminderPrefs, v: boolean) => { const p = { ...prefs, [k]: v }; setPrefs(p); savePrefs(p) };
+  const allow = async () => {
+    const ok = await notificationsAllowed(true);
+    setAllowed(ok);
+    if (ok) dispatchEvent(new Event('slate-reminders'));
+    else s.toast('Notifications are switched off for SLATE·SPACE – allow them in Android settings → Apps → SLATE·SPACE → Notifications.', true);
+  };
+  return <Section title="Reminders" sub="Notifications on this phone – nothing is sent from a server, and they follow your tickets and time as they change.">
+    {allowed === false && <div className="acct-actions" style={{ marginBottom: 12 }}><button className="btn primary" onClick={allow}>Allow notifications</button></div>}
+    <label className="acct-switch"><input type="checkbox" role="switch" checked={prefs.due} onChange={e => set('due', e.target.checked)} /><span aria-hidden="true" />Due dates – 09:00 on the day, 17:00 the day before</label>
+    <label className="acct-switch"><input type="checkbox" role="switch" checked={prefs.timer} onChange={e => set('timer', e.target.checked)} /><span aria-hidden="true" />A timer still running after 3 hours</label>
+    <label className="acct-switch"><input type="checkbox" role="switch" checked={prefs.log} onChange={e => set('log', e.target.checked)} /><span aria-hidden="true" />No time logged by 18:00 on a workday</label>
+  </Section>;
+}
+
+/** Android app: lock with fingerprint, face or the screen lock (components/AppLock) – confirmed once before it is on */
+function AppLockSection() {
+  const s = useStore();
+  const [on, setOn] = useState(appLockOn);
+  const toggle = async (want: boolean) => {
+    if (!want) { setAppLockOn(false); setOn(false); return }
+    const lock = await import('../lib/appLock');
+    if (!(await lock.lockAvailable())) return s.toast('Set up a fingerprint, face unlock or a screen lock in Android settings first.', true);
+    if (!(await lock.unlock())) return;
+    setAppLockOn(true); setOn(true); s.toast('App lock is on');
+  };
+  return <Section title="App lock" sub="Ask for your fingerprint, face or screen lock when SLATE·SPACE opens, and when you come back to it after a minute away.">
+    <label className="acct-switch"><input type="checkbox" role="switch" checked={on} onChange={e => void toggle(e.target.checked)} /><span aria-hidden="true" />Lock SLATE·SPACE on this phone</label>
   </Section>;
 }
